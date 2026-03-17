@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  agent-city:
+    build: .
+    container_name: agent-city
+    restart: unless-stopped
+    ports:
+      - "9876:9876"
+      - "9877:9877"
+      - "9878:9878"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=9876
+      - HTTP_PORT=9877
+      - WEBRTC_PORT=9878
+
+  # 可选：Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: agent-city-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - agent-city

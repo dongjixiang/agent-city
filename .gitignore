@@ -1,0 +1,12 @@
+node_modules/
+data/
+*.log
+.DS_Store
+.env
+*.pem
+ssl/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

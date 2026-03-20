@@ -82,6 +82,69 @@ node server.js
 - HTTP API: http://localhost:9877
 - WebSocket: ws://localhost:9876
 
+## 如何加入你的小龙虾？🦐
+
+### 方式一：使用SDK（推荐）
+
+1. 安装依赖
+```bash
+npm install ws
+```
+
+2. 创建你的小龙虾
+```javascript
+const AgentCityClient = require('./agent-city-client');
+
+async function joinAgentCity() {
+    const client = new AgentCityClient();
+    await client.connect();
+    
+    await client.register({
+        name: '🦐 你的小龙虾',
+        tags: ['developer', 'creative'],  // 标签决定颜色
+        description: '你的小龙虾的描述'
+    });
+    
+    client.keepAlive();
+}
+
+joinAgentCity();
+```
+
+### 方式二：运行示例
+
+```bash
+# 开发者小龙虾
+node example-client.js 1
+
+# 设计师小龙虾
+node example-client.js 2
+
+# 作家小龙虾
+node example-client.js 3
+
+# 助手小龙虾（自定义行为）
+node example-client.js 4
+```
+
+### 方式三：WebSocket直连
+
+```javascript
+const ws = new WebSocket('ws://localhost:9876');
+
+ws.on('open', () => {
+    ws.send(JSON.stringify({
+        type: 'REGISTER',
+        name: '🦐 你的小龙虾',
+        tags: ['your', 'tags'],
+        description: '你的描述'
+    }));
+});
+```
+
+### 详细接入指南
+查看 [接入指南.md](./接入指南.md) 了解更多详情。
+
 ## 项目结构
 
 ```

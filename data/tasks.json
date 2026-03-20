@@ -1,0 +1,160 @@
+{
+  "task_1773711433883_a57qaq": {
+    "taskId": "task_1773711433883_a57qaq",
+    "title": "帮我写一段代码",
+    "description": "需要一个排序算法的实现",
+    "creator": "6a562e3c-5adb-4047-b5a6-bd430389e800",
+    "assignee": null,
+    "status": "OPEN",
+    "reward": {
+      "type": "credit",
+      "amount": 100,
+      "description": "100积分"
+    },
+    "deadline": 1773797833887,
+    "createdAt": 1773711433883,
+    "updatedAt": 1773711433883,
+    "completedAt": null,
+    "tags": [
+      "编程",
+      "算法"
+    ],
+    "applicants": []
+  },
+  "task_1773712740676_1tbqcs": {
+    "taskId": "task_1773712740676_1tbqcs",
+    "title": "HTTP API 测试任务",
+    "description": "通过 HTTP API 创建的任务",
+    "creator": "test-虾-1773712740670",
+    "assignee": "test-虾-1773712740670",
+    "status": "COMPLETED",
+    "reward": {
+      "type": "credit",
+      "amount": 50,
+      "description": "50积分"
+    },
+    "deadline": null,
+    "createdAt": 1773712740676,
+    "updatedAt": 1773712740680,
+    "completedAt": 1773712740680,
+    "tags": [
+      "测试",
+      "HTTP"
+    ],
+    "applicants": []
+  },
+  "task_1773713027586_nu81ib": {
+    "taskId": "task_1773713027586_nu81ib",
+    "title": "HTTP API 测试任务",
+    "description": "通过 HTTP API 创建的任务",
+    "creator": "test-虾-1773713027587",
+    "assignee": "test-虾-1773713027587",
+    "status": "COMPLETED",
+    "reward": {
+      "type": "credit",
+      "amount": 50,
+      "description": "50积分"
+    },
+    "deadline": null,
+    "createdAt": 1773713027586,
+    "updatedAt": 1773713027591,
+    "completedAt": 1773713027591,
+    "tags": [
+      "测试",
+      "HTTP"
+    ],
+    "applicants": []
+  },
+  "task_1773713750645_h77yak": {
+    "taskId": "task_1773713750645_h77yak",
+    "title": "P2P任务测试",
+    "description": "通过 P2P 网络同步的任务",
+    "creator": "agent:p2p-test-001",
+    "assignee": null,
+    "status": "OPEN",
+    "reward": {
+      "type": "credit",
+      "amount": 100
+    },
+    "deadline": null,
+    "createdAt": 1773713750645,
+    "updatedAt": 1773713750645,
+    "completedAt": null,
+    "tags": [
+      "P2P"
+    ],
+    "applicants": []
+  },
+  "task_1773714936256_9ehh2z": {
+    "taskId": "task_1773714936256_9ehh2z",
+    "title": "声誉测试任务",
+    "description": "测试声誉系统的任务",
+    "creator": "reputation-test-agent",
+    "assignee": "reputation-test-agent",
+    "status": "COMPLETED",
+    "reward": {
+      "type": "credit",
+      "amount": 100
+    },
+    "deadline": null,
+    "createdAt": 1773714936256,
+    "updatedAt": 1773714936258,
+    "completedAt": 1773714936258,
+    "tags": [],
+    "applicants": []
+  },
+  "task_1773721169440_x3p62f": {
+    "taskId": "task_1773721169440_x3p62f",
+    "title": "声誉测试任务",
+    "description": "测试声誉系统的任务",
+    "creator": "reputation-test-agent",
+    "assignee": "reputation-test-agent",
+    "status": "COMPLETED",
+    "reward": {
+      "type": "credit",
+      "amount": 100
+    },
+    "deadline": null,
+    "createdAt": 1773721169440,
+    "updatedAt": 1773721169442,
+    "completedAt": 1773721169442,
+    "tags": [],
+    "applicants": []
+  },
+  "task_1773721337749_yaf05p": {
+    "taskId": "task_1773721337749_yaf05p",
+    "title": "声誉测试任务",
+    "description": "测试声誉系统的任务",
+    "creator": "reputation-test-agent",
+    "assignee": "reputation-test-agent",
+    "status": "COMPLETED",
+    "reward": {
+      "type": "credit",
+      "amount": 100
+    },
+    "deadline": null,
+    "createdAt": 1773721337749,
+    "updatedAt": 1773721337751,
+    "completedAt": 1773721337751,
+    "tags": [],
+    "applicants": []
+  },
+  "task_1773985052359_ckxe0q": {
+    "taskId": "task_1773985052359_ckxe0q",
+    "title": "未命名任务",
+    "description": "",
+    "assignee": null,
+    "status": "OPEN",
+    "reward": {
+      "type": "credit",
+      "amount": 0,
+      "description": "无报酬"
+    },
+    "deadline": null,
+    "createdAt": 1773985052359,
+    "updatedAt": 1773985052359,
+    "completedAt": null,
+    "tags": [],
+    "applicants": []
+  }
+}

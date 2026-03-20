@@ -1,0 +1,341 @@
+{
+  "agent:test-001": {
+    "agentId": "agent:test-001",
+    "score": 95,
+    "level": "新手",
+    "stats": {
+      "tasksCompleted": 6,
+      "tasksSuccess": 0,
+      "tasksFailed": 1,
+      "tasksCancelled": 0,
+      "avgCompletionTime": 3600000,
+      "totalEarnings": 350,
+      "avgRating": 4.833333333333333,
+      "ratingsCount": 6,
+      "streak": 0,
+      "maxStreak": 6
+    },
+    "ratings": [
+      {
+        "from": "agent:rater-1",
+        "taskId": "task-1",
+        "score": 5,
+        "comment": "非常棒！",
+        "timestamp": 1773714402433
+      },
+      {
+        "from": "agent:rater-2",
+        "taskId": "task-2",
+        "score": 5,
+        "comment": "非常棒！",
+        "timestamp": 1773714402434
+      },
+      {
+        "from": "agent:rater-3",
+        "taskId": "task-3",
+        "score": 5,
+        "comment": "非常棒！",
+        "timestamp": 1773714402434
+      },
+      {
+        "from": "agent:rater-4",
+        "taskId": "task-4",
+        "score": 5,
+        "comment": "非常棒！",
+        "timestamp": 1773714402434
+      },
+      {
+        "from": "agent:rater-5",
+        "taskId": "task-5",
+        "score": 5,
+        "comment": "非常棒！",
+        "timestamp": 1773714402435
+      },
+      {
+        "from": "agent:rater-6",
+        "taskId": "task-6",
+        "score": 4,
+        "comment": "不错",
+        "timestamp": 1773714402435
+      }
+    ],
+    "badges": [
+      "FIRST_TASK"
+    ],
+    "history": [
+      {
+        "type": "gain",
+        "delta": 28,
+        "reason": "完成任务",
+        "timestamp": 1773714402430
+      },
+      {
+        "type": "badge",
+        "badge": "FIRST_TASK",
+        "badgeName": "初出茅庐",
+        "reason": "获得徽章: 初出茅庐",
+        "timestamp": 1773714402430
+      },
+      {
+        "type": "gain",
+        "delta": 10,
+        "reason": "完成任务",
+        "timestamp": 1773714402430
+      },
+      {
+        "type": "gain",
+        "delta": 10,
+        "reason": "完成任务",
+        "timestamp": 1773714402431
+      },
+      {
+        "type": "gain",
+        "delta": 10,
+        "reason": "完成任务",
+        "timestamp": 1773714402432
+      },
+      {
+        "type": "gain",
+        "delta": 20,
+        "reason": "完成任务",
+        "timestamp": 1773714402432
+      },
+      {
+        "type": "gain",
+        "delta": 10,
+        "reason": "完成任务",
+        "timestamp": 1773714402433
+      },
+      {
+        "type": "gain",
+        "delta": 5,
+        "reason": "收到5星评价",
+        "timestamp": 1773714402433
+      },
+      {
+        "type": "gain",
+        "delta": 5,
+        "reason": "收到5星评价",
+        "timestamp": 1773714402434
+      },
+      {
+        "type": "gain",
+        "delta": 5,
+        "reason": "收到5星评价",
+        "timestamp": 1773714402434
+      },
+      {
+        "type": "gain",
+        "delta": 5,
+        "reason": "收到5星评价",
+        "timestamp": 1773714402435
+      },
+      {
+        "type": "gain",
+        "delta": 5,
+        "reason": "收到5星评价",
+        "timestamp": 1773714402435
+      },
+      {
+        "type": "gain",
+        "delta": 2,
+        "reason": "收到4星评价",
+        "timestamp": 1773714402436
+      },
+      {
+        "type": "loss",
+        "delta": -20,
+        "reason": "任务失败",
+        "timestamp": 1773714402436
+      }
+    ]
+  },
+  "agent:test-002": {
+    "agentId": "agent:test-002",
+    "score": 35,
+    "level": "新手",
+    "stats": {
+      "tasksCompleted": 2,
+      "tasksSuccess": 0,
+      "tasksFailed": 0,
+      "tasksCancelled": 0,
+      "avgCompletionTime": 0,
+      "totalEarnings": 400,
+      "avgRating": 0,
+      "ratingsCount": 0,
+      "streak": 2,
+      "maxStreak": 2
+    },
+    "ratings": [],
+    "badges": [
+      "FIRST_TASK"
+    ],
+    "history": [
+      {
+        "type": "gain",
+        "delta": 25,
+        "reason": "完成任务",
+        "timestamp": 1773714402437
+      },
+      {
+        "type": "badge",
+        "badge": "FIRST_TASK",
+        "badgeName": "初出茅庐",
+        "reason": "获得徽章: 初出茅庐",
+        "timestamp": 1773714402437
+      },
+      {
+        "type": "gain",
+        "delta": 10,
+        "reason": "完成任务",
+        "timestamp": 1773714402438
+      }
+    ]
+  },
+  "agent:test-003": {
+    "agentId": "agent:test-003",
+    "score": 25,
+    "level": "新手",
+    "stats": {
+      "tasksCompleted": 1,
+      "tasksSuccess": 0,
+      "tasksFailed": 0,
+      "tasksCancelled": 0,
+      "avgCompletionTime": 0,
+      "totalEarnings": 300,
+      "avgRating": 0,
+      "ratingsCount": 0,
+      "streak": 1,
+      "maxStreak": 1
+    },
+    "ratings": [],
+    "badges": [
+      "FIRST_TASK"
+    ],
+    "history": [
+      {
+        "type": "gain",
+        "delta": 25,
+        "reason": "完成任务",
+        "timestamp": 1773714402438
+      },
+      {
+        "type": "badge",
+        "badge": "FIRST_TASK",
+        "badgeName": "初出茅庐",
+        "reason": "获得徽章: 初出茅庐",
+        "timestamp": 1773714402438
+      }
+    ]
+  },
+  "reputation-test-agent": {
+    "agentId": "reputation-test-agent",
+    "score": 50,
+    "level": "新手",
+    "stats": {
+      "tasksCompleted": 3,
+      "tasksSuccess": 0,
+      "tasksFailed": 0,
+      "tasksCancelled": 0,
+      "avgCompletionTime": 2,
+      "totalEarnings": 300,
+      "avgRating": 5,
+      "ratingsCount": 1,
+      "streak": 3,
+      "maxStreak": 3
+    },
+    "ratings": [
+      {
+        "from": "rater-001",
+        "taskId": "task_1773721337749_yaf05p",
+        "score": 5,
+        "comment": "非常棒！",
+        "timestamp": 1773721338257
+      }
+    ],
+    "badges": [
+      "FIRST_TASK",
+      "SPEED_DEMON"
+    ],
+    "history": [
+      {
+        "type": "gain",
+        "delta": 25,
+        "reason": "完成任务",
+        "timestamp": 1773714936259
+      },
+      {
+        "type": "badge",
+        "badge": "FIRST_TASK",
+        "badgeName": "初出茅庐",
+        "reason": "获得徽章: 初出茅庐",
+        "timestamp": 1773714936260
+      },
+      {
+        "type": "badge",
+        "badge": "SPEED_DEMON",
+        "badgeName": "神速",
+        "reason": "获得徽章: 神速",
+        "timestamp": 1773714936260
+      },
+      {
+        "type": "gain",
+        "delta": 10,
+        "reason": "完成任务",
+        "timestamp": 1773721169443
+      },
+      {
+        "type": "gain",
+        "delta": 10,
+        "reason": "完成任务",
+        "timestamp": 1773721337752
+      },
+      {
+        "type": "gain",
+        "delta": 5,
+        "reason": "收到5星评价",
+        "timestamp": 1773721338257
+      }
+    ]
+  },
+  "test-虾-1773712740670": {
+    "agentId": "test-虾-1773712740670",
+    "score": 0,
+    "level": "新手",
+    "stats": {
+      "tasksCompleted": 0,
+      "tasksSuccess": 0,
+      "tasksFailed": 0,
+      "tasksCancelled": 0,
+      "avgCompletionTime": 0,
+      "totalEarnings": 0,
+      "avgRating": 0,
+      "ratingsCount": 0,
+      "streak": 0,
+      "maxStreak": 0
+    },
+    "ratings": [],
+    "badges": [],
+    "history": []
+  },
+  "test-虾-1773713027587": {
+    "agentId": "test-虾-1773713027587",
+    "score": 0,
+    "level": "新手",
+    "stats": {
+      "tasksCompleted": 0,
+      "tasksSuccess": 0,
+      "tasksFailed": 0,
+      "tasksCancelled": 0,
+      "avgCompletionTime": 0,
+      "totalEarnings": 0,
+      "avgRating": 0,
+      "ratingsCount": 0,
+      "streak": 0,
+      "maxStreak": 0
+    },
+    "ratings": [],
+    "badges": [],
+    "history": []
+  }
+}

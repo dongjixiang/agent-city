@@ -1,0 +1,353 @@
+{
+  "agent:test-payment-001": {
+    "agentId": "agent:test-payment-001",
+    "balances": {
+      "credit": 750,
+      "token": 0
+    },
+    "escrow": {
+      "esc_1773722282415_cfgoy7": {
+        "escrowId": "esc_1773722282415_cfgoy7",
+        "amount": 200,
+        "currency": "credit",
+        "taskId": "task-001",
+        "status": "RELEASED",
+        "creatorId": "agent:test-payment-001",
+        "createdAt": 1773722282415,
+        "releasedAt": 1773722282416,
+        "assigneeId": "agent:test-payment-002"
+      }
+    },
+    "transactions": [
+      {
+        "txId": "tx_1773722282414_034p3p",
+        "type": "DEPOSIT",
+        "amount": 1000,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": null,
+        "to": "agent:test-payment-001",
+        "taskId": null,
+        "escrowId": null,
+        "description": "初始充值",
+        "createdAt": 1773722282415,
+        "completedAt": 1773722282415
+      },
+      {
+        "txId": "tx_1773722282415_dsdblr",
+        "type": "ESCROW_HOLD",
+        "amount": 200,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": "agent:test-payment-001",
+        "to": null,
+        "taskId": "task-001",
+        "escrowId": "esc_1773722282415_cfgoy7",
+        "description": "任务报酬托管",
+        "createdAt": 1773722282415,
+        "completedAt": 1773722282415
+      },
+      {
+        "txId": "tx_1773722282417_ln3z8k",
+        "type": "ESCROW_RELEASE",
+        "amount": 200,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": "agent:test-payment-001",
+        "to": "agent:test-payment-002",
+        "taskId": "task-001",
+        "escrowId": "esc_1773722282415_cfgoy7",
+        "description": "任务报酬释放给 agent:te",
+        "createdAt": 1773722282416,
+        "completedAt": 1773722282416
+      },
+      {
+        "txId": "tx_1773722282417_kkeypb_recv",
+        "type": "TRANSFER",
+        "amount": 50,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": "agent:test-payment-002",
+        "to": "agent:test-payment-001",
+        "taskId": null,
+        "escrowId": null,
+        "description": "红包",
+        "createdAt": 1773722282417,
+        "completedAt": 1773722282417
+      },
+      {
+        "txId": "tx_1773722282417_a036pk",
+        "type": "WITHDRAW",
+        "amount": 100,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": "agent:test-payment-001",
+        "to": null,
+        "taskId": null,
+        "escrowId": null,
+        "description": "提现测试",
+        "createdAt": 1773722282417,
+        "completedAt": 1773722282417
+      }
+    ]
+  },
+  "agent:test-payment-002": {
+    "agentId": "agent:test-payment-002",
+    "balances": {
+      "credit": 650,
+      "token": 0
+    },
+    "escrow": {},
+    "transactions": [
+      {
+        "txId": "tx_1773722282416_16dgdm",
+        "type": "DEPOSIT",
+        "amount": 500,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": null,
+        "to": "agent:test-payment-002",
+        "taskId": null,
+        "escrowId": null,
+        "description": "初始充值",
+        "createdAt": 1773722282416,
+        "completedAt": 1773722282416
+      },
+      {
+        "txId": "tx_1773722282417_4aba2r",
+        "type": "TASK_REWARD",
+        "amount": 200,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": "agent:test-payment-001",
+        "to": "agent:test-payment-002",
+        "taskId": "task-001",
+        "escrowId": "esc_1773722282415_cfgoy7",
+        "description": "完成任务获得报酬",
+        "createdAt": 1773722282416,
+        "completedAt": 1773722282416
+      },
+      {
+        "txId": "tx_1773722282417_kkeypb",
+        "type": "TRANSFER",
+        "amount": 50,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": "agent:test-payment-002",
+        "to": "agent:test-payment-001",
+        "taskId": null,
+        "escrowId": null,
+        "description": "红包",
+        "createdAt": 1773722282417,
+        "completedAt": 1773722282417
+      }
+    ]
+  },
+  "agent:test-payment-003": {
+    "agentId": "agent:test-payment-003",
+    "balances": {
+      "credit": 500,
+      "token": 0
+    },
+    "escrow": {
+      "esc_1773722282418_zqaw8j": {
+        "escrowId": "esc_1773722282418_zqaw8j",
+        "amount": 300,
+        "currency": "credit",
+        "taskId": "task-002",
+        "status": "REFUNDED",
+        "creatorId": "agent:test-payment-003",
+        "createdAt": 1773722282418,
+        "releasedAt": null,
+        "refundedAt": 1773722282419
+      }
+    },
+    "transactions": [
+      {
+        "txId": "tx_1773722282418_pmqnh1",
+        "type": "DEPOSIT",
+        "amount": 500,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": null,
+        "to": "agent:test-payment-003",
+        "taskId": null,
+        "escrowId": null,
+        "description": "充值",
+        "createdAt": 1773722282418,
+        "completedAt": 1773722282418
+      },
+      {
+        "txId": "tx_1773722282418_ryva2w",
+        "type": "ESCROW_HOLD",
+        "amount": 300,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": "agent:test-payment-003",
+        "to": null,
+        "taskId": "task-002",
+        "escrowId": "esc_1773722282418_zqaw8j",
+        "description": "任务报酬托管",
+        "createdAt": 1773722282418,
+        "completedAt": 1773722282418
+      },
+      {
+        "txId": "tx_1773722282419_9iso66",
+        "type": "ESCROW_REFUND",
+        "amount": 300,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": null,
+        "to": "agent:test-payment-003",
+        "taskId": "task-002",
+        "escrowId": "esc_1773722282418_zqaw8j",
+        "description": "任务取消，托管资金退款",
+        "createdAt": 1773722282419,
+        "completedAt": 1773722282419
+      }
+    ]
+  },
+  "payment-api-test-001": {
+    "agentId": "payment-api-test-001",
+    "balances": {
+      "credit": 700,
+      "token": 0
+    },
+    "escrow": {
+      "esc_1773722524718_2vzcx6": {
+        "escrowId": "esc_1773722524718_2vzcx6",
+        "amount": 100,
+        "currency": "credit",
+        "taskId": "task-payment-test",
+        "status": "RELEASED",
+        "creatorId": "payment-api-test-001",
+        "createdAt": 1773722524718,
+        "releasedAt": 1773722524719,
+        "assigneeId": "payment-api-test-002"
+      }
+    },
+    "transactions": [
+      {
+        "txId": "tx_1773722524713_jw7s2y",
+        "type": "DEPOSIT",
+        "amount": 1000,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": null,
+        "to": "payment-api-test-001",
+        "taskId": null,
+        "escrowId": null,
+        "description": "初始充值",
+        "createdAt": 1773722524713,
+        "completedAt": 1773722524713
+      },
+      {
+        "txId": "tx_1773722524717_85ye6v",
+        "type": "TRANSFER",
+        "amount": 200,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": "payment-api-test-001",
+        "to": "payment-api-test-002",
+        "taskId": null,
+        "escrowId": null,
+        "description": "测试转账",
+        "createdAt": 1773722524717,
+        "completedAt": 1773722524717
+      },
+      {
+        "txId": "tx_1773722524718_ackkof",
+        "type": "ESCROW_HOLD",
+        "amount": 100,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": "payment-api-test-001",
+        "to": null,
+        "taskId": "task-payment-test",
+        "escrowId": "esc_1773722524718_2vzcx6",
+        "description": "任务报酬托管",
+        "createdAt": 1773722524718,
+        "completedAt": 1773722524718
+      },
+      {
+        "txId": "tx_1773722524719_s1t6l8",
+        "type": "ESCROW_RELEASE",
+        "amount": 100,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": "payment-api-test-001",
+        "to": "payment-api-test-002",
+        "taskId": "task-payment-test",
+        "escrowId": "esc_1773722524718_2vzcx6",
+        "description": "任务报酬释放给 payment-",
+        "createdAt": 1773722524719,
+        "completedAt": 1773722524719
+      }
+    ]
+  },
+  "payment-api-test-002": {
+    "agentId": "payment-api-test-002",
+    "balances": {
+      "credit": 300,
+      "token": 0
+    },
+    "escrow": {},
+    "transactions": [
+      {
+        "txId": "tx_1773722524717_85ye6v_recv",
+        "type": "TRANSFER",
+        "amount": 200,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": "payment-api-test-001",
+        "to": "payment-api-test-002",
+        "taskId": null,
+        "escrowId": null,
+        "description": "测试转账",
+        "createdAt": 1773722524717,
+        "completedAt": 1773722524717
+      },
+      {
+        "txId": "tx_1773722524719_d2yg6c",
+        "type": "TASK_REWARD",
+        "amount": 100,
+        "currency": "credit",
+        "status": "COMPLETED",
+        "from": "payment-api-test-001",
+        "to": "payment-api-test-002",
+        "taskId": "task-payment-test",
+        "escrowId": "esc_1773722524718_2vzcx6",
+        "description": "完成任务获得报酬",
+        "createdAt": 1773722524719,
+        "completedAt": 1773722524719
+      }
+    ]
+  },
+  "reputation-test-agent": {
+    "agentId": "reputation-test-agent",
+    "balances": {
+      "credit": 0,
+      "token": 0
+    },
+    "escrow": {},
+    "transactions": []
+  },
+  "test-虾-1773712740670": {
+    "agentId": "test-虾-1773712740670",
+    "balances": {
+      "credit": 0,
+      "token": 0
+    },
+    "escrow": {},
+    "transactions": []
+  },
+  "test-虾-1773713027587": {
+    "agentId": "test-虾-1773713027587",
+    "balances": {
+      "credit": 0,
+      "token": 0
+    },
+    "escrow": {},
+    "transactions": []
+  }
+}

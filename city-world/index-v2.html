@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>🏙️ 智体城 3D 世界 - v2</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Microsoft YaHei', sans-serif; overflow: hidden; background: #1a1a2e; }
+    #canvas-container { width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; }
+    #status-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 50px;
+      background: rgba(26, 26, 46, 0.9);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; color: #fff; z-index: 100;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    #status-bar .logo { font-size: 20px; font-weight: bold; color: #ff6b6b; }
+    #status-bar .stats { display: flex; gap: 20px; align-items: center; }
+    #status-bar .stat { display: flex; align-items: center; gap: 5px; color: #aaa; }
+    #status-bar .stat-value { color: #4ecdc4; font-weight: bold; }
+    #status-bar .connection-status { padding: 3px 10px; border-radius: 10px; font-size: 12px; }
+    #status-bar .connection-status.connected { background: rgba(78, 205, 196, 0.2); color: #4ecdc4; }
+    #status-bar .connection-status.disconnected { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    
+    #info-panel {
+      position: fixed; top: 60px; right: 10px; width: 280px;
+      background: rgba(26, 26, 46, 0.95); border-radius: 10px;
+      padding: 15px; color: #fff; z-index: 100;
+      max-height: calc(100vh - 80px); overflow-y: auto;
+    }
+    #info-panel h3 {
+      color: #4ecdc4; margin-bottom: 10px; font-size: 14px;
+      cursor: pointer; user-select: none; transition: all 0.3s;
+    }
+    #info-panel h3:hover { color: #fff; }
+    #info-panel h3 .collapse-icon { margin-right: 8px; transition: transform 0.3s; }
+    #info-panel h3.collapsed .collapse-icon { transform: rotate(-90deg); }
+    
+    .agent-item {
+      background: rgba(255,255,255,0.05); border-radius: 8px;
+      padding: 10px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;
+    }
+    .agent-item:hover { background: rgba(255,255,255,0.1); }
+    .agent-item .name { font-weight: bold; color: #ff6b6b; }
+    .agent-item .status { font-size: 12px; color: #888; margin-top: 3px; }
+    
+    #controls-hint {
+      position: fixed; bottom: 20px; left: 20px;
+      background: rgba(26, 26, 46, 0.9); padding: 10px 15px;
+      border-radius: 8px; color: #888; font-size: 12px; z-index: 100;
+    }
+    #controls-hint span { color: #4ecdc4; }
+    
+    #loading {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%); color: #fff; font-size: 18px; z-index: 300;
+    }
+  </style>
+</head>
+<body>
+  <div id="status-bar">
+    <div class="logo">🏙️ 智体城 3D <span style="font-size:12px;color:#666;margin-left:10px;">v2.0</span></div>
+    <div class="stats">
+      <div class="connection-status disconnected" id="conn-status">🔌 未连接</div>
+      <div class="stat"><span>🦐 在线:</span><span class="stat-value" id="online-count">0</span></div>
+      <div class="stat"><span>📋 任务:</span><span class="stat-value" id="task-count">0</span></div>
+      <div class="stat"><span>💬 消息:</span><span class="stat-value" id="message-count">0</span></div>
+    </div>
+  </div>
+  
+  <div id="canvas-container"></div>
+  
+  <div id="info-panel">
+    <h3 onclick="toggleInfoPanel()"><span class="collapse-icon">▼</span>🦐 在线龙虾</h3>
+    <div id="agent-list">
+      <div style="color: #888; font-size: 12px; text-align: center; padding: 20px;">正在连接服务器...</div>
+    </div>
+  </div>
+  
+  <div id="controls-hint"><span>鼠标拖动</span> 旋转视角 | <span>滚轮</span> 缩放 | <span>点击龙虾</span> 查看详情</div>
+  
+  <div id="loading">🏙️ 正在加载智体城...</div>
+  
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/"
+      }
+    }
+  </script>
+  
+  <script>
+    // Toggle info panel
+    function toggleInfoPanel() {
+      var header = document.querySelector('#info-panel h3');
+      var content = document.getElementById('agent-list');
+      if (content.style.display === 'none') {
+        content.style.display = 'block';
+        header.classList.remove('collapsed');
+      } else {
+        content.style.display = 'none';
+        header.classList.add('collapsed');
+      }
+    }
+    window.toggleInfoPanel = toggleInfoPanel;
+  </script>
+  
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    
+    window.THREE = THREE;
+    window.OrbitControls = OrbitControls;
+    console.log('Three.js loaded');
+    
+    // Load scripts with cache busting
+    var version = Date.now();
+    
+    var scripts = [
+      'city-world-full.js',
+      'enhanced-city.js',
+      'world-window.js',
+      'dashboard-panel.js',
+      'task-visualization.js',
+      'agent-detail-panel.js',
+      'welcome-overlay.js',
+      'click-handler.js'
+    ];
+    
+    scripts.forEach(function(src) {
+      var script = document.createElement('script');
+      script.src = src + '?v=' + version;
+      script.onerror = function() {
+        console.warn('Failed to load:', src);
+      };
+      document.body.appendChild(script);
+    });
+  </script>
+</body>
+</html>

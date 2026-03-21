@@ -37,7 +37,7 @@ function init() {
     
     try {
         // 创建场景
-        scene = new THREE.Scene();
+        scene = new THREE.Scene(); window.scene = scene;
         scene.background = new THREE.Color(0x1a1a2e);
         scene.fog = new THREE.Fog(0x1a1a2e, 50, 150);
 

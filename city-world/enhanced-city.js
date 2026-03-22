@@ -307,6 +307,18 @@
     roof.position.y = 4;
     group.add(roof);
     
+    var seatMat = new THREE.MeshLambertMaterial({ color: 0xfce4ec });
+    for (var i = 0; i < 3; i++) {
+      var seat = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.3, 0.8), seatMat);
+      seat.position.set(-3 + i * 3, 0.35, 4);
+      group.add(seat);
+    }
+    
+    var heart = new THREE.Mesh(new THREE.SphereGeometry(0.8, 12, 12), new THREE.MeshLambertMaterial({ color: 0xe91e63 }));
+    heart.scale.set(1, 1.1, 0.4);
+    heart.position.set(0, 1.3, -5);
+    group.add(heart);
+    
     group.position.set(x, 0, z);
     scene.add(group);
   }
@@ -315,6 +327,7 @@
     var group = new THREE.Group();
     var redMat = new THREE.MeshLambertMaterial({ color: 0xff6b6b });
     var darkMat = new THREE.MeshLambertMaterial({ color: 0xc62828 });
+    var glassMat = new THREE.MeshLambertMaterial({ color: 0x81d4fa, transparent: true, opacity: 0.7 });
     
     var main = new THREE.Mesh(new THREE.BoxGeometry(8, 12, 8), redMat);
     main.position.y = 6;
@@ -324,10 +337,22 @@
     entrance.position.set(0, 2, 4.5);
     group.add(entrance);
     
+    for (var floor = 0; floor < 2; floor++) {
+      for (var w = 0; w < 2; w++) {
+        var win = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2), glassMat);
+        win.position.set(-2 + w * 4, 4 + floor * 4, 4.1);
+        group.add(win);
+      }
+    }
+    
     var roof = new THREE.Mesh(new THREE.ConeGeometry(6, 3, 4), darkMat);
     roof.rotation.y = Math.PI / 4;
     roof.position.y = 13.5;
     group.add(roof);
+    
+    var clock = new THREE.Mesh(new THREE.CircleGeometry(1, 24), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+    clock.position.set(0, 10, 4.1);
+    group.add(clock);
     
     group.position.set(x, 0, z);
     scene.add(group);
@@ -347,6 +372,10 @@
     var spire = new THREE.Mesh(new THREE.ConeGeometry(1.2, 3, 8), new THREE.MeshBasicMaterial({ color: 0xffd700 }));
     spire.position.y = 14;
     group.add(spire);
+    
+    var star = new THREE.Mesh(new THREE.OctahedronGeometry(0.7, 0), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+    star.position.y = 16;
+    group.add(star);
     
     group.position.set(x, 0, z);
     scene.add(group);
@@ -370,6 +399,9 @@
       var tower = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1, 10, 8), darkMat);
       tower.position.set(pos[0], 5, pos[1]);
       group.add(tower);
+      var cap = new THREE.Mesh(new THREE.ConeGeometry(1, 1.5, 8), new THREE.MeshLambertMaterial({ color: 0x004d40 }));
+      cap.position.set(pos[0], 10.75, pos[1]);
+      group.add(cap);
     });
     
     group.position.set(x, 0, z);
@@ -379,11 +411,18 @@
   function createArchive(scene, x, z) {
     var group = new THREE.Group();
     var purpleMat = new THREE.MeshLambertMaterial({ color: 0x9c27b0 });
+    var lightMat = new THREE.MeshLambertMaterial({ color: 0xe1bee7 });
     var darkMat = new THREE.MeshLambertMaterial({ color: 0x6a1b9a });
     
     var main = new THREE.Mesh(new THREE.BoxGeometry(7, 10, 10), purpleMat);
     main.position.y = 5;
     group.add(main);
+    
+    for (var i = 0; i < 3; i++) {
+      var col = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 8, 8), lightMat);
+      col.position.set(-2.5 + i * 2.5, 4, 5.5);
+      group.add(col);
+    }
     
     var roof = new THREE.Mesh(new THREE.BoxGeometry(8, 0.4, 11), darkMat);
     roof.position.y = 10.2;
@@ -410,7 +449,16 @@
       var ant = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 6, 8), darkMat);
       ant.position.set(-6 + i * 6, 5.5, 0);
       group.add(ant);
+      
+      var dish = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 8, 0, Math.PI), new THREE.MeshLambertMaterial({ color: 0x90caf9 }));
+      dish.position.set(-6 + i * 6, 9, 0);
+      dish.rotation.x = -Math.PI / 4;
+      group.add(dish);
     }
+    
+    var led = new THREE.Mesh(new THREE.PlaneGeometry(15, 2), new THREE.MeshBasicMaterial({ color: 0x00e5ff }));
+    led.position.set(0, 3.5, 2.6);
+    group.add(led);
     
     group.position.set(x, 0, z);
     scene.add(group);
@@ -433,6 +481,10 @@
       }
     }
     
+    var cool = new THREE.Mesh(new THREE.BoxGeometry(2.5, 3, 2.5), new THREE.MeshLambertMaterial({ color: 0x0288d1 }));
+    cool.position.set(4, 1.5, 4);
+    group.add(cool);
+    
     group.position.set(x, 0, z);
     scene.add(group);
   }
@@ -449,6 +501,21 @@
     var arm1 = new THREE.Mesh(new THREE.BoxGeometry(3, 5, 3), yellowMat);
     arm1.position.set(6, 2.5, 6);
     group.add(arm1);
+    
+    var arm2 = new THREE.Mesh(new THREE.BoxGeometry(2.5, 6, 2.5), new THREE.MeshLambertMaterial({ color: 0x9c27b0 }));
+    arm2.position.set(-5, 3, 5);
+    group.add(arm2);
+    
+    var colors = [0xf44336, 0x2196f3, 0x4caf50, 0xff9800];
+    colors.forEach(function(color, i) {
+      var elem = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2.5, 4), new THREE.MeshLambertMaterial({ color: color }));
+      elem.position.set(-3 + i * 2, 9.25, 0);
+      group.add(elem);
+    });
+    
+    var art = new THREE.Mesh(new THREE.TorusKnotGeometry(0.8, 0.25, 48, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    art.position.set(0, 10, 0);
+    group.add(art);
     
     group.position.set(x, 0, z);
     scene.add(group);
@@ -483,64 +550,122 @@
   }
   
   function updateLighting() {
-    if (!window.currentDayPhase || !sunLight || !ambientLight) return;
+    if (!sunLight || !ambientLight) return;
     
-    var phase = window.currentDayPhase.phase;
-    var progress = window.currentDayPhase.progress;
+    // 虚拟时间：每10分钟 = 24虚拟小时
+    // 计算虚拟时间（0-24小时循环）
+    var cycleMs = 10 * 60 * 1000; // 10分钟
+    var now = Date.now();
+    var virtualHour = ((now % cycleMs) / cycleMs) * 24;
+    var hour = virtualHour;
     
-    // Interpolate between colors based on phase
-    var skyColors = {
-      '清晨': { sky: 0xff9e80, ambient: 0xffd54f },
-      '白天': { sky: 0x87ceeb, ambient: 0xffffff },
-      '黄昏': { sky: 0xff7043, ambient: 0xff8a65 },
-      '夜晚': { sky: 0x1a237e, ambient: 0x5c6bc0 }
-    };
+    // 定义8个时段:
+    // 深夜 21:00-05:00 - 深蓝色夜空
+    // 黎明前 05:00-06:00 - 从深蓝过渡到橙红
+    // 日出 06:00-07:00 - 橙红到橙黄
+    // 早晨 07:00-09:00 - 温暖的橙黄色过渡到蓝天
+    // 上午 09:00-12:00 - 明亮的蓝天
+    // 下午 12:00-17:00 - 标准白天
+    // 傍晚 17:00-19:00 - 温暖的橙黄
+    // 黄昏 19:00-21:00 - 从橙红过渡到深蓝
     
-    var intensities = {
-      '清晨': { sun: 0.8, ambient: 0.6 },
-      '白天': { sun: 1.0, ambient: 0.8 },
-      '黄昏': { sun: 0.6, ambient: 0.4 },
-      '夜晚': { sun: 0.1, ambient: 0.2 }
-    };
+    var skyColor, ambientColor, sunIntensity, ambientIntensity;
     
-    var colors = skyColors[phase.name] || skyColors['白天'];
-    var ints = intensities[phase.name] || intensities['白天'];
+    if (hour >= 21 || hour < 5) {
+      // 深夜 - 深蓝色夜空
+      var t = hour >= 21 ? (hour - 21) / 6 : (hour + 3) / 6;
+      skyColor = lerpColor(0x1a237e, 0x1a237e, t);
+      ambientColor = lerpColor(0x3949ab, 0x3949ab, t);
+      sunIntensity = 0.05;
+      ambientIntensity = 0.2;
+    } else if (hour >= 5 && hour < 6) {
+      // 黎明前 - 从深蓝过渡到橙红
+      var t = (hour - 5);
+      skyColor = lerpColor(0x1a237e, 0xff7043, t);
+      ambientColor = lerpColor(0x3949ab, 0xffcc80, t);
+      sunIntensity = 0.1 + t * 0.4;
+      ambientIntensity = 0.2 + t * 0.3;
+    } else if (hour >= 6 && hour < 7) {
+      // 日出 - 橙红到橙黄
+      var t = (hour - 6);
+      skyColor = lerpColor(0xff7043, 0xffa726, t);
+      ambientColor = lerpColor(0xffcc80, 0xffeb3b, t);
+      sunIntensity = 0.5 + t * 0.3;
+      ambientIntensity = 0.5 + t * 0.2;
+    } else if (hour >= 7 && hour < 9) {
+      // 早晨 - 温暖的橙黄色过渡到蓝天
+      var t = (hour - 7) / 2;
+      skyColor = lerpColor(0xffa726, 0x87ceeb, t);
+      ambientColor = lerpColor(0xffeb3b, 0xffffff, t);
+      sunIntensity = 0.8 + t * 0.2;
+      ambientIntensity = 0.7 + t * 0.1;
+    } else if (hour >= 9 && hour < 12) {
+      // 上午 - 明亮的蓝天
+      skyColor = 0x87ceeb;
+      ambientColor = 0xffffff;
+      sunIntensity = 1.0;
+      ambientIntensity = 0.8;
+    } else if (hour >= 12 && hour < 17) {
+      // 下午 - 标准白天
+      skyColor = 0x87ceeb;
+      ambientColor = 0xffffff;
+      sunIntensity = 1.0;
+      ambientIntensity = 0.8;
+    } else if (hour >= 17 && hour < 19) {
+      // 傍晚 - 温暖的橙黄
+      var t = (hour - 17) / 2;
+      skyColor = lerpColor(0x87ceeb, 0xffa726, t);
+      ambientColor = lerpColor(0xffffff, 0xffcc80, t);
+      sunIntensity = 1.0 - t * 0.3;
+      ambientIntensity = 0.8 - t * 0.2;
+    } else {
+      // 黄昏 19:00-21:00 - 从橙红过渡到深蓝
+      var t = (hour - 19) / 2;
+      skyColor = lerpColor(0xffa726, 0x1a237e, t);
+      ambientColor = lerpColor(0xffcc80, 0x3949ab, t);
+      sunIntensity = 0.7 - t * 0.65;
+      ambientIntensity = 0.6 - t * 0.4;
+    }
     
-    // Update scene background if possible
+    // 应用颜色
     if (scene.background) {
-      scene.background.setHex(colors.sky);
+      scene.background.setHex(skyColor);
     }
     
-    // Update lights
-    sunLight.intensity = ints.sun;
-    ambientLight.intensity = ints.ambient;
-    ambientLight.color.setHex(colors.ambient);
+    sunLight.intensity = sunIntensity;
+    ambientLight.intensity = ambientIntensity;
+    ambientLight.color.setHex(ambientColor);
     
-    // Move sun position
-    var angle = (window.currentDayPhase.index / 4) * Math.PI * 2 + progress * Math.PI / 2;
-    sunLight.position.x = Math.cos(angle) * 50;
-    sunLight.position.y = Math.sin(angle) * 50 + 25;
+    // 太阳位置根据虚拟时间变化
+    var sunAngle = ((hour - 6) / 24) * Math.PI * 2;
+    sunLight.position.x = Math.cos(sunAngle) * 50;
+    sunLight.position.y = Math.max(5, Math.sin(sunAngle) * 80);
     
-    // Update fog
+    // 更新雾的颜色
     if (scene.fog) {
-      scene.fog.color.setHex(colors.sky);
+      scene.fog.color.setHex(skyColor);
     }
+  }
+  
+  // 颜色插值函数
+  function lerpColor(c1, c2, t) {
+    var r1 = (c1 >> 16) & 0xff;
+    var g1 = (c1 >> 8) & 0xff;
+    var b1 = c1 & 0xff;
+    var r2 = (c2 >> 16) & 0xff;
+    var g2 = (c2 >> 8) & 0xff;
+    var b2 = c2 & 0xff;
+    var r = Math.round(r1 + (r2 - r1) * t);
+    var g = Math.round(g1 + (g2 - g1) * t);
+    var b = Math.round(b1 + (b2 - b1) * t);
+    return (r << 16) | (g << 8) | b;
   }
   
   // ============ UI IMPROVEMENTS ============
   
   function setupCollapsiblePanels() {
     // Info panel toggle is already in HTML inline
-    // Just set up dashboard panel reference
-    window.dashboardPanel = null;
-    
-    // Wait for dashboard to be created
-    setTimeout(function() {
-      if (window.DashboardPanel && window.dashboard) {
-        window.dashboardPanel = window.dashboard;
-      }
-    }, 2000);
-    
+    // Don't reset window.dashboardPanel - let dashboard-panel.js manage it
     console.log('[Enhanced v8] Collapsible panels ready');
   }
   

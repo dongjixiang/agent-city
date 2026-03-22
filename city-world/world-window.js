@@ -207,14 +207,8 @@ class WorldWindow {
       this.ws.onopen = function() {
         document.getElementById('ww-dot').classList.remove('offline');
         window.worldWindow.addEvent('已连接智体城', '系统');
-        window.worldWindow.ws.send(JSON.stringify({
-          type: 'REGISTER',
-          agentId: 'world-window-' + Date.now(),
-          name: '世界之窗',
-          tags: ['observer'],
-          description: '外部世界的通信窗口'
-        }));
-        // Request agent list
+        // 世界之窗只是一个查看工具，不注册为智能体
+        // 只请求获取智能体列表
         window.worldWindow.ws.send(JSON.stringify({ type: 'LIST' }));
       };
       

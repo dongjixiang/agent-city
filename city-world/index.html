@@ -143,11 +143,19 @@
       worldWindowScript.onload = () => { console.log('world-window.js loaded'); };
       document.body.appendChild(worldWindowScript);
 
-      // 加载数据面板
+      // 加载数据面板（由 dashboard-panel.js 自己初始化）
       const dashboardScript = document.createElement('script');
       dashboardScript.src = 'dashboard-panel.js?v=' + Date.now();
       dashboardScript.onload = () => { console.log('dashboard-panel.js loaded'); };
       document.body.appendChild(dashboardScript);
+      
+      // 注意：DashboardPanel 的实例创建在 dashboard-panel.js 内部完成（setTimeout 1.5秒）
+
+      // 加载日夜指示器（左上角）
+      const dayNightScript = document.createElement('script');
+      dayNightScript.src = 'day-night-indicator.js?v=' + Date.now();
+      dayNightScript.onload = () => { console.log('day-night-indicator.js loaded'); };
+      document.body.appendChild(dayNightScript);
 
       // 加载任务可视化
       const taskVizScript = document.createElement('script');

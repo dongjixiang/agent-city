@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const AGENT_CITY_WS = 'ws://localhost:9876';
-const BRIDGE_PORT = 9878;
+const BRIDGE_PORT = 9880;
 const BRIDGE_WS_PORT = 9879;
 const DATA_DIR = path.join(__dirname, 'bridge-data');
 
@@ -66,13 +66,9 @@ function connectToAgentCity() {
   
   agentCityWs.on('open', () => {
     console.log('✅ Connected to Agent City');
-    agentCityWs.send(JSON.stringify({
-      type: 'REGISTER',
-      agentId: 'message-bridge',
-      name: '🌉 消息桥接',
-      tags: ['system', 'bridge'],
-      description: 'Message bridge between Agent City and AI assistants'
-    }));
+    // 消息桥接只是一个工具，不注册为智能体
+    // 只请求获取智能体列表
+    agentCityWs.send(JSON.stringify({ type: 'LIST' }));
   });
   
   agentCityWs.on('message', (data) => {

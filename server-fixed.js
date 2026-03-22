@@ -9,6 +9,7 @@ const AgentStore = require('./agent-store');
 
 const PORT = process.env.PORT || 9876;
 const agents = new Map();
+const agentNames = new Map(); // name -> agentId mapping
 
 const wss = new WebSocket.Server({ port: PORT });
 console.log(`🏙️ 智体城消息服务启动在端口 ${PORT}`);
@@ -56,6 +57,7 @@ function handleMessage(ws, msg, setAgentId) {
       handleBroadcast(ws, msg);
       break;
     case 'LIST':
+      console.log('📋 收到 LIST 请求');
       handleListAgents(ws);
       break;
     case 'PING':
@@ -78,6 +80,7 @@ function handleRegister(ws, msg, setAgentId) {
   });
 
   agents.set(id, { ws, lastSeen: Date.now() });
+  agentNames.set(profile.name, id); // Add name -> id mapping
   setAgentId(id);
 
   console.log(`🦐 智能体上线: ${id} (${profile.name})`);
@@ -132,7 +135,18 @@ function handleMessageP2P(ws, msg) {
   
   console.log(`💬 私聊 [${fromName} → ${to}]: ${content}`);
 
-  const target = agents.get(to);
+  // Resolve 'to' to agentId if it's a name instead of ID
+  let targetAgentId = to;
+  
+  // Check if 'to' is actually a name (not an ID)
+  if (!agents.has(to)) {
+    // Try to find agent by name using the name->id mapping
+    if (agentNames.has(to)) {
+      targetAgentId = agentNames.get(to);
+    }
+  }
+  
+  const target = agents.get(targetAgentId);
   if (target && target.ws.readyState === WebSocket.OPEN) {
     target.ws.send(JSON.stringify({
       type: 'MESSAGE',
@@ -142,12 +156,50 @@ function handleMessageP2P(ws, msg) {
       contentType: contentType || 'text',
       timestamp: Date.now()
     }));
+    console.log(`💬 消息已转发到 ${targetAgentId}`);
+    
+    // AI智能体接收消息，开始思考 - 广播思考事件
+    if (targetAgentId.includes('openclaw') || targetAgentId.includes('assistant') || agentNames.has(targetAgentId)) {
+      const targetProfile = AgentStore.getAgent(targetAgentId);
+      const targetName = targetProfile?.name || targetAgentId;
+      
+      // 广播给所有客户端
+      broadcast({
+        type: 'AGENT_THINKING',
+        agentId: targetAgentId,
+        agentName: targetName,
+        from: from,
+        timestamp: Date.now()
+      }, null);
+      console.log(`🤔 ${targetName} 开始思考...`);
+    }
+  } else {
+    console.log(`💬 目标未找到: ${to} (尝试解析为: ${targetAgentId})`);
+  }
+  
+  // 如果是AI智能体发送的回复（从AI到用户），广播回复完成事件
+  if ((from.includes('openclaw') || from.includes('assistant'))) {
+    const targetProfile = AgentStore.getAgent(from);
+    const fromNameActual = targetProfile?.name || from;
+    
+    broadcast({
+      type: 'AGENT_RESPONSE_COMPLETE',
+      agentId: from,
+      agentName: fromNameActual,
+      to: to,
+      timestamp: Date.now()
+    }, null);
+    console.log(`✅ ${fromNameActual} 回复已发送`);
   }
 }
 
 function handleListAgents(ws) {
   const agentList = [];
   agents.forEach((data, id) => {
+    // 只返回 OpenClaw 智能体（ID 包含 openclaw）
+    if (!id.includes('openclaw') && !id.includes('OpenClaw')) {
+      return; // 跳过非 OpenClaw 智能体
+    }
     const profile = AgentStore.getAgent(id);
     agentList.push({
       agentId: id,

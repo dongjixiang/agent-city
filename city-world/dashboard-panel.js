@@ -9,12 +9,12 @@ class DashboardPanel {
     this.collapsed = false;
     this.dayPhase = 'day';
     this.createPanel();
-    this.startDayNightCycle();
   }
   
   createPanel() {
     this.panel = document.createElement('div');
     this.panel.id = 'dashboard-panel';
+    window.dashboardPanel = this; // 立即设置全局引用，供 onclick 使用
     this.panel.innerHTML = `
       <style>
         #dashboard-panel {
@@ -85,20 +85,11 @@ class DashboardPanel {
         }
         .bar-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
       </style>
-      <h3 onclick="window.dashboardPanel.toggle()">
+      <h3 onclick="if(window.dashboardPanel){window.dashboardPanel.toggle();}">
         <span class="collapse-icon">▼</span>📊 智体城实时监控
       </h3>
       <div class="panel-content">
-        <div class="day-night-indicator">
-          <span class="day-night-icon" id="day-night-icon">☀️</span>
-          <div class="day-night-text">
-            <div class="day-night-phase" id="day-night-phase">白天</div>
-            <div class="day-night-time" id="day-night-time">12:00</div>
-            <div class="day-night-progress">
-              <div class="day-night-progress-bar" id="day-night-progress" style="width: 50%; background: linear-gradient(90deg, #ffeb3b, #ff9800);"></div>
-            </div>
-          </div>
-        </div>
+        <!-- Day-night indicator moved to top-left corner -->
         <div class="stat-row">
           <span class="stat-label">🦐 在线智能体</span>
           <span class="stat-value" id="stat-agents">0</span>
@@ -143,86 +134,20 @@ class DashboardPanel {
       </div>
     `;
     document.body.appendChild(this.panel);
+	window.dashboardPanel.update(window.agentList, window.taskCount, window.messageCount);
   }
   
   toggle() {
     this.collapsed = !this.collapsed;
     if (this.collapsed) {
+
       this.panel.classList.add('collapsed');
     } else {
       this.panel.classList.remove('collapsed');
     }
   }
   
-  startDayNightCycle() {
-    // Day/night cycle: 5 minutes per phase = 20 minutes full cycle
-    // Phases: dawn (清晨), day (白天), dusk (黄昏), night (夜晚)
-    this.phases = [
-      { name: '清晨', icon: '🌅', skyColor: '#ff9e80', ambientColor: '#ffd54f', duration: 300, progressColor: 'linear-gradient(90deg, #ff5722, #ffeb3b)' },
-      { name: '白天', icon: '☀️', skyColor: '#87ceeb', ambientColor: '#ffffff', duration: 300, progressColor: 'linear-gradient(90deg, #ffeb3b, #4caf50)' },
-      { name: '黄昏', icon: '🌇', skyColor: '#ff7043', ambientColor: '#ff8a65', duration: 300, progressColor: 'linear-gradient(90deg, #ff9800, #f44336)' },
-      { name: '夜晚', icon: '🌙', skyColor: '#1a237e', ambientColor: '#5c6bc0', duration: 300, progressColor: 'linear-gradient(90deg, #3f51b5, #9c27b0)' }
-    ];
-    
-    this.currentPhaseIndex = 0;
-    this.phaseStartTime = Date.now();
-    this.updateDayNight();
-    
-    // Update every second
-    setInterval(() => this.updateDayNight(), 1000);
-  }
-  
-  updateDayNight() {
-    const phase = this.phases[this.currentPhaseIndex];
-    const elapsed = Date.now() - this.phaseStartTime;
-    const duration = phase.duration * 1000; // Convert to ms
-    const progress = Math.min(elapsed / duration, 1);
-    
-    // Update UI
-    const iconEl = document.getElementById('day-night-icon');
-    const phaseEl = document.getElementById('day-night-phase');
-    const timeEl = document.getElementById('day-night-time');
-    const progressEl = document.getElementById('day-night-progress');
-    
-    if (iconEl) iconEl.textContent = phase.icon;
-    if (phaseEl) phaseEl.textContent = phase.name;
-    if (progressEl) {
-      progressEl.style.width = (progress * 100) + '%';
-      progressEl.style.background = phase.progressColor;
-    }
-    
-    // Calculate virtual time (6am to 6am next day)
-    const phaseHours = [6, 12, 17, 21]; // Dawn 6am, Day 12pm, Dusk 5pm, Night 9pm
-    const baseHour = phaseHours[this.currentPhaseIndex];
-    const hourOffset = Math.floor(progress * 6); // 6 hours per phase
-    const minute = Math.floor((progress * 6 % 1) * 60);
-    const hour = (baseHour + hourOffset) % 24;
-    
-    if (timeEl) {
-      timeEl.textContent = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-    }
-    
-    // Update scene if available
-    if (window.scene) {
-      this.applyLighting(phase, progress);
-    }
-    
-    // Move to next phase
-    if (elapsed >= duration) {
-      this.currentPhaseIndex = (this.currentPhaseIndex + 1) % this.phases.length;
-      this.phaseStartTime = Date.now();
-    }
-  }
-  
-  applyLighting(phase, progress) {
-    // This is called by enhanced-city.js day-night system
-    window.currentDayPhase = {
-      phase: phase,
-      progress: progress,
-      index: this.currentPhaseIndex
-    };
-  }
-  
+
   update(agents, tasks, messages) {
     const totalAgents = agents ? agents.length : 0;
     this.animateNumber('stat-agents', totalAgents);

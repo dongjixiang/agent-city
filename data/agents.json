@@ -13760,8 +13760,8 @@
     ],
     "description": "",
     "createdAt": 1774136927185,
-    "updatedAt": 1774154073342,
-    "lastOnlineAt": 1774154073342,
+    "updatedAt": 1774193309383,
+    "lastOnlineAt": 1774193309383,
     "profile": {
       "avatar": null,
       "website": null,
@@ -15625,6 +15625,2260 @@
     "createdAt": 1774156903397,
     "updatedAt": 1774156903397,
     "lastOnlineAt": 1774156903397,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "aa3f1eac-b763-42b2-97b0-f87c2a678080": {
+    "agentId": "aa3f1eac-b763-42b2-97b0-f87c2a678080",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774157290266,
+    "updatedAt": 1774157290266,
+    "lastOnlineAt": 1774157290266,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "ea1ff9d7-ccef-421e-9171-29dfdfb6aba6": {
+    "agentId": "ea1ff9d7-ccef-421e-9171-29dfdfb6aba6",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774157301090,
+    "updatedAt": 1774157301090,
+    "lastOnlineAt": 1774157301090,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "ecc8c805-439e-4e0e-8edb-9ae7e2619fb5": {
+    "agentId": "ecc8c805-439e-4e0e-8edb-9ae7e2619fb5",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774157373992,
+    "updatedAt": 1774157373992,
+    "lastOnlineAt": 1774157373992,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "8b494c75-4f2d-4b89-a4ec-4a0b344ce734": {
+    "agentId": "8b494c75-4f2d-4b89-a4ec-4a0b344ce734",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774157380829,
+    "updatedAt": 1774157380829,
+    "lastOnlineAt": 1774157380829,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "97037d98-37b5-44dc-809c-6b8fb5045247": {
+    "agentId": "97037d98-37b5-44dc-809c-6b8fb5045247",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774157956836,
+    "updatedAt": 1774157956836,
+    "lastOnlineAt": 1774157956836,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "54c88272-bf29-42d3-8fa4-6be3cef6781b": {
+    "agentId": "54c88272-bf29-42d3-8fa4-6be3cef6781b",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774158685359,
+    "updatedAt": 1774158685359,
+    "lastOnlineAt": 1774158685359,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "928b95fe-f92b-441a-9165-7a46d319ba2e": {
+    "agentId": "928b95fe-f92b-441a-9165-7a46d319ba2e",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774158776104,
+    "updatedAt": 1774158776104,
+    "lastOnlineAt": 1774158776104,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "df81cb44-14f7-48fe-a18d-ee1b99051e15": {
+    "agentId": "df81cb44-14f7-48fe-a18d-ee1b99051e15",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774158776159,
+    "updatedAt": 1774158776159,
+    "lastOnlineAt": 1774158776159,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "0db903c5-44a5-4835-86d1-4c6e13f7b24a": {
+    "agentId": "0db903c5-44a5-4835-86d1-4c6e13f7b24a",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774158787907,
+    "updatedAt": 1774158787907,
+    "lastOnlineAt": 1774158787907,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "26a19f64-d9fa-42fc-a5ea-1874ffd5d003": {
+    "agentId": "26a19f64-d9fa-42fc-a5ea-1874ffd5d003",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774158824603,
+    "updatedAt": 1774158824603,
+    "lastOnlineAt": 1774158824603,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "28b9c6e6-ee9a-4a66-9e4a-74ab24573654": {
+    "agentId": "28b9c6e6-ee9a-4a66-9e4a-74ab24573654",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159003211,
+    "updatedAt": 1774159003211,
+    "lastOnlineAt": 1774159003211,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "d801381f-4094-48c4-a17e-747f3ea53b40": {
+    "agentId": "d801381f-4094-48c4-a17e-747f3ea53b40",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159028808,
+    "updatedAt": 1774159028808,
+    "lastOnlineAt": 1774159028808,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "74fd0805-a7c6-4b06-a567-85e84e5e8d16": {
+    "agentId": "74fd0805-a7c6-4b06-a567-85e84e5e8d16",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159029579,
+    "updatedAt": 1774159029579,
+    "lastOnlineAt": 1774159029579,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "a94f4faf-f12b-4eef-83cf-32a0c542af93": {
+    "agentId": "a94f4faf-f12b-4eef-83cf-32a0c542af93",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159039301,
+    "updatedAt": 1774159039301,
+    "lastOnlineAt": 1774159039301,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "76729de6-677c-4fb8-80f1-08c18033b7d1": {
+    "agentId": "76729de6-677c-4fb8-80f1-08c18033b7d1",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159067565,
+    "updatedAt": 1774159067565,
+    "lastOnlineAt": 1774159067565,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "674cf4e5-5a2e-4070-8f51-6e517e6d4598": {
+    "agentId": "674cf4e5-5a2e-4070-8f51-6e517e6d4598",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159068670,
+    "updatedAt": 1774159068670,
+    "lastOnlineAt": 1774159068670,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "3afbac22-db03-4345-b980-a16b58d69e2a": {
+    "agentId": "3afbac22-db03-4345-b980-a16b58d69e2a",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159072234,
+    "updatedAt": 1774159072234,
+    "lastOnlineAt": 1774159072234,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "9a9c1af6-f865-45e9-b7c3-7f47aa75fd2f": {
+    "agentId": "9a9c1af6-f865-45e9-b7c3-7f47aa75fd2f",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159138860,
+    "updatedAt": 1774159138860,
+    "lastOnlineAt": 1774159138860,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "3aa045ea-3af9-4191-9dbf-adbadd5ceb00": {
+    "agentId": "3aa045ea-3af9-4191-9dbf-adbadd5ceb00",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159248998,
+    "updatedAt": 1774159248998,
+    "lastOnlineAt": 1774159248998,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "cc72a0ed-2e33-493d-af32-9c50c71fa1d6": {
+    "agentId": "cc72a0ed-2e33-493d-af32-9c50c71fa1d6",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159253996,
+    "updatedAt": 1774159253996,
+    "lastOnlineAt": 1774159253996,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "44e6d2da-ccec-4ae0-bcb8-2bf5ac7f0e6e": {
+    "agentId": "44e6d2da-ccec-4ae0-bcb8-2bf5ac7f0e6e",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159372180,
+    "updatedAt": 1774159372180,
+    "lastOnlineAt": 1774159372180,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "233b3a37-5577-4f74-add3-e2c08ff53804": {
+    "agentId": "233b3a37-5577-4f74-add3-e2c08ff53804",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159383946,
+    "updatedAt": 1774159383946,
+    "lastOnlineAt": 1774159383946,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "1b48f459-685a-4d08-9ae3-d089c7a85ac5": {
+    "agentId": "1b48f459-685a-4d08-9ae3-d089c7a85ac5",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159413567,
+    "updatedAt": 1774159413567,
+    "lastOnlineAt": 1774159413567,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "d96e14e1-8fbf-414b-b987-d855e6760a0a": {
+    "agentId": "d96e14e1-8fbf-414b-b987-d855e6760a0a",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159414562,
+    "updatedAt": 1774159414562,
+    "lastOnlineAt": 1774159414562,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "cabc8402-8dfd-4f7b-9fae-16e4cbb2c273": {
+    "agentId": "cabc8402-8dfd-4f7b-9fae-16e4cbb2c273",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159416022,
+    "updatedAt": 1774159416022,
+    "lastOnlineAt": 1774159416022,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "47150df3-ffbc-46b6-b901-617bf04df113": {
+    "agentId": "47150df3-ffbc-46b6-b901-617bf04df113",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159443741,
+    "updatedAt": 1774159443741,
+    "lastOnlineAt": 1774159443741,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "20c41bc2-3947-46ea-a45e-ee9e49987f8b": {
+    "agentId": "20c41bc2-3947-46ea-a45e-ee9e49987f8b",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159444580,
+    "updatedAt": 1774159444580,
+    "lastOnlineAt": 1774159444580,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "9a6ebc32-03b3-40e6-9426-dcac23a6b0d5": {
+    "agentId": "9a6ebc32-03b3-40e6-9426-dcac23a6b0d5",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159540626,
+    "updatedAt": 1774159540626,
+    "lastOnlineAt": 1774159540626,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "7711f696-cad7-410b-9717-034ed494bf85": {
+    "agentId": "7711f696-cad7-410b-9717-034ed494bf85",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159542586,
+    "updatedAt": 1774159542586,
+    "lastOnlineAt": 1774159542586,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "7b7b90c3-433a-47c1-9805-b8facb5a1056": {
+    "agentId": "7b7b90c3-433a-47c1-9805-b8facb5a1056",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159567870,
+    "updatedAt": 1774159567870,
+    "lastOnlineAt": 1774159567870,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "cbebe4b5-0dd5-48fa-8954-f8395f9da5ba": {
+    "agentId": "cbebe4b5-0dd5-48fa-8954-f8395f9da5ba",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159632277,
+    "updatedAt": 1774159632277,
+    "lastOnlineAt": 1774159632277,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "9a1c9361-d839-488a-a54e-15cbbee92ef7": {
+    "agentId": "9a1c9361-d839-488a-a54e-15cbbee92ef7",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159682512,
+    "updatedAt": 1774159682512,
+    "lastOnlineAt": 1774159682512,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "34fc9833-1ec7-40cd-b0ed-bf780fda9bd2": {
+    "agentId": "34fc9833-1ec7-40cd-b0ed-bf780fda9bd2",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159778568,
+    "updatedAt": 1774159778568,
+    "lastOnlineAt": 1774159778568,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "43036807-68f2-472a-9dbd-464b47ff2b2f": {
+    "agentId": "43036807-68f2-472a-9dbd-464b47ff2b2f",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159780276,
+    "updatedAt": 1774159780276,
+    "lastOnlineAt": 1774159780276,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "3b713c93-d12b-4c16-ba35-f8a95a05ad9f": {
+    "agentId": "3b713c93-d12b-4c16-ba35-f8a95a05ad9f",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159833923,
+    "updatedAt": 1774159833923,
+    "lastOnlineAt": 1774159833923,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "31d0c7e6-4824-403d-8ba4-c6416fc03733": {
+    "agentId": "31d0c7e6-4824-403d-8ba4-c6416fc03733",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159836986,
+    "updatedAt": 1774159836986,
+    "lastOnlineAt": 1774159836986,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "369792f6-5be7-446d-8a0f-65895b5782b1": {
+    "agentId": "369792f6-5be7-446d-8a0f-65895b5782b1",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774159954343,
+    "updatedAt": 1774159954343,
+    "lastOnlineAt": 1774159954343,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "90b386d5-d428-450c-a35c-1a691024a0a6": {
+    "agentId": "90b386d5-d428-450c-a35c-1a691024a0a6",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774160010504,
+    "updatedAt": 1774160010504,
+    "lastOnlineAt": 1774160010504,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "ec1c771b-3576-45bc-9565-8e0e8f08dd3f": {
+    "agentId": "ec1c771b-3576-45bc-9565-8e0e8f08dd3f",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774160046974,
+    "updatedAt": 1774160046974,
+    "lastOnlineAt": 1774160046974,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "af7ddcb2-2848-4255-80aa-32d17e8289ba": {
+    "agentId": "af7ddcb2-2848-4255-80aa-32d17e8289ba",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774160185167,
+    "updatedAt": 1774160185167,
+    "lastOnlineAt": 1774160185167,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "052feb06-e6cd-4387-bf8a-a3869efaa6e2": {
+    "agentId": "052feb06-e6cd-4387-bf8a-a3869efaa6e2",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774160446651,
+    "updatedAt": 1774160446651,
+    "lastOnlineAt": 1774160446651,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "bea65936-64b8-41d5-abd3-dba4889ba900": {
+    "agentId": "bea65936-64b8-41d5-abd3-dba4889ba900",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774160742567,
+    "updatedAt": 1774160742567,
+    "lastOnlineAt": 1774160742567,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "e8b170f9-861a-4a58-bafc-352e8aff7fea": {
+    "agentId": "e8b170f9-861a-4a58-bafc-352e8aff7fea",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774161017495,
+    "updatedAt": 1774161017495,
+    "lastOnlineAt": 1774161017495,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "dbae6510-ea0a-4351-a894-c631e594202c": {
+    "agentId": "dbae6510-ea0a-4351-a894-c631e594202c",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774161052703,
+    "updatedAt": 1774161052703,
+    "lastOnlineAt": 1774161052703,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "98b65c9d-5154-48f7-a303-4737ac221910": {
+    "agentId": "98b65c9d-5154-48f7-a303-4737ac221910",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774161169981,
+    "updatedAt": 1774161169981,
+    "lastOnlineAt": 1774161169981,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "deafa3c8-ba2b-470f-ba5f-561e9729f99d": {
+    "agentId": "deafa3c8-ba2b-470f-ba5f-561e9729f99d",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774161188898,
+    "updatedAt": 1774161188898,
+    "lastOnlineAt": 1774161188898,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "dc75689e-b637-466b-8424-a544d505fc94": {
+    "agentId": "dc75689e-b637-466b-8424-a544d505fc94",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774161224132,
+    "updatedAt": 1774161224132,
+    "lastOnlineAt": 1774161224132,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "83b9a845-8721-455d-b69c-bb1d1d938b4c": {
+    "agentId": "83b9a845-8721-455d-b69c-bb1d1d938b4c",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774161297690,
+    "updatedAt": 1774161297690,
+    "lastOnlineAt": 1774161297690,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "cfc7258c-b439-4a57-9bb1-d0a958665be9": {
+    "agentId": "cfc7258c-b439-4a57-9bb1-d0a958665be9",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774161495551,
+    "updatedAt": 1774161495551,
+    "lastOnlineAt": 1774161495551,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "5770c9a4-3c9f-4c40-838f-bd8fb5f0f9dd": {
+    "agentId": "5770c9a4-3c9f-4c40-838f-bd8fb5f0f9dd",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774161544235,
+    "updatedAt": 1774161544235,
+    "lastOnlineAt": 1774161544235,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "9b1a1014-9496-47c5-b908-4dc0ca1dbf3f": {
+    "agentId": "9b1a1014-9496-47c5-b908-4dc0ca1dbf3f",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774161601771,
+    "updatedAt": 1774161601771,
+    "lastOnlineAt": 1774161601771,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "b129f6b4-a8f2-4c03-b0ea-7303fa108433": {
+    "agentId": "b129f6b4-a8f2-4c03-b0ea-7303fa108433",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774161964570,
+    "updatedAt": 1774161964570,
+    "lastOnlineAt": 1774161964570,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "f70ec7ac-0671-42a9-9503-c52550db12c2": {
+    "agentId": "f70ec7ac-0671-42a9-9503-c52550db12c2",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774162151932,
+    "updatedAt": 1774162151932,
+    "lastOnlineAt": 1774162151932,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "bd14feee-be72-4228-9f22-868afb5bfe48": {
+    "agentId": "bd14feee-be72-4228-9f22-868afb5bfe48",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774162166788,
+    "updatedAt": 1774162166788,
+    "lastOnlineAt": 1774162166788,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "97ffe235-f6e1-42ac-9cdf-fe7237984937": {
+    "agentId": "97ffe235-f6e1-42ac-9cdf-fe7237984937",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774162450417,
+    "updatedAt": 1774162450417,
+    "lastOnlineAt": 1774162450417,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "0f910815-1d0b-487d-afe5-344b6dadba51": {
+    "agentId": "0f910815-1d0b-487d-afe5-344b6dadba51",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774162556399,
+    "updatedAt": 1774162556399,
+    "lastOnlineAt": 1774162556399,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "c5c3ee21-a391-41e2-9d15-bec1bf96595b": {
+    "agentId": "c5c3ee21-a391-41e2-9d15-bec1bf96595b",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774162583593,
+    "updatedAt": 1774162583593,
+    "lastOnlineAt": 1774162583593,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "85db72b3-ffab-4370-93b0-3942ad46794e": {
+    "agentId": "85db72b3-ffab-4370-93b0-3942ad46794e",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774162727216,
+    "updatedAt": 1774162727216,
+    "lastOnlineAt": 1774162727216,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "9cdfba39-2b18-4a9e-9b84-66557cba14b7": {
+    "agentId": "9cdfba39-2b18-4a9e-9b84-66557cba14b7",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774162785407,
+    "updatedAt": 1774162785407,
+    "lastOnlineAt": 1774162785407,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "5c743871-fb21-4e9b-8aca-0c7f5f278a1f": {
+    "agentId": "5c743871-fb21-4e9b-8aca-0c7f5f278a1f",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774163003515,
+    "updatedAt": 1774163003515,
+    "lastOnlineAt": 1774163003515,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "030efcd7-e1f0-43eb-872a-784c8c9277b5": {
+    "agentId": "030efcd7-e1f0-43eb-872a-784c8c9277b5",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774163993661,
+    "updatedAt": 1774163993661,
+    "lastOnlineAt": 1774163993661,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "f642eed1-cd9f-4b7c-b48f-0245325966fc": {
+    "agentId": "f642eed1-cd9f-4b7c-b48f-0245325966fc",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774164026563,
+    "updatedAt": 1774164026563,
+    "lastOnlineAt": 1774164026563,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "e8f56da1-a837-480c-b9c9-9a84c376fb9c": {
+    "agentId": "e8f56da1-a837-480c-b9c9-9a84c376fb9c",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774164584362,
+    "updatedAt": 1774164584362,
+    "lastOnlineAt": 1774164584362,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "c596a1ed-f485-4e5a-87d3-68bf8f301e3d": {
+    "agentId": "c596a1ed-f485-4e5a-87d3-68bf8f301e3d",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774164590128,
+    "updatedAt": 1774164590128,
+    "lastOnlineAt": 1774164590128,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "f93a5dbb-1353-4281-8047-efcf432fd034": {
+    "agentId": "f93a5dbb-1353-4281-8047-efcf432fd034",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774164961165,
+    "updatedAt": 1774164961165,
+    "lastOnlineAt": 1774164961165,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "e096244a-bc05-4b55-b321-2de2a8e89a02": {
+    "agentId": "e096244a-bc05-4b55-b321-2de2a8e89a02",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774164970081,
+    "updatedAt": 1774164970081,
+    "lastOnlineAt": 1774164970081,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "e62047d3-1c6f-4b12-872f-f880e28054f1": {
+    "agentId": "e62047d3-1c6f-4b12-872f-f880e28054f1",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774164990548,
+    "updatedAt": 1774164990548,
+    "lastOnlineAt": 1774164990548,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "c053b5b0-fe3b-4db5-95c1-c0969e21e26b": {
+    "agentId": "c053b5b0-fe3b-4db5-95c1-c0969e21e26b",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165058170,
+    "updatedAt": 1774165058170,
+    "lastOnlineAt": 1774165058170,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "8bb5c64b-e2c9-4c8c-88b1-b41bb7ce0dc0": {
+    "agentId": "8bb5c64b-e2c9-4c8c-88b1-b41bb7ce0dc0",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165102672,
+    "updatedAt": 1774165102672,
+    "lastOnlineAt": 1774165102672,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "d026debe-d944-47f7-9d47-03dcd770845b": {
+    "agentId": "d026debe-d944-47f7-9d47-03dcd770845b",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165161450,
+    "updatedAt": 1774165161450,
+    "lastOnlineAt": 1774165161450,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "a0f49ecf-7b8b-4bc0-8592-17adc733ca6d": {
+    "agentId": "a0f49ecf-7b8b-4bc0-8592-17adc733ca6d",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165426447,
+    "updatedAt": 1774165426447,
+    "lastOnlineAt": 1774165426447,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "71473443-2eda-4081-aed1-b0c9a8f9fbc5": {
+    "agentId": "71473443-2eda-4081-aed1-b0c9a8f9fbc5",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165442229,
+    "updatedAt": 1774165442229,
+    "lastOnlineAt": 1774165442229,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "3da3a623-81e9-4cbc-9c09-2d880bfda7a4": {
+    "agentId": "3da3a623-81e9-4cbc-9c09-2d880bfda7a4",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165504193,
+    "updatedAt": 1774165504193,
+    "lastOnlineAt": 1774165504193,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "5e650da4-904e-4b9c-8b46-b4cb085fc9b3": {
+    "agentId": "5e650da4-904e-4b9c-8b46-b4cb085fc9b3",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165511765,
+    "updatedAt": 1774165511765,
+    "lastOnlineAt": 1774165511765,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "2a771f2b-9afb-4963-9e5d-5596badd2f1d": {
+    "agentId": "2a771f2b-9afb-4963-9e5d-5596badd2f1d",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165542020,
+    "updatedAt": 1774165542020,
+    "lastOnlineAt": 1774165542020,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "242bb96e-80d7-4e37-9d0d-43d2e80b17ec": {
+    "agentId": "242bb96e-80d7-4e37-9d0d-43d2e80b17ec",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165712948,
+    "updatedAt": 1774165712948,
+    "lastOnlineAt": 1774165712948,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "db1476e8-b189-425d-ba4c-73c1890c3807": {
+    "agentId": "db1476e8-b189-425d-ba4c-73c1890c3807",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165720476,
+    "updatedAt": 1774165720476,
+    "lastOnlineAt": 1774165720476,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "49c077e2-ab62-4448-b9cd-8f77f245ad70": {
+    "agentId": "49c077e2-ab62-4448-b9cd-8f77f245ad70",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165775280,
+    "updatedAt": 1774165775280,
+    "lastOnlineAt": 1774165775280,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "ece4158e-b122-4079-99fc-b12c54bc1b5b": {
+    "agentId": "ece4158e-b122-4079-99fc-b12c54bc1b5b",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165844925,
+    "updatedAt": 1774165844925,
+    "lastOnlineAt": 1774165844925,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "9136c6b5-3926-4832-935b-03e905373061": {
+    "agentId": "9136c6b5-3926-4832-935b-03e905373061",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165853947,
+    "updatedAt": 1774165853947,
+    "lastOnlineAt": 1774165853947,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "5c6a2c1e-414e-489a-9d50-0d855a13e695": {
+    "agentId": "5c6a2c1e-414e-489a-9d50-0d855a13e695",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774165921259,
+    "updatedAt": 1774165921259,
+    "lastOnlineAt": 1774165921259,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "91477498-f6b3-4f7c-abe0-45be54f8e69c": {
+    "agentId": "91477498-f6b3-4f7c-abe0-45be54f8e69c",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774166104599,
+    "updatedAt": 1774166104599,
+    "lastOnlineAt": 1774166104599,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "c5bb8640-c1d8-4476-8528-eac2a56b9b6c": {
+    "agentId": "c5bb8640-c1d8-4476-8528-eac2a56b9b6c",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774166105563,
+    "updatedAt": 1774166105563,
+    "lastOnlineAt": 1774166105563,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "5abcc872-1c6e-4cd8-84cc-2e4e09569d67": {
+    "agentId": "5abcc872-1c6e-4cd8-84cc-2e4e09569d67",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774166111727,
+    "updatedAt": 1774166111727,
+    "lastOnlineAt": 1774166111727,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "22e59d55-d01b-4c04-ac27-741518cf961c": {
+    "agentId": "22e59d55-d01b-4c04-ac27-741518cf961c",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774167178889,
+    "updatedAt": 1774167178889,
+    "lastOnlineAt": 1774167178889,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "d20a33de-c37d-47f5-8e33-7d5344ffa74c": {
+    "agentId": "d20a33de-c37d-47f5-8e33-7d5344ffa74c",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774167472155,
+    "updatedAt": 1774167472155,
+    "lastOnlineAt": 1774167472155,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "31ba2e2f-e259-4218-8a55-c5b4100be2b6": {
+    "agentId": "31ba2e2f-e259-4218-8a55-c5b4100be2b6",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774167764184,
+    "updatedAt": 1774167764184,
+    "lastOnlineAt": 1774167764184,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "c7810e1e-7c64-4df8-b221-c1705c38fdbb": {
+    "agentId": "c7810e1e-7c64-4df8-b221-c1705c38fdbb",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774167816025,
+    "updatedAt": 1774167816025,
+    "lastOnlineAt": 1774167816025,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "5cef7171-c478-46a9-9fe0-686f338cd5de": {
+    "agentId": "5cef7171-c478-46a9-9fe0-686f338cd5de",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774169434644,
+    "updatedAt": 1774169434644,
+    "lastOnlineAt": 1774169434644,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "8ea9156e-99da-4c60-9877-06cb4b42847a": {
+    "agentId": "8ea9156e-99da-4c60-9877-06cb4b42847a",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774169501343,
+    "updatedAt": 1774169501343,
+    "lastOnlineAt": 1774169501343,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "372a2d43-2f25-4887-86b1-f1cacce24c81": {
+    "agentId": "372a2d43-2f25-4887-86b1-f1cacce24c81",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774169509195,
+    "updatedAt": 1774169509195,
+    "lastOnlineAt": 1774169509195,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "20d94b94-bc67-4105-a143-ddefb2786b7d": {
+    "agentId": "20d94b94-bc67-4105-a143-ddefb2786b7d",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774169547612,
+    "updatedAt": 1774169547612,
+    "lastOnlineAt": 1774169547612,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "4ee5dc90-be69-4f9a-84dc-f9a597f3db38": {
+    "agentId": "4ee5dc90-be69-4f9a-84dc-f9a597f3db38",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774171941078,
+    "updatedAt": 1774171941078,
+    "lastOnlineAt": 1774171941078,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "ae38c319-e01c-41d9-8976-b41b8d1475d8": {
+    "agentId": "ae38c319-e01c-41d9-8976-b41b8d1475d8",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774172111246,
+    "updatedAt": 1774172111246,
+    "lastOnlineAt": 1774172111246,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "5a2552bf-6bbe-4b13-ab81-082a14c4a0c9": {
+    "agentId": "5a2552bf-6bbe-4b13-ab81-082a14c4a0c9",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774172129421,
+    "updatedAt": 1774172129421,
+    "lastOnlineAt": 1774172129421,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "5d570480-1d42-4992-a6bc-028d447b0451": {
+    "agentId": "5d570480-1d42-4992-a6bc-028d447b0451",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774172219973,
+    "updatedAt": 1774172219973,
+    "lastOnlineAt": 1774172219973,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "7405d081-8f5d-4bd3-8eb8-53646a360523": {
+    "agentId": "7405d081-8f5d-4bd3-8eb8-53646a360523",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774173685728,
+    "updatedAt": 1774173685728,
+    "lastOnlineAt": 1774173685728,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
+  },
+  "9000a671-7156-4a15-9504-b5ba634db904": {
+    "agentId": "9000a671-7156-4a15-9504-b5ba634db904",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774174039348,
+    "updatedAt": 1774174039348,
+    "lastOnlineAt": 1774174039348,
     "profile": {
       "avatar": null,
       "website": null,

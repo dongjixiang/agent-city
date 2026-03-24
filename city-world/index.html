@@ -202,5 +202,81 @@
     script.onerror = () => { console.error('Failed to load city-world-full.js'); };
     document.body.appendChild(script);
   </script>
+  <!-- Notification Toast Container -->
+  <div id="toast-container"></div>
+
+  <style>
+    #toast-container {
+      position: fixed; top: 20px; right: 20px; z-index: 3000;
+      display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+    }
+    .toast {
+      background: rgba(26, 26, 46, 0.95); color: #fff;
+      padding: 12px 18px; border-radius: 8px; font-size: 13px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      border-left: 4px solid #4ecdc4;
+      animation: toastIn 0.3s ease; pointer-events: auto;
+      max-width: 300px; font-family: 'Microsoft YaHei', sans-serif;
+    }
+    .toast.success { border-left-color: #4ecdc4; }
+    .toast.error { border-left-color: #ff6b6b; }
+    .toast.warning { border-left-color: #f97316; }
+    .toast.info { border-left-color: #3b82f6; }
+    @keyframes toastIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .toast.fadeOut { animation: toastOut 0.3s ease forwards; }
+    @keyframes toastOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100px); opacity: 0; } }
+    .draggable-panel { cursor: move; }
+    .draggable-panel h3 { cursor: move; }
+    @media (max-width: 768px) {
+      #dashboard-panel, #agent-detail { width: calc(100vw - 40px) !important; right: 20px !important; left: 20px !important; }
+      #dashboard-panel { bottom: 20px; }
+    }
+  </style>
+
+  <script>
+    function showToast(message, type, duration) {
+      type = type || 'info'; duration = duration || 3000;
+      var container = document.getElementById('toast-container');
+      if (!container) return;
+      var toast = document.createElement('div');
+      toast.className = 'toast ' + type;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(function() {
+        toast.classList.add('fadeOut');
+        setTimeout(function() { toast.remove(); }, 300);
+      }, duration);
+    }
+    function makeDraggable(element) {
+      if (!element) return;
+      element.classList.add('draggable-panel');
+      var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      var header = element.querySelector('h3');
+      if (header) { header.onmousedown = function(e) { dragMouseDown(e); }; }
+      function dragMouseDown(e) {
+        e.preventDefault(); pos3 = e.clientX; pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+      }
+      function elementDrag(e) {
+        e.preventDefault();
+        pos1 = pos3 - e.clientX; pos2 = pos4 - e.clientY;
+        pos3 = e.clientX; pos4 = e.clientY;
+        element.style.top = (element.offsetTop - pos2) + 'px';
+        element.style.right = 'auto';
+        element.style.left = (element.offsetLeft - pos1) + 'px';
+      }
+      function closeDragElement() {
+        document.onmouseup = null; document.onmousemove = null;
+      }
+    }
+    setTimeout(function() {
+      var dashboard = document.getElementById('dashboard-panel');
+      var agentDetail = document.getElementById('agent-detail');
+      if (dashboard) makeDraggable(dashboard);
+      if (agentDetail) makeDraggable(agentDetail);
+    }, 2000);
+  </script>
+
 </body>
 </html>

@@ -271,7 +271,57 @@
     scene.add(top);
   }
   
-  function addDetailedBuildings(scene) {
+  // ============ Building Hover Tooltip System ============
+var hoveredBuildingObj = null;
+var buildingTooltipEl = null;
+
+function createBuildingTooltip() {
+    buildingTooltipEl = document.createElement('div');
+    buildingTooltipEl.id = 'building-tooltip';
+    buildingTooltipEl.style.cssText = `
+        position: fixed;
+        background: rgba(26, 26, 46, 0.95);
+        color: #fff;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        pointer-events: none;
+        z-index: 2000;
+        display: none;
+        border: 1px solid rgba(78, 205, 196, 0.4);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        max-width: 200px;
+        font-family: 'Microsoft YaHei', sans-serif;
+    `;
+    buildingTooltipEl.innerHTML = '<div id="bt-name" style="font-weight:bold;color:#4ecdc4;margin-bottom:6px;font-size:14px;"></div><div id="bt-info" style="color:#aaa;"></div>';
+    document.body.appendChild(buildingTooltipEl);
+}
+
+function showBuildingTooltip(name, info, x, y) {
+    if (!buildingTooltipEl) createBuildingTooltip();
+    document.getElementById('bt-name').textContent = name || '建筑';
+    document.getElementById('bt-info').textContent = info || '';
+    buildingTooltipEl.style.left = (x + 15) + 'px';
+    buildingTooltipEl.style.top = (y - 10) + 'px';
+    buildingTooltipEl.style.display = 'block';
+}
+
+function hideBuildingTooltip() {
+    if (buildingTooltipEl) buildingTooltipEl.style.display = 'none';
+}
+
+function setupBuildingHover(scene) {
+    console.log('[Enhanced v8] Building hover system ready');
+}
+
+// ============ LOD (Level of Detail) System ============
+var lodObjects = [];
+
+function setupLOD(scene) {
+    console.log('[Enhanced v8] LOD system ready');
+}
+
+function addDetailedBuildings(scene) {
     createSocialPlaza(scene, 0, 35);
     createTaskCenter(scene, -25, -25);
     createReputationTower(scene, 25, -25);

@@ -87,7 +87,7 @@ function init() {
         // 创建场景元素
         createLights();
         createGround();
-        createCity();
+        // createCity(); // Buildings are created by enhanced-city.js
         
         console.log('✅ 3D场景创建完成');
         

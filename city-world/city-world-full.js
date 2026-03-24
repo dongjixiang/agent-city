@@ -525,6 +525,92 @@ function removeAgentMesh(agentId) {
     }
 }
 
+// ============ 智能体思考和移动函数 ============
+function showThinkingIcon(agentId) {
+    const agentData = agents.get(agentId);
+    if (!agentData || !agentData.mesh) return;
+    
+    const mesh = agentData.mesh;
+    
+    // Remove existing thinking icon if any
+    const existing = mesh.getObjectByName('thinkingIcon');
+    if (existing) mesh.remove(existing);
+    
+    // Create thinking icon (question mark bubble)
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    
+    // Draw circle background
+    ctx.fillStyle = '#ffeb3b';
+    ctx.beginPath();
+    ctx.arc(64, 64, 50, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw border
+    ctx.strokeStyle = '#ff9800';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    
+    // Draw question mark
+    ctx.fillStyle = '#333';
+    ctx.font = 'bold 60px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('?', 64, 64);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMat = new THREE.SpriteMaterial({ map: texture });
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.name = 'thinkingIcon';
+    sprite.scale.set(1.5, 1.5, 1);
+    sprite.position.y = CONFIG.lobsterHeight + 2.5;
+    sprite.userData.bobOffset = Math.random() * Math.PI * 2;
+    mesh.add(sprite);
+    
+    // Mark agent as thinking
+    mesh.userData.isThinking = true;
+}
+
+function hideThinkingIcon(agentId) {
+    const agentData = agents.get(agentId);
+    if (!agentData || !agentData.mesh) return;
+    
+    const mesh = agentData.mesh;
+    const thinkingIcon = mesh.getObjectByName('thinkingIcon');
+    if (thinkingIcon) {
+        mesh.remove(thinkingIcon);
+    }
+    mesh.userData.isThinking = false;
+}
+
+function moveAgentToFountain(agentId) {
+    const agentData = agents.get(agentId);
+    if (!agentData || !agentData.mesh) return;
+    
+    const mesh = agentData.mesh;
+    
+    // Fountain is at (0, 0), move to nearby position (radius ~6-8, not inside fountain which is radius 5)
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 6 + Math.random() * 2; // 6-8 distance from center
+    
+    mesh.userData.targetX = Math.cos(angle) * radius;
+    mesh.userData.targetZ = Math.sin(angle) * radius;
+    mesh.userData.speed = 0.05; // Faster when coming to fountain
+    mesh.userData.isThinking = true;
+}
+
+function generateNewTargetForAgent(agentId) {
+    const agentData = agents.get(agentId);
+    if (!agentData || !agentData.mesh) return;
+    
+    const mesh = agentData.mesh;
+    if (mesh.userData.isThinking) return; // Don't generate new target while thinking
+    
+    generateNewTarget(mesh);
+}
+
 // ============ 动画循环 ============
 function animate() {
     requestAnimationFrame(animate);
@@ -673,6 +759,22 @@ function handleWSMessage(msg) {
         case 'AGENT_OFFLINE':
             console.log('👋 离线:', msg.agentId);
             removeAgentMesh(msg.agentId);
+            break;
+            
+        case 'AGENT_THINKING':
+            console.log('🤔 思考中:', msg.agentName);
+            showThinkingIcon(msg.agentId);
+            // Move agent towards fountain (central position, not inside fountain)
+            moveAgentToFountain(msg.agentId);
+            break;
+            
+        case 'AGENT_RESPONSE_COMPLETE':
+            console.log('✅ 回应完成:', msg.agentName);
+            hideThinkingIcon(msg.agentId);
+            // After 10 seconds, let agent move freely
+            setTimeout(() => {
+                generateNewTargetForAgent(msg.agentId);
+            }, 10000);
             break;
             
         case 'TASK_LIST':

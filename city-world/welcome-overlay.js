@@ -136,6 +136,54 @@ class WelcomeOverlay {
                     font-size: 14px;
                     opacity: 0.8;
                 }
+            
+                /* Mobile Responsive */
+                @media (max-width: 768px) {
+                    .welcome-content {
+                        max-width: 90vw !important;
+                        padding: 25px 20px !important;
+                        margin: 15px !important;
+                        border-radius: 15px !important;
+                    }
+                    .welcome-content h2 {
+                        font-size: 20px !important;
+                        margin-bottom: 15px !important;
+                    }
+                    .welcome-content p {
+                        font-size: 14px !important;
+                        line-height: 1.5 !important;
+                        margin-bottom: 12px !important;
+                    }
+                    .feature-list {
+                        flex-direction: column !important;
+                        gap: 10px !important;
+                    }
+                    .feature-item {
+                        font-size: 13px !important;
+                        padding: 10px 15px !important;
+                    }
+                    .start-button {
+                        font-size: 16px !important;
+                        padding: 12px 30px !important;
+                        margin-top: 15px !important;
+                    }
+                    .agent-city-icon {
+                        font-size: 50px !important;
+                    }
+                    .stats-preview {
+                        flex-direction: column !important;
+                        gap: 15px !important;
+                    }
+                }
+                @media (max-width: 400px) {
+                    .welcome-content {
+                        padding: 20px 15px !important;
+                    }
+                    .welcome-content h2 {
+                        font-size: 18px !important;
+                    }
+                }
+
             </style>
             
             <div class="welcome-content">

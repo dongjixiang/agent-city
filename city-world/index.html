@@ -228,8 +228,26 @@
     .draggable-panel { cursor: move; }
     .draggable-panel h3 { cursor: move; }
     @media (max-width: 768px) {
-      #dashboard-panel, #agent-detail { width: calc(100vw - 40px) !important; right: 20px !important; left: 20px !important; }
-      #dashboard-panel { bottom: 20px; }
+      /* Panels */
+      #dashboard-panel, #agent-detail { width: calc(100vw - 40px) !important; right: auto !important; left: 20px !important; max-height: 60vh !important; overflow-y: auto !important; }
+      #dashboard-panel { bottom: 20px; top: auto !important; }
+      #agent-detail { top: 80px; bottom: auto; }
+      
+      /* Welcome overlay already has its own mobile styles */
+      
+      /* Controls hint */
+      #controls-hint { font-size: 10px !important; padding: 6px 10px !important; bottom: 10px !important; right: 10px !important; }
+      
+      /* Status bar */
+      #status-bar { font-size: 10px !important; padding: 5px 10px !important; }
+      
+      /* Toast notifications */
+      #toast-container { top: 10px !important; right: 10px !important; left: 10px !important; }
+      .toast { max-width: 100% !important; width: 100% !important; }
+    }
+    @media (max-width: 480px) {
+      #dashboard-panel, #agent-detail { left: 10px !important; width: calc(100vw - 20px) !important; }
+      #controls-hint { display: none; }
     }
   </style>
 

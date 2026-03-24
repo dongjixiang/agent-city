@@ -56,6 +56,9 @@
     addBushes(scene);
     addFountain(scene);
     addDetailedBuildings(scene);
+    setupBuildingHover(scene);
+    setupLOD(scene);
+    initBirds(scene);
     console.log('[Enhanced v8] City complete!');
   }
   
@@ -687,6 +690,9 @@ function initBirds(scene) {
     
     console.log('[Enhanced v8] ' + MAX_BIRDS + ' birds flying');
 }
+
+// Expose for external animation loop
+window.updateBirds = updateBirds;
 
 function updateBirds(time) {
     birds.forEach(function(bird) {

@@ -565,6 +565,9 @@ function animate() {
         }
     });
     
+    // Update flying birds
+    if (typeof updateBirds === "function") updateBirds(Date.now());
+    
     renderer.render(scene, camera);
 }
 

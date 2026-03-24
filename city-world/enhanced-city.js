@@ -573,6 +573,212 @@ function addDetailedBuildings(scene) {
   
   // ============ DAY/NIGHT CYCLE ============
   
+// ============ Flying Birds System ============
+var birds = [];
+var MAX_BIRDS = 12;
+var landingSpots = [];
+
+function createBird() {
+    var group = new THREE.Group();
+    
+    // Body - small brown cone
+    var bodyGeo = new THREE.ConeGeometry(0.08, 0.2, 5);
+    var bodyMat = new THREE.MeshLambertMaterial({ color: 0x8B7355 });
+    var body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.rotation.x = Math.PI / 2;
+    group.add(body);
+    
+    // Head - small sphere
+    var headGeo = new THREE.SphereGeometry(0.06, 6, 6);
+    var headMat = new THREE.MeshLambertMaterial({ color: 0x8B7355 });
+    var head = new THREE.Mesh(headGeo, headMat);
+    head.position.z = 0.12;
+    group.add(head);
+    
+    // Beak - tiny orange cone
+    var beakGeo = new THREE.ConeGeometry(0.02, 0.06, 4);
+    var beakMat = new THREE.MeshBasicMaterial({ color: 0xFFA500 });
+    var beak = new THREE.Mesh(beakGeo, beakMat);
+    beak.rotation.x = -Math.PI / 2;
+    beak.position.z = 0.2;
+    group.add(beak);
+    
+    // Wings
+    var wingGeo = new THREE.PlaneGeometry(0.2, 0.1);
+    var wingMat = new THREE.MeshLambertMaterial({ color: 0x6B5344, side: THREE.DoubleSide });
+    
+    var leftWing = new THREE.Mesh(wingGeo, wingMat);
+    leftWing.position.set(-0.1, 0.02, 0);
+    leftWing.rotation.y = Math.PI / 8;
+    leftWing.name = 'leftWing';
+    group.add(leftWing);
+    
+    var rightWing = new THREE.Mesh(wingGeo, wingMat);
+    rightWing.position.set(0.1, 0.02, 0);
+    rightWing.rotation.y = -Math.PI / 8;
+    rightWing.name = 'rightWing';
+    group.add(rightWing);
+    
+    // Tail
+    var tailGeo = new THREE.ConeGeometry(0.04, 0.1, 4);
+    var tail = new THREE.Mesh(tailGeo, bodyMat);
+    tail.rotation.x = -Math.PI / 2;
+    tail.position.z = -0.15;
+    group.add(tail);
+    
+    // Random position in sky
+    var angle = Math.random() * Math.PI * 2;
+    var radius = 15 + Math.random() * 30;
+    group.position.set(
+        Math.cos(angle) * radius,
+        12 + Math.random() * 8,
+        Math.sin(angle) * radius
+    );
+    
+    group.scale.set(0.8, 0.8, 0.8);
+    
+    group.userData = {
+        state: 'flying',
+        targetPos: null,
+        angle: angle,
+        radius: radius,
+        height: group.position.y,
+        speed: 0.3 + Math.random() * 0.4,
+        wingPhase: Math.random() * Math.PI * 2,
+        stateTimer: 0,
+        flyDirection: 1,
+        verticalOffset: 0
+    };
+    
+    return group;
+}
+
+function initBirds(scene) {
+    // Building positions for landing
+    var buildingPositions = [
+        { x: -25, y: 6, z: -25 },
+        { x: 25, y: 7.5, z: -25 },
+        { x: -25, y: 4, z: 25 },
+        { x: 25, y: 5, z: 25 },
+        { x: 0, y: 3, z: -35 },
+        { x: -35, y: 7, z: 0 },
+        { x: 35, y: 5, z: 0 },
+        { x: 0, y: 2.5, z: 35 },
+    ];
+    
+    // Add tree tops
+    for (var i = 0; i < 8; i++) {
+        var a = (i / 8) * Math.PI * 2;
+        var r = 42;
+        buildingPositions.push({
+            x: Math.cos(a) * r,
+            y: 3 + Math.random() * 2,
+            z: Math.sin(a) * r
+        });
+    }
+    
+    landingSpots = buildingPositions;
+    
+    for (var i = 0; i < MAX_BIRDS; i++) {
+        var bird = createBird();
+        birds.push(bird);
+        scene.add(bird);
+    }
+    
+    console.log('[Enhanced v8] ' + MAX_BIRDS + ' birds flying');
+}
+
+function updateBirds(time) {
+    birds.forEach(function(bird) {
+        var data = bird.userData;
+        
+        // Wing flapping
+        data.wingPhase += 0.25;
+        var wingAngle = Math.sin(data.wingPhase) * 0.6;
+        bird.children.forEach(function(child) {
+            if (child.name === 'leftWing') child.rotation.z = wingAngle;
+            else if (child.name === 'rightWing') child.rotation.z = -wingAngle;
+        });
+        
+        switch (data.state) {
+            case 'flying':
+                data.angle += data.speed * 0.008 * data.flyDirection;
+                data.verticalOffset += 0.02;
+                
+                bird.position.x = Math.cos(data.angle) * data.radius;
+                bird.position.z = Math.sin(data.angle) * data.radius;
+                bird.position.y = data.height + Math.sin(data.verticalOffset) * 1.5;
+                bird.rotation.y = data.angle + Math.PI / 2;
+                
+                data.stateTimer++;
+                if (data.stateTimer > 200 + Math.random() * 300) {
+                    if (Math.random() < 0.3 && landingSpots.length > 0) {
+                        data.state = 'landing';
+                        data.targetPos = landingSpots[Math.floor(Math.random() * landingSpots.length)];
+                        data.stateTimer = 0;
+                    } else if (Math.random() < 0.5) {
+                        data.flyDirection = data.flyDirection > 0 ? -1 : 1;
+                        data.stateTimer = 0;
+                    } else {
+                        data.height += (Math.random() - 0.5) * 3;
+                        data.height = Math.max(8, Math.min(20, data.height));
+                        data.stateTimer = 0;
+                    }
+                }
+                break;
+                
+            case 'landing':
+                if (data.targetPos) {
+                    var dx = data.targetPos.x - bird.position.x;
+                    var dy = data.targetPos.y - bird.position.y;
+                    var dz = data.targetPos.z - bird.position.z;
+                    var dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                    
+                    if (dist < 0.3) {
+                        data.state = 'landed';
+                        bird.position.set(data.targetPos.x, data.targetPos.y + 0.15, data.targetPos.z);
+                        data.stateTimer = 0;
+                    } else {
+                        bird.position.x += dx * 0.03;
+                        bird.position.y += dy * 0.03;
+                        bird.position.z += dz * 0.03;
+                        bird.rotation.y = Math.atan2(dx, dz);
+                        data.wingPhase += 0.15;
+                    }
+                }
+                break;
+                
+            case 'landed':
+                data.stateTimer++;
+                bird.children.forEach(function(child) {
+                    if (child.name === 'leftWing' || child.name === 'rightWing') {
+                        child.rotation.z = Math.sin(time * 0.002) * 0.1;
+                    }
+                });
+                
+                if (data.stateTimer > 150 + Math.random() * 200) {
+                    if (Math.random() < 0.6) {
+                        data.state = 'takingOff';
+                        data.stateTimer = 0;
+                    } else {
+                        data.stateTimer = 0;
+                    }
+                }
+                break;
+                
+            case 'takingOff':
+                bird.position.y += 0.05;
+                data.wingPhase += 0.3;
+                
+                if (bird.position.y > data.height + 3) {
+                    data.state = 'flying';
+                    data.stateTimer = 0;
+                }
+                break;
+        }
+    });
+}
+
   function setupDayNightCycle(scene) {
     // Find existing lights or create new ones
     scene.traverse(function(obj) {

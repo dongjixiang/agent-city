@@ -50,7 +50,20 @@
     #agent-detail .stat-item .label { font-size: 11px; color: #888; }
     #overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 150; display: none; }
     #overlay.show { display: block; }
-    #loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 18px; z-index: 300; }
+    #loading { 
+      position: fixed; inset: 0;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 9999; transition: opacity 0.8s;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    #loading .city-icon { font-size: 64px; animation: bounce 1s ease-in-out infinite; }
+    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+    #loading .loading-text { font-size: 28px; color: #fff; margin: 20px 0; text-shadow: 0 0 20px rgba(78, 205, 196, 0.5); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    #loading .loading-bar { width: 200px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+    #loading .loading-progress { height: 100%; background: linear-gradient(90deg, #4ecdc4, #44a08d); border-radius: 2px; transition: width 0.3s; }
+    #loading .loading-hint { margin-top: 15px; font-size: 14px; color: #888; }
   </style>
 </head>
 <body>
@@ -88,7 +101,12 @@
     </div>
   </div>
   
-  <div id="loading">🏙️ 正在加载智体城...</div>
+  <div id="loading">
+    <div class="city-icon">🏙️</div>
+    <div class="loading-text">智体城 3D 世界</div>
+    <div class="loading-bar"><div class="loading-progress" id="loading-progress"></div></div>
+    <div class="loading-hint">正在构建世界...</div>
+  </div>
 
   <script>
     // Toggle info panel function

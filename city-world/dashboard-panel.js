@@ -200,7 +200,7 @@ window.DashboardPanel = DashboardPanel;
 
 // Auto-create instance when script loads
 setTimeout(function() {
-  if (!window.dashboard) {
-    window.dashboard = new DashboardPanel();
+  if (!window.dashboardPanel) {
+    window.dashboardPanel = new DashboardPanel();
   }
 }, 1500);

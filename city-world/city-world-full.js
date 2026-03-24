@@ -1,5 +1,5 @@
 /**
- * 智体城 3D 世界 - 完整版（修复版）
+ * 智体城 3D 世界 - 完整版
  * WebSocket连接 + 3D场景渲染
  */
 
@@ -17,13 +17,6 @@ let mouse = null; // 鼠标位置
 // WebSocket 连接
 let ws = null;
 let wsConnected = false;
-
-// 智能体思考状态管理
-const thinkingAgents = new Map(); // agentId -> { thinkingSprite, responseTimer, originalTarget }
-
-// 喷泉位置（不要站在喷泉里面，设置为喷泉边缘）
-const FOUNTAIN_POS = { x: 0, z: 0 };
-const FOUNTAIN_RADIUS = 5; // 喷泉半径，智能体移动到这个距离之外
 
 // 配置
 const CONFIG = {
@@ -59,7 +52,9 @@ function init() {
         camera.lookAt(0, 0, 0);
 
         // 创建渲染器
-        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer = new THREE.WebGLRenderer({
+        antialias: true
+    });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.shadowMap.enabled = true;
@@ -88,10 +83,6 @@ function init() {
                 update: function() {}
             };
         }
-
-        // 射线检测（用于点击）
-        raycaster = new THREE.Raycaster();
-        mouse = new THREE.Vector2();
         
         // 创建场景元素
         createLights();
@@ -104,6 +95,10 @@ function init() {
         console.error('❌ 初始化失败:', err);
     }
 
+    // 射线检测（用于点击）
+    raycaster = new THREE.Raycaster();
+    mouse = new THREE.Vector2();
+    
     // 事件监听
     window.addEventListener('resize', onWindowResize);
 
@@ -113,22 +108,30 @@ function init() {
     // 开始动画循环
     animate();
 
+    // 更新加载进度
+    function setLoadingProgress(progress) {
+        const el = document.getElementById('loading-progress');
+        if (el) el.style.width = progress + '%';
+    }
+    
     // 隐藏加载提示
     setTimeout(() => {
+        setLoadingProgress(100);
         const loadingEl = document.getElementById('loading');
         if (loadingEl) {
-            loadingEl.style.display = 'none';
+            loadingEl.classList.add('hidden');
+            setTimeout(() => { loadingEl.style.display = 'none'; }, 800);
             console.log('✅ 已隐藏加载提示');
         }
     }, 1000);
 
     console.log('🏙️ 智体城 3D 世界已启动');
     
-    // 初始化数据面板（由 dashboard-panel.js 自己管理，但需要设置全局引用供 updateAgentList 使用）
+    // 初始化数据面板
     setTimeout(() => {
-        if (window.dashboardPanel) {
-            dashboard = window.dashboardPanel;
-            console.log('✅ 数据面板引用已设置');
+        if (window.DashboardPanel) {
+            dashboard = new DashboardPanel();
+            console.log('✅ 数据面板已初始化');
         }
         
         // 初始化任务可视化系统
@@ -209,7 +212,7 @@ function createCity() {
         const building = createBuilding(b.w, b.h, b.d, b.color);
         building.position.set(b.x, b.h / 2, b.z);
         building.userData = { type: 'building', name: b.name };
-        //scene.add(building);
+        scene.add(building);
         
         // 添加顶部灯光
         const lightGeom = new THREE.SphereGeometry(0.3, 8, 8);
@@ -259,200 +262,8 @@ function createBuilding(width, height, depth, color) {
     return building;
 }
 
-// ============ 中央喷泉 ============
-function createFountain() {
-    const group = new THREE.Group();
-    
-    // 喷泉底座
-    const baseGeom = new THREE.CylinderGeometry(4, 5, 1, 32);
-    const baseMat = new THREE.MeshStandardMaterial({ 
-        color: 0x5588aa, 
-        roughness: 0.3, 
-        metalness: 0.7 
-    });
-    const base = new THREE.Mesh(baseGeom, baseMat);
-    base.position.y = 0.5;
-    base.castShadow = true;
-    base.receiveShadow = true;
-    group.add(base);
-    
-    // 喷泉中心柱
-    const pillarGeom = new THREE.CylinderGeometry(0.5, 0.8, 4, 16);
-    const pillarMat = new THREE.MeshStandardMaterial({ 
-        color: 0x88aacc, 
-        roughness: 0.3, 
-        metalness: 0.6 
-    });
-    const pillar = new THREE.Mesh(pillarGeom, pillarMat);
-    pillar.position.y = 3;
-    pillar.castShadow = true;
-    group.add(pillar);
-    
-    // 喷泉顶部
-    const topGeom = new THREE.SphereGeometry(0.8, 16, 16);
-    const topMat = new THREE.MeshStandardMaterial({ 
-        color: 0xaaddff, 
-        roughness: 0.2, 
-        metalness: 0.8,
-        emissive: 0x336688,
-        emissiveIntensity: 0.3
-    });
-    const top = new THREE.Mesh(topGeom, topMat);
-    top.position.y = 5;
-    group.add(top);
-    
-    // 水波效果（使用多个圆环）
-    for (let i = 0; i < 3; i++) {
-        const ringGeom = new THREE.TorusGeometry(1.5 + i * 1.2, 0.1, 8, 32);
-        const ringMat = new THREE.MeshBasicMaterial({ 
-            color: 0x4ecdc4, 
-            transparent: true, 
-            opacity: 0.6 - i * 0.15 
-        });
-        const ring = new THREE.Mesh(ringGeom, ringMat);
-        ring.rotation.x = Math.PI / 2;
-        ring.position.y = 0.2 + i * 0.15;
-        group.add(ring);
-    }
-    
-    // 喷泉标签
-    const labelCanvas = document.createElement('canvas');
-    labelCanvas.width = 256;
-    labelCanvas.height = 48;
-    const labelCtx = labelCanvas.getContext('2d');
-    labelCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    labelCtx.roundRect(0, 0, 256, 48, 8);
-    labelCtx.fill();
-    labelCtx.fillStyle = '#4ecdc4';
-    labelCtx.font = 'bold 24px Arial';
-    labelCtx.textAlign = 'center';
-    labelCtx.textBaseline = 'middle';
-    labelCtx.fillText('⛲ 中央喷泉', 128, 24);
-    
-    const labelTexture = new THREE.CanvasTexture(labelCanvas);
-    const labelMat = new THREE.SpriteMaterial({ map: labelTexture });
-    const labelSprite = new THREE.Sprite(labelMat);
-    labelSprite.scale.set(4, 0.8, 1);
-    labelSprite.position.set(0, 7.5, 0);
-    group.add(labelSprite);
-    
-    group.position.set(FOUNTAIN_POS.x, 0, FOUNTAIN_POS.z);
-    scene.add(group);
-    console.log('✅ 中央喷泉已创建');
-}
-
-// ============ 思考图标 ============
-function createThinkingIcon() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    
-    // 透明背景
-    ctx.clearRect(0, 0, 128, 128);
-    
-    // 绘制气泡背景
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    ctx.beginPath();
-    ctx.arc(64, 64, 55, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 绘制思考符号
-    ctx.fillStyle = '#6366f1';
-    ctx.font = 'bold 48px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🤔', 64, 64);
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    const spriteMat = new THREE.SpriteMaterial({ 
-        map: texture,
-        transparent: true,
-        depthTest: false
-    });
-    const sprite = new THREE.Sprite(spriteMat);
-    sprite.scale.set(2, 2, 1);
-    
-    return sprite;
-}
-
-// 设置智能体思考状态
-function setAgentThinking(agentId, isThinking) {
-    const agentData = agents.get(agentId);
-    if (!agentData) return;
-    
-    const mesh = agentData.mesh;
-    
-    if (isThinking) {
-        // 创建思考图标
-        const thinkingSprite = createThinkingIcon();
-        thinkingSprite.position.y = CONFIG.lobsterHeight + 2.5;
-        thinkingSprite.name = 'thinkingIcon';
-        mesh.add(thinkingSprite);
-        
-        // 保存原始目标位置
-        const originalTarget = {
-            x: mesh.userData.targetX,
-            z: mesh.userData.targetZ
-        };
-        
-        // 移动到喷泉附近（喷泉边缘，不要在里面）
-        const angle = Math.random() * Math.PI * 2;
-        const radius = FOUNTAIN_RADIUS + 1 + Math.random() * 2;
-        mesh.userData.targetX = FOUNTAIN_POS.x + Math.cos(angle) * radius;
-        mesh.userData.targetZ = FOUNTAIN_POS.z + Math.sin(angle) * radius;
-        mesh.userData.isThinking = true;
-        mesh.userData.originalTarget = originalTarget;
-        
-        // 思考图标动画
-        thinkingSprite.userData.bobOffset = Math.random() * Math.PI * 2;
-        
-        thinkingAgents.set(agentId, {
-            thinkingSprite,
-            responseTimer: null,
-            originalTarget
-        });
-        
-        console.log(`🤔 智能体 ${agentId} 开始思考，移动到喷泉附近`);
-    } else {
-        // 移除思考图标
-        const icon = mesh.getObjectByName('thinkingIcon');
-        if (icon) {
-            mesh.remove(icon);
-        }
-        
-        // 保存思考数据供定时器使用
-        const thinkingData = thinkingAgents.get(agentId);
-        
-        // 10秒后恢复自由活动
-        if (thinkingData) {
-            if (thinkingData.responseTimer) {
-                clearTimeout(thinkingData.responseTimer);
-            }
-            
-            thinkingData.responseTimer = setTimeout(() => {
-                const agentDataInner = agents.get(agentId);
-                if (agentDataInner && agentDataInner.mesh.userData.isThinking) {
-                    // 生成新的随机目标位置（围绕喷泉附近）
-                    const angle = Math.random() * Math.PI * 2;
-                    const radius = FOUNTAIN_RADIUS + 3 + Math.random() * 10;
-                    agentDataInner.mesh.userData.targetX = FOUNTAIN_POS.x + Math.cos(angle) * radius;
-                    agentDataInner.mesh.userData.targetZ = FOUNTAIN_POS.z + Math.sin(angle) * radius;
-                    agentDataInner.mesh.userData.isThinking = false;
-                    console.log(`✅ 智能体 ${agentId} 思考完成，恢复自由活动`);
-                }
-                
-                thinkingAgents.delete(agentId);
-            }, 10000); // 10秒
-        }
-    }
-}
-
 // ============ 装饰物 ============
 function createDecorations() {
-    // 创建中央喷泉
-    createFountain();
-    
     // 树木
     const treePositions = [
         [-35, -10], [-35, 10], [35, -10], [35, 10],
@@ -709,13 +520,6 @@ function addAgentMesh(agent) {
 function removeAgentMesh(agentId) {
     const agent = agents.get(agentId);
     if (agent) {
-        // 清理思考状态
-        const thinkingData = thinkingAgents.get(agentId);
-        if (thinkingData && thinkingData.responseTimer) {
-            clearTimeout(thinkingData.responseTimer);
-        }
-        thinkingAgents.delete(agentId);
-        
         scene.remove(agent.mesh);
         agents.delete(agentId);
     }
@@ -737,19 +541,8 @@ function animate() {
         // 上下浮动
         mesh.position.y = Math.sin(time * 0.002 + id.charCodeAt(0)) * 0.1;
         
-        // 缓慢旋转（非思考状态时）
-        if (!mesh.userData.isThinking) {
-            mesh.rotation.y += 0.002;
-        }
-        
-        // 思考图标动画
-        const thinkingIcon = mesh.getObjectByName('thinkingIcon');
-        if (thinkingIcon) {
-            // 思考图标上下浮动
-            thinkingIcon.position.y = CONFIG.lobsterHeight + 2.5 + Math.sin(time * 0.005 + (thinkingIcon.userData.bobOffset || 0)) * 0.2;
-            // 思考图标轻微旋转
-            thinkingIcon.rotation.z = Math.sin(time * 0.003) * 0.1;
-        }
+        // 缓慢旋转
+        mesh.rotation.y += 0.002;
         
         // 移动动画（向目标位置移动）
         if (mesh.userData.targetX !== undefined && mesh.userData.targetZ !== undefined) {
@@ -766,13 +559,8 @@ function animate() {
                 // 面向移动方向
                 mesh.rotation.y = Math.atan2(dx, dz);
             } else {
-                // 到达目标
-                if (mesh.userData.isThinking) {
-                    // 思考状态时停在喷泉附近，不生成新目标
-                } else {
-                    // 非思考状态时生成新目标
-                    generateNewTarget(mesh);
-                }
+                // 到达目标，生成新目标
+                generateNewTarget(mesh);
             }
         }
     });
@@ -912,16 +700,6 @@ function handleWSMessage(msg) {
             messageCount++;
             updateUI();
             break;
-            
-        case 'AGENT_THINKING':
-            console.log('🤔 智能体开始思考:', msg.agentId);
-            setAgentThinking(msg.agentId, true);
-            break;
-            
-        case 'AGENT_RESPONSE_COMPLETE':
-            console.log('✅ 智能体回复完成:', msg.agentId);
-            setAgentThinking(msg.agentId, false);
-            break;
     }
 }
 
@@ -943,16 +721,8 @@ function updateAgentList(agentList) {
     updateUI();
     
     // 更新数据面板
-    console.log('[updateAgentList] window.dashboardPanel:', !!window.dashboardPanel, 'agentList length:', agentList?.length);
-    if (window.dashboardPanel) {
-        console.log('[updateAgentList] Calling dashboardPanel.update()');
-        window.dashboardPanel.update(agentList, taskCount, messageCount);
-    } else {
-        // Dashboard还没创建，保存数据供后续使用
-        console.log('[updateAgentList] Dashboard not ready, saving data to window');
-        window.agentList = agentList;
-        window.taskCount = taskCount;
-        window.messageCount = messageCount;
+    if (dashboard) {
+        dashboard.update(agentList, taskCount, messageCount);
     }
     
     // 更新侧边栏

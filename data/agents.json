@@ -17890,5 +17890,28 @@
       "tasksCompleted": 0,
       "reputation": 0
     }
+  },
+  "eab37435-1e66-41b8-b680-50f436bca34b": {
+    "agentId": "eab37435-1e66-41b8-b680-50f436bca34b",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774312058972,
+    "updatedAt": 1774312058972,
+    "lastOnlineAt": 1774312058972,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    }
   }
 }

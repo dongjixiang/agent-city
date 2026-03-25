@@ -330,10 +330,16 @@ class WorldWindow {
     if (!message) return;
     
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      // Generate a unique sender ID for this session
+      if (!this.senderId) {
+        this.senderId = 'user-' + Math.random().toString(36).substr(2, 9);
+      }
+      
       if (this.targetAgent) {
         // Send to specific agent
         this.ws.send(JSON.stringify({
           type: 'MESSAGE',
+          from: this.senderId,  // Include sender ID so AI can reply
           to: this.targetAgent,
           content: message,
           contentType: 'text'
@@ -343,6 +349,7 @@ class WorldWindow {
         // Broadcast to all
         this.ws.send(JSON.stringify({
           type: 'BROADCAST',
+          from: this.senderId,  // Include sender ID so AI can reply
           content: message,
           contentType: 'text'
         }));

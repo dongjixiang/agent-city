@@ -250,6 +250,16 @@ class WorldWindow {
       if (msg.from && window.showAgentMessage) {
         window.showAgentMessage(msg.from, msg.content || msg.message || '');
       }
+    } else if (msg.type === 'AGENT_RESPONSE_COMPLETE') {
+      // AI agent response - show in world window
+      this.addReply(msg.agentName || '智能体', msg.content || msg.message || '');
+      // Show above agent head
+      if (msg.agentId && window.showAgentMessage) {
+        window.showAgentMessage(msg.agentId, msg.content || msg.message || '');
+      }
+    } else if (msg.type === 'AGENT_THINKING') {
+      // AI is thinking - show event
+      this.addEvent(msg.agentName + ' 正在思考...', '思考');
     } else if (msg.type === 'AGENT_ONLINE') {
       this.addEvent(msg.name + ' 上线了', '上线');
       // Refresh agent list

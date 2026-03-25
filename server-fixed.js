@@ -115,6 +115,29 @@ function handleBroadcast(ws, msg) {
   
   console.log(`📢 广播消息 [${fromName}]: ${content}`);
 
+  // 如果是AI智能体发送的广播，也触发思考和回复完成事件
+  if (from && (from.includes('openclaw') || from.includes('assistant'))) {
+    // 先广播思考事件（移动到喷泉）
+    broadcast({
+      type: 'AGENT_THINKING',
+      agentId: from,
+      agentName: fromName,
+      from: from,
+      timestamp: Date.now()
+    }, from);
+    
+    // 短暂延迟后广播回复完成
+    setTimeout(() => {
+      broadcast({
+        type: 'AGENT_RESPONSE_COMPLETE',
+        agentId: from,
+        agentName: fromName,
+        to: null,
+        timestamp: Date.now()
+      }, from);
+    }, 500);
+  }
+
   broadcast({
     type: 'BROADCAST',
     from: from,
@@ -182,13 +205,27 @@ function handleMessageP2P(ws, msg) {
     const targetProfile = AgentStore.getAgent(from);
     const fromNameActual = targetProfile?.name || from;
     
+    // 先广播思考事件（移动到喷泉），再广播回复完成
     broadcast({
-      type: 'AGENT_RESPONSE_COMPLETE',
+      type: 'AGENT_THINKING',
       agentId: from,
       agentName: fromNameActual,
-      to: to,
+      from: from,
       timestamp: Date.now()
     }, null);
+    
+    // 短暂延迟后广播回复完成（携带消息内容）
+    setTimeout(() => {
+      broadcast({
+        type: 'AGENT_RESPONSE_COMPLETE',
+        agentId: from,
+        agentName: fromNameActual,
+        to: to,
+        content: content,  // 携带消息内容
+        timestamp: Date.now()
+      }, null);
+    }, 500);
+    
     console.log(`✅ ${fromNameActual} 回复已发送`);
   }
 }

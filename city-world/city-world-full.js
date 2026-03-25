@@ -769,8 +769,12 @@ function handleWSMessage(msg) {
             break;
             
         case 'AGENT_RESPONSE_COMPLETE':
-            console.log('✅ 回应完成:', msg.agentName);
+            console.log('✅ 回应完成:', msg.agentName, '- 内容:', msg.content);
             hideThinkingIcon(msg.agentId);
+            // Show message above agent's head
+            if (msg.content && window.showAgentMessage) {
+                window.showAgentMessage(msg.agentId, msg.content);
+            }
             // After 10 seconds, let agent move freely
             setTimeout(() => {
                 generateNewTargetForAgent(msg.agentId);

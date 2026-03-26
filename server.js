@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Agent City - Message Service MVP
  */
 
@@ -142,14 +142,14 @@ function handleMessage(ws, msg, setAgentId) {
  * Handle agent registration
  */
 function handleRegister(ws, msg, setAgentId) {
-  const { agentId, name, tags, description } = msg;
+  const { agentId, name, tags, description, visual } = msg;
 
   const id = agentId || uuidv4();
 
   // Persist agent profile
   const profile = AgentStore.upsertAgent(id, {
     name: name || `Agent#${id.slice(0, 6)}`,
-    tags: tags || [],
+    tags: tags || [], visual: visual || { color: '#FF6B6B', size: 1.0, emoji: '🦐', modelType: 'crayfish' },
     description: description || ''
   });
 
@@ -168,8 +168,8 @@ function handleRegister(ws, msg, setAgentId) {
     agentId: id,
     profile: {
       name: profile.name,
-      tags: profile.tags,
-      description: profile.description,
+      tags: profile.tags, visual: profile.visual,
+      description: profile.description, visual: profile.visual,
       createdAt: profile.createdAt,
       stats: profile.stats
     },
@@ -219,6 +219,15 @@ function handleMessageP2P(ws, msg) {
   // Send to target
   const targetAgent = agents.get(to);
   targetAgent.ws.send(JSON.stringify(message));
+
+  // Broadcast AGENT_THINKING to show thinking icon in 3D world
+  const targetProfile = AgentStore.getAgent(to);
+  broadcast({
+    type: 'AGENT_THINKING',
+    agentId: to,
+    agentName: targetProfile ? targetProfile.name : to,
+    timestamp: Date.now()
+  });
 
   // Send confirmation
   ws.send(JSON.stringify({

@@ -337,19 +337,26 @@ function createLamp() {
 function createLobsterMesh(agent) {
     const group = new THREE.Group();
     
-    // 根据标签决定颜色
+    // 根据 visual 信息设置颜色（优先），否则根据标签
     let bodyColor = 0xff6b6b; // 默认红色
     let clawColor = 0xff4444;
     
-    if (agent.tags && agent.tags.length > 0) {
+    // 使用 visual.color 如果可用
+    if (agent.visual && agent.visual.color) {
+        const colorHex = agent.visual.color.replace('#', '');
+        bodyColor = parseInt(colorHex, 16);
+        clawColor = Math.max(0, bodyColor - 0x0000ff); // 略微调暗
+    }
+    // 根据标签设置颜色（后备）
+    else if (agent.tags && agent.tags.length > 0) {
         // AI助手 - 紫色
         if (agent.tags.includes('ai') || agent.tags.includes('assistant')) {
-            bodyColor = 0x6366f1; // 紫色
+            bodyColor = 0x6366f1;
             clawColor = 0x8b5cf6;
         }
         // 数据分析师 - 橙色
         else if (agent.tags.includes('analyst') || agent.tags.includes('data')) {
-            bodyColor = 0xf97316; // 橙色
+            bodyColor = 0xf97316;
             clawColor = 0xfb923c;
         }
         // 任务协调员 - 蓝色
@@ -645,8 +652,10 @@ function animate() {
                 // 面向移动方向
                 mesh.rotation.y = Math.atan2(dx, dz);
             } else {
-                // 到达目标，生成新目标
-                generateNewTarget(mesh);
+                // 到达目标，如果不在思考状态则生成新目标
+                if (!mesh.userData.isThinking) {
+                    generateNewTarget(mesh);
+                }
             }
         }
     });
@@ -777,6 +786,11 @@ function handleWSMessage(msg) {
             }
             // After 10 seconds, let agent move freely
             setTimeout(() => {
+                // Clear isThinking flag to allow movement
+                const agentData = agents.get(msg.agentId);
+                if (agentData && agentData.mesh) {
+                    agentData.mesh.userData.isThinking = false;
+                }
                 generateNewTargetForAgent(msg.agentId);
             }, 10000);
             break;
@@ -853,7 +867,7 @@ function updateAgentList(agentList) {
     if (listEl && agentList && agentList.length > 0) {
         listEl.innerHTML = agentList.map(agent => `
             <div class="agent-item">
-                <div class="name">🦐 ${agent.name || '未知'}</div>
+                <div class="name">${agent.visual?.emoji || '🦐'} ${agent.name || '未知'}</div>
                 <div class="status">
                     <span class="status-dot online"></span>
                     ${agent.status || '在线'}

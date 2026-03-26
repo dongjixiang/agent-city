@@ -333,6 +333,217 @@ function createLamp() {
     return group;
 }
 
+// ============ 智能体模型工厂 ============
+function createAgentMesh(agent) {
+    // 根据 modelType 决定创建哪种模型
+    if (agent.visual && agent.visual.modelType === 'human') {
+        return createHumanMesh(agent);
+    }
+    return createLobsterMesh(agent);
+}
+
+// ============ 人形模型 ============
+function createHumanMesh(agent) {
+    const group = new THREE.Group();
+    
+    // 颜色设置
+    let skinColor = 0xffdbac; // 默认肤色
+    let clothColor = 0x3366cc; // 默认衣服颜色
+    let hairColor = 0x2c1810; // 默认头发颜色
+    
+    // 使用 visual.color 如果可用
+    if (agent.visual && agent.visual.color) {
+        const colorHex = agent.visual.color.replace('#', '');
+        clothColor = parseInt(colorHex, 16);
+    }
+    // 根据标签设置衣服颜色
+    else if (agent.tags && agent.tags.length > 0) {
+        if (agent.tags.includes('ai') || agent.tags.includes('assistant')) {
+            clothColor = 0x6366f1; // 紫色
+        } else if (agent.tags.includes('analyst')) {
+            clothColor = 0xf97316; // 橙色
+        } else if (agent.tags.includes('coordinator')) {
+            clothColor = 0x3b82f6; // 蓝色
+        } else if (agent.tags.includes('social')) {
+            clothColor = 0xec4899; // 粉色
+        } else if (agent.tags.includes('creative')) {
+            clothColor = 0xeab308; // 黄色
+        }
+    }
+    
+    // 缩放比例
+    const scale = (agent.visual && agent.visual.size) || 1.0;
+    
+    // 材质
+    const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.7, metalness: 0.1 });
+    const clothMat = new THREE.MeshStandardMaterial({ color: clothColor, roughness: 0.6, metalness: 0.2 });
+    const hairMat = new THREE.MeshStandardMaterial({ color: hairColor, roughness: 0.8, metalness: 0.0 });
+    
+    // 头 - 椭球形
+    const headGeom = new THREE.SphereGeometry(0.35, 16, 16);
+    const head = new THREE.Mesh(headGeom, skinMat);
+    head.position.y = 1.6 * scale;
+    head.scale.set(1, 1.1, 1); // 稍微拉长
+    head.castShadow = true;
+    group.add(head);
+    
+    // 头发 - 头顶
+    const hairGeom = new THREE.SphereGeometry(0.37, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+    const hair = new THREE.Mesh(hairGeom, hairMat);
+    hair.position.y = 1.75 * scale;
+    hair.castShadow = true;
+    group.add(hair);
+    
+    // 眼睛
+    const eyeGeom = new THREE.SphereGeometry(0.05, 8, 8);
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+    const leftEye = new THREE.Mesh(eyeGeom, eyeMat);
+    leftEye.position.set(-0.12, 1.65 * scale, 0.28);
+    group.add(leftEye);
+    const rightEye = new THREE.Mesh(eyeGeom, eyeMat);
+    rightEye.position.set(0.12, 1.65 * scale, 0.28);
+    group.add(rightEye);
+    
+    // 嘴巴 - 微笑
+    const mouthGeom = new THREE.TorusGeometry(0.08, 0.02, 8, 12, Math.PI);
+    const mouthMat = new THREE.MeshStandardMaterial({ color: 0xcc6666 });
+    const mouth = new THREE.Mesh(mouthGeom, mouthMat);
+    mouth.position.set(0, 1.48 * scale, 0.3);
+    mouth.rotation.x = Math.PI;
+    group.add(mouth);
+    
+    // 脖子
+    const neckGeom = new THREE.CylinderGeometry(0.12, 0.12, 0.15, 8);
+    const neck = new THREE.Mesh(neckGeom, skinMat);
+    neck.position.y = 1.2 * scale;
+    group.add(neck);
+    
+    // 身体/躯干
+    const torsoGeom = new THREE.BoxGeometry(0.6, 0.8, 0.3);
+    const torso = new THREE.Mesh(torsoGeom, clothMat);
+    torso.position.y = 0.75 * scale;
+    torso.castShadow = true;
+    group.add(torso);
+    
+    // 肩膀
+    const shoulderGeom = new THREE.SphereGeometry(0.12, 8, 8);
+    const leftShoulder = new THREE.Mesh(shoulderGeom, clothMat);
+    leftShoulder.position.set(-0.35, 1.1 * scale, 0);
+    group.add(leftShoulder);
+    const rightShoulder = new THREE.Mesh(shoulderGeom, clothMat);
+    rightShoulder.position.set(0.35, 1.1 * scale, 0);
+    group.add(rightShoulder);
+    
+    // 手臂
+    const armGeom = new THREE.CylinderGeometry(0.08, 0.07, 0.6, 8);
+    const leftArm = new THREE.Mesh(armGeom, skinMat);
+    leftArm.position.set(-0.45, 0.75 * scale, 0);
+    leftArm.rotation.z = 0.2;
+    leftArm.castShadow = true;
+    group.add(leftArm);
+    const rightArm = new THREE.Mesh(armGeom, skinMat);
+    rightArm.position.set(0.45, 0.75 * scale, 0);
+    rightArm.rotation.z = -0.2;
+    rightArm.castShadow = true;
+    group.add(rightArm);
+    
+    // 前臂（衣服袖子）
+    const forearmGeom = new THREE.CylinderGeometry(0.07, 0.06, 0.25, 8);
+    const leftForearm = new THREE.Mesh(forearmGeom, clothMat);
+    leftForearm.position.set(-0.5, 0.4 * scale, 0);
+    leftForearm.castShadow = true;
+    group.add(leftForearm);
+    const rightForearm = new THREE.Mesh(forearmGeom, clothMat);
+    rightForearm.position.set(0.5, 0.4 * scale, 0);
+    rightForearm.castShadow = true;
+    group.add(rightForearm);
+    
+    // 手
+    const handGeom = new THREE.SphereGeometry(0.07, 8, 8);
+    const leftHand = new THREE.Mesh(handGeom, skinMat);
+    leftHand.position.set(-0.5, 0.2 * scale, 0);
+    leftHand.castShadow = true;
+    group.add(leftHand);
+    const rightHand = new THREE.Mesh(handGeom, skinMat);
+    rightHand.position.set(0.5, 0.2 * scale, 0);
+    rightHand.castShadow = true;
+    group.add(rightHand);
+    
+    // 髋关节
+    const hipGeom = new THREE.SphereGeometry(0.15, 8, 8);
+    const hip = new THREE.Mesh(hipGeom, clothMat);
+    hip.position.y = 0.3 * scale;
+    group.add(hip);
+    
+    // 腿
+    const legGeom = new THREE.CylinderGeometry(0.1, 0.08, 0.8, 8);
+    const leftLeg = new THREE.Mesh(legGeom, clothMat);
+    leftLeg.position.set(-0.15, -0.2 * scale, 0);
+    leftLeg.castShadow = true;
+    group.add(leftLeg);
+    const rightLeg = new THREE.Mesh(legGeom, clothMat);
+    rightLeg.position.set(0.15, -0.2 * scale, 0);
+    rightLeg.castShadow = true;
+    group.add(rightLeg);
+    
+    // 小腿
+    const calfGeom = new THREE.CylinderGeometry(0.08, 0.06, 0.7, 8);
+    const leftCalf = new THREE.Mesh(calfGeom, clothMat);
+    leftCalf.position.set(-0.15, -0.7 * scale, 0);
+    leftCalf.castShadow = true;
+    group.add(leftCalf);
+    const rightCalf = new THREE.Mesh(calfGeom, clothMat);
+    rightCalf.position.set(0.15, -0.7 * scale, 0);
+    rightCalf.castShadow = true;
+    group.add(rightCalf);
+    
+    // 脚
+    const footGeom = new THREE.BoxGeometry(0.12, 0.08, 0.2);
+    const footMat = new THREE.MeshStandardMaterial({ color: 0x333333 }); // 鞋子颜色
+    const leftFoot = new THREE.Mesh(footGeom, footMat);
+    leftFoot.position.set(-0.15, -1.1 * scale, 0.05);
+    leftFoot.castShadow = true;
+    group.add(leftFoot);
+    const rightFoot = new THREE.Mesh(footGeom, footMat);
+    rightFoot.position.set(0.15, -1.1 * scale, 0.05);
+    rightFoot.castShadow = true;
+    group.add(rightFoot);
+    
+    // 名字标签
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 80;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.fillStyle = `rgba(${((clothColor >> 16) & 0xff)}, ${((clothColor >> 8) & 0xff)}, ${clothColor & 0xff}, 0.9)`;
+    ctx.roundRect(0, 0, 512, 80, 12);
+    ctx.fill();
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 32px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    let displayName = agent.name || '人类';
+    if (displayName.length > 12) {
+        displayName = displayName.substring(0, 10) + '...';
+    }
+    
+    ctx.fillText(displayName, 256, 40);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMat = new THREE.SpriteMaterial({ map: texture });
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.scale.set(3, 0.6, 1);
+    sprite.position.y = 2.3 * scale;
+    group.add(sprite);
+    
+    // 应用缩放
+    group.scale.set(scale, scale, scale);
+    
+    return group;
+}
+
 // ============ 龙虾模型 ============
 function createLobsterMesh(agent) {
     const group = new THREE.Group();
@@ -466,9 +677,10 @@ function createLobsterMesh(agent) {
 
 // ============ 添加/移除智能体 ============
 function addAgentMesh(agent) {
-    console.log('✅ 添加龙虾 3D 模型:', agent.name);
+    const modelType = agent.visual?.modelType || 'crayfish';
+    console.log('✅ 添加 3D 模型:', agent.name, '- 类型:', modelType);
     
-    const mesh = createLobsterMesh(agent);
+    const mesh = createAgentMesh(agent);
     
     // 根据智能体类型决定初始位置
     let x, z;

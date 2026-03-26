@@ -1,7 +1,6 @@
-﻿/**
- * 智体�?- 消息服务 MVP
- *
- * 一个极简�?WebSocket 消息服务�? * 让智能体之间可以互相发送消�? */
+/**
+ * Agent City - Message Service MVP
+ */
 
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
@@ -10,24 +9,19 @@ const TaskStore = require('./task-store');
 
 const PORT = process.env.PORT || 9876;
 
-// 存储所有连接的智能体（在线状态）
+// Store all connected agents (online status)
 const agents = new Map(); // agentId -> { ws, lastSeen }
 
-// 创建 WebSocket 服务�?const wss = new WebSocket.Server({ port: PORT });
+// Create WebSocket Server
+const wss = new WebSocket.Server({ port: PORT });
 
-console.log(`🏙�?智体城消息服务启动在端口 ${PORT}`);
+console.log(`Agent City server starting on port ${PORT}`);
 console.log(`WebSocket: ws://localhost:${PORT}`);
-
-/**
- * 消息类型定义
- *
- * REGISTER - 智能体注册身�? * MESSAGE - 点对点消�? * BROADCAST - 广播消息
- * LIST - 列出在线智能�? * PING - 心跳检�? */
 
 wss.on('connection', (ws) => {
   let currentAgentId = null;
 
-  console.log('📱 新连接建�?);
+  console.log('New connection established');
 
   ws.on('message', (data) => {
     try {
@@ -36,7 +30,7 @@ wss.on('connection', (ws) => {
     } catch (err) {
       ws.send(JSON.stringify({
         type: 'ERROR',
-        error: '无效�?JSON 格式',
+        error: 'Invalid JSON format',
         timestamp: Date.now()
       }));
     }
@@ -45,8 +39,7 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     if (currentAgentId && agents.has(currentAgentId)) {
       agents.delete(currentAgentId);
-      console.log(`👋 智能体离�? ${currentAgentId}`);
-      // 广播离线通知
+      console.log(`Agent offline: ${currentAgentId}`);
       broadcast({
         type: 'AGENT_OFFLINE',
         agentId: currentAgentId,
@@ -56,12 +49,13 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('error', (err) => {
-    console.error('WebSocket 错误:', err.message);
+    console.error('WebSocket error:', err.message);
   });
 });
 
 /**
- * 处理收到的消�? */
+ * Handle incoming messages
+ */
 function handleMessage(ws, msg, setAgentId) {
   const { type } = msg;
   
@@ -98,7 +92,7 @@ function handleMessage(ws, msg, setAgentId) {
       handleSearchAgents(ws, msg);
       break;
       
-    // 任务相关
+    // Task related
     case 'CREATE_TASK':
       handleCreateTask(ws, msg);
       break;
@@ -138,36 +132,38 @@ function handleMessage(ws, msg, setAgentId) {
     default:
       ws.send(JSON.stringify({ 
         type: 'ERROR', 
-        error: `未知消息类型: ${type}`,
+        error: `Unknown message type: ${type}`,
         timestamp: Date.now()
       }));
   }
 }
 
 /**
- * 处理智能体注�? */
+ * Handle agent registration
+ */
 function handleRegister(ws, msg, setAgentId) {
   const { agentId, name, tags, description } = msg;
 
-  // 如果没有提供 agentId，生成一�?  const id = agentId || uuidv4();
+  const id = agentId || uuidv4();
 
-  // 持久化智能体档案
+  // Persist agent profile
   const profile = AgentStore.upsertAgent(id, {
-    name: name || `龙虾#${id.slice(0, 6)}`,
+    name: name || `Agent#${id.slice(0, 6)}`,
     tags: tags || [],
     description: description || ''
   });
 
-  // 存储连接状�?  agents.set(id, {
+  // Store connection state
+  agents.set(id, {
     ws,
     lastSeen: Date.now()
   });
 
   setAgentId(id);
 
-  console.log(`🦐 智能体上�? ${id} (${profile.name})`);
+  console.log(`Agent online: ${id} (${profile.name})`);
 
-  // 发送注册成功响应（包含完整档案�?  ws.send(JSON.stringify({
+  ws.send(JSON.stringify({
     type: 'REGISTERED',
     agentId: id,
     profile: {
@@ -180,7 +176,7 @@ function handleRegister(ws, msg, setAgentId) {
     timestamp: Date.now()
   }));
 
-  // 广播上线通知
+  // Broadcast online notification
   broadcast({
     type: 'AGENT_ONLINE',
     agentId: id,
@@ -194,20 +190,23 @@ function handleRegister(ws, msg, setAgentId) {
 }
 
 /**
- * 处理点对点消�? */
+ * Handle P2P messages
+ */
 function handleMessageP2P(ws, msg) {
   const { from, to, content, contentType } = msg;
 
-  // 检查目标是否存在（在线�?  if (!agents.has(to)) {
+  // Check if target exists (online)
+  if (!agents.has(to)) {
     ws.send(JSON.stringify({
       type: 'ERROR',
-      error: `目标智能体不在线: ${to}`,
+      error: `Target agent not online: ${to}`,
       timestamp: Date.now()
     }));
     return;
   }
 
-  // 构造消�?  const message = {
+  // Construct message
+  const message = {
     type: 'MESSAGE',
     from,
     to,
@@ -217,29 +216,26 @@ function handleMessageP2P(ws, msg) {
     messageId: uuidv4()
   };
 
-  // 发送给目标
+  // Send to target
   const targetAgent = agents.get(to);
   targetAgent.ws.send(JSON.stringify(message));
 
-  // 发送确认给发送�?  ws.send(JSON.stringify({
+  // Send confirmation
+  ws.send(JSON.stringify({
     type: 'MESSAGE_SENT',
     messageId: message.messageId,
     to,
     timestamp: message.timestamp
   }));
 
-  // 更新发送者统�?  AgentStore.incrementStat(from, 'messagesSent', 1);
+  // Update sender stats
+  AgentStore.incrementStat(from, 'messagesSent', 1);
 
-  // 获取发送者名字用于日�?  const senderProfile = AgentStore.getAgent(from);
-  const senderName = senderProfile?.name || from.slice(0, 6);
-  const targetProfile = AgentStore.getAgent(to);
-  const targetName = targetProfile?.name || to.slice(0, 6);
-
-  console.log(`💬 ${senderName} �?${targetName}: ${typeof content === 'string' ? content.slice(0, 50) : '[结构化数据]'}`);
+  console.log(`Message from ${from} to ${to}: ${typeof content === 'string' ? content.slice(0, 50) : '[structured data]'}`);
 }
 
 /**
- * 处理广播消息
+ * Handle broadcast messages
  */
 function handleBroadcast(ws, msg) {
   const { from, content, contentType } = msg;
@@ -259,16 +255,16 @@ function handleBroadcast(ws, msg) {
 }
 
 /**
- * 处理列出在线智能体请�? */
+ * Handle list agents request
+ */
 function handleListAgents(ws) {
   const agentList = [];
 
   agents.forEach((data, id) => {
-    // 从持久化存储获取完整档案
     const profile = AgentStore.getAgent(id);
     agentList.push({
       agentId: id,
-      name: profile?.name || `龙虾#${id.slice(0, 6)}`,
+      name: profile?.name || `Agent#${id.slice(0, 6)}`,
       tags: profile?.tags || [],
       description: profile?.description || '',
       lastSeen: data.lastSeen,
@@ -285,21 +281,43 @@ function handleListAgents(ws) {
 }
 
 /**
- * 广播消息给所有智能体（除了发送者）
+ * Broadcast message to all agents and observers (except sender)
+ * Now also sends to non-agent connections (like world-window)
  */
 function broadcast(message, excludeAgentId) {
+  const messageStr = JSON.stringify(message);
+  
+  // Track sent WebSockets to avoid duplicate sending
+  const sent = new Set();
+  
+  // Send to all registered agents
   agents.forEach((data, id) => {
     if (id !== excludeAgentId) {
       try {
-        data.ws.send(JSON.stringify(message));
+        data.ws.send(messageStr);
+        sent.add(data.ws);
       } catch (err) {
-        // 忽略发送失�?      }
+        // Ignore send failure
+      }
+    }
+  });
+  
+  // Also send to all observer connections (wss.clients contains all WebSocket connections)
+  wss.clients.forEach((ws) => {
+    // Skip already sent (registered agents)
+    if (!sent.has(ws) && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(messageStr);
+      } catch (err) {
+        // Ignore send failure
+      }
     }
   });
 }
 
 /**
- * 获取智能体档�? */
+ * Get agent profile
+ */
 function handleGetProfile(ws, msg) {
   const { agentId } = msg;
   
@@ -308,7 +326,7 @@ function handleGetProfile(ws, msg) {
   if (!profile) {
     ws.send(JSON.stringify({
       type: 'ERROR',
-      error: `智能体不存在: ${agentId}`,
+      error: `Agent not found: ${agentId}`,
       timestamp: Date.now()
     }));
     return;
@@ -330,7 +348,8 @@ function handleGetProfile(ws, msg) {
 }
 
 /**
- * 更新智能体档�? */
+ * Update agent profile
+ */
 function handleUpdateProfile(ws, msg) {
   const { agentId, updates } = msg;
   
@@ -339,7 +358,7 @@ function handleUpdateProfile(ws, msg) {
   if (!profile) {
     ws.send(JSON.stringify({
       type: 'ERROR',
-      error: `智能体不存在: ${agentId}`,
+      error: `Agent not found: ${agentId}`,
       timestamp: Date.now()
     }));
     return;
@@ -357,11 +376,12 @@ function handleUpdateProfile(ws, msg) {
     timestamp: Date.now()
   }));
   
-  console.log(`📝 档案更新: ${profile.name}`);
+  console.log(`Profile updated: ${profile.name}`);
 }
 
 /**
- * 搜索智能�? */
+ * Search agents
+ */
 function handleSearchAgents(ws, msg) {
   const { query, limit } = msg;
   
@@ -383,11 +403,8 @@ function handleSearchAgents(ws, msg) {
   }));
 }
 
-// ============ 任务相关处理函数 ============
+// ============ Task-related handlers ============
 
-/**
- * 创建任务
- */
 function handleCreateTask(ws, msg) {
   const { creatorId, title, description, reward, deadline, tags } = msg;
   
@@ -410,7 +427,6 @@ function handleCreateTask(ws, msg) {
     timestamp: Date.now()
   }));
   
-  // 广播有新任务
   broadcast({
     type: 'NEW_TASK',
     task: {
@@ -423,13 +439,9 @@ function handleCreateTask(ws, msg) {
     timestamp: Date.now()
   }, creatorId);
   
-  const creatorProfile = AgentStore.getAgent(creatorId);
-  console.log(`📋 新任�? ${task.title} (by ${creatorProfile?.name || creatorId.slice(0, 6)})`);
+  console.log(`New task: ${task.title}`);
 }
 
-/**
- * 获取任务详情
- */
 function handleGetTask(ws, msg) {
   const { taskId } = msg;
   
@@ -438,7 +450,7 @@ function handleGetTask(ws, msg) {
   if (!task) {
     ws.send(JSON.stringify({
       type: 'ERROR',
-      error: `任务不存�? ${taskId}`,
+      error: `Task not found: ${taskId}`,
       timestamp: Date.now()
     }));
     return;
@@ -451,9 +463,6 @@ function handleGetTask(ws, msg) {
   }));
 }
 
-/**
- * 列出任务
- */
 function handleListTasks(ws, msg) {
   const { status, creator, assignee, tag, limit, offset } = msg || {};
   
@@ -475,9 +484,6 @@ function handleListTasks(ws, msg) {
   }));
 }
 
-/**
- * 申请任务
- */
 function handleApplyTask(ws, msg) {
   const { taskId, agentId } = msg;
   
@@ -498,27 +504,9 @@ function handleApplyTask(ws, msg) {
     timestamp: Date.now()
   }));
   
-  // 通知任务创建�?  const task = result.task;
-  const creatorWs = agents.get(task.creator)?.ws;
-  if (creatorWs) {
-    const applicantProfile = AgentStore.getAgent(agentId);
-    creatorWs.send(JSON.stringify({
-      type: 'TASK_APPLICATION',
-      taskId: taskId,
-      applicant: {
-        agentId: agentId,
-        name: applicantProfile?.name || '匿名'
-      },
-      timestamp: Date.now()
-    }));
-  }
-  
-  console.log(`📨 任务申请: ${task.title}`);
+  console.log(`Task applied: ${result.task.title}`);
 }
 
-/**
- * 直接接受任务（先到先得）
- */
 function handleAcceptTask(ws, msg) {
   const { taskId, agentId } = msg;
   
@@ -539,12 +527,9 @@ function handleAcceptTask(ws, msg) {
     timestamp: Date.now()
   }));
   
-  const assigneeProfile = AgentStore.getAgent(agentId);
-  console.log(`�?任务接受: ${result.task.title} (by ${assigneeProfile?.name})`);
+  console.log(`Task accepted: ${result.task.title}`);
 }
 
-/**
- * 接受申请�? */
 function handleAcceptApplicant(ws, msg) {
   const { taskId, creatorId, assigneeId } = msg;
   
@@ -565,23 +550,9 @@ function handleAcceptApplicant(ws, msg) {
     timestamp: Date.now()
   }));
   
-  // 通知被选中的执行�?  const assigneeWs = agents.get(assigneeId)?.ws;
-  if (assigneeWs) {
-    assigneeWs.send(JSON.stringify({
-      type: 'TASK_ASSIGNED',
-      taskId: taskId,
-      task: result.task,
-      timestamp: Date.now()
-    }));
-  }
-  
-  const assigneeProfile = AgentStore.getAgent(assigneeId);
-  console.log(`�?任务指派: ${result.task.title} �?${assigneeProfile?.name}`);
+  console.log(`Task assigned: ${result.task.title}`);
 }
 
-/**
- * 完成任务
- */
 function handleCompleteTask(ws, msg) {
   const { taskId, agentId } = msg;
   
@@ -602,16 +573,9 @@ function handleCompleteTask(ws, msg) {
     timestamp: Date.now()
   }));
   
-  // 更新执行者统�?  if (result.task.assignee) {
-    AgentStore.incrementStat(result.task.assignee, 'tasksCompleted', 1);
-  }
-  
-  console.log(`🎉 任务完成: ${result.task.title}`);
+  console.log(`Task completed: ${result.task.title}`);
 }
 
-/**
- * 取消任务
- */
 function handleCancelTask(ws, msg) {
   const { taskId, agentId } = msg;
   
@@ -632,12 +596,9 @@ function handleCancelTask(ws, msg) {
     timestamp: Date.now()
   }));
   
-  console.log(`�?任务取消: ${result.task.title}`);
+  console.log(`Task cancelled: ${result.task.title}`);
 }
 
-/**
- * 搜索任务
- */
 function handleSearchTasks(ws, msg) {
   const { query, limit } = msg;
   
@@ -654,12 +615,13 @@ function handleSearchTasks(ws, msg) {
   }));
 }
 
-// 优雅关闭
+// Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n🏙�?智体城正在关�?..');
+  console.log('Shutting down...');
   wss.close(() => {
-    console.log('👋 再见�?);
+    console.log('Goodbye');
     process.exit(0);
   });
 });
 
+module.exports = { wss, broadcast };

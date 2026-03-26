@@ -809,6 +809,20 @@ function handleWSMessage(msg) {
             messageCount++;
             updateUI();
             break;
+            
+        case 'BROADCAST':
+            console.log('📢 广播消息:', msg.from, '-', msg.content);
+            // Show message above agent's head
+            if (msg.from && msg.content && window.showAgentMessage) {
+                window.showAgentMessage(msg.from, msg.content);
+            }
+            // Also show in world window if available
+            if (window.worldWindow && window.worldWindow.addMessage) {
+                window.worldWindow.addMessage(msg.fromName || msg.from || '广播', msg.content);
+            }
+            messageCount++;
+            updateUI();
+            break;
     }
 }
 

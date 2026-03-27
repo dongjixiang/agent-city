@@ -14,6 +14,9 @@
   var messageSprites = {};
   var sunLight = null;
   var ambientLight = null;
+  var stars = null;
+  var starPositions = null;
+  var starBaseSizes = null;
   
   function checkAndAdd() {
     checkCount++;
@@ -808,7 +811,95 @@ function updateBirds(time) {
     
     // Sync with dashboard panel cycle
     setInterval(updateLighting, 1000);
+    
+    // Create stars
+    createStars(scene);
+    
     console.log('[Enhanced v8] Day/night cycle started');
+  }
+  
+  function createStars(scene) {
+    var starCount = 800;
+    var positions = new Float32Array(starCount * 3);
+    var sizes = new Float32Array(starCount);
+    starBaseSizes = new Float32Array(starCount);
+    
+    for (var i = 0; i < starCount; i++) {
+      // 分布在天空穹顶
+      var theta = Math.random() * Math.PI * 2;
+      var phi = Math.acos(Math.random() * 0.8 + 0.2); // 主要在上半球
+      var radius = 200 + Math.random() * 100;
+      
+      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = radius * Math.cos(phi) + 50; // 抬高避免被地面遮挡
+      positions[i * 3 + 2] = radius * Math.sin(phi) * Math.sin(theta);
+      
+      sizes[i] = Math.random() * 3 + 1;
+      starBaseSizes[i] = sizes[i];
+    }
+    
+    starPositions = positions;
+    
+    var geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    
+    var material = new THREE.ShaderMaterial({
+      uniforms: {
+        color: { value: new THREE.Color(0xffffff) },
+        opacity: { value: 0.0 }
+      },
+      vertexShader: [
+        'attribute float size;',
+        'varying float vSize;',
+        'void main() {',
+        '  vSize = size;',
+        '  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);',
+        '  gl_PointSize = size * (300.0 / -mvPosition.z);',
+        '  gl_Position = projectionMatrix * mvPosition;',
+        '}'
+      ].join('\n'),
+      fragmentShader: [
+        'uniform vec3 color;',
+        'uniform float opacity;',
+        'varying float vSize;',
+        'void main() {',
+        '  float dist = length(gl_PointCoord - vec2(0.5));',
+        '  if (dist > 0.5) discard;',
+        '  float alpha = 1.0 - smoothstep(0.0, 0.5, dist);',
+        '  gl_FragColor = vec4(color, alpha * opacity);',
+        '}'
+      ].join('\n'),
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    
+    stars = new THREE.Points(geometry, material);
+    scene.add(stars);
+    console.log('[Enhanced v8] Stars created: ' + starCount);
+  }
+  
+  function updateStars(nightIntensity) {
+    if (!stars || !stars.material) return;
+    
+    // nightIntensity: 0 = 白天, 1 = 深夜
+    var opacity = nightIntensity * 0.9;
+    stars.material.uniforms.opacity.value = opacity;
+    
+    // 闪烁效果
+    if (nightIntensity > 0.3 && starPositions) {
+      var positions = stars.geometry.attributes.position.array;
+      var sizes = stars.geometry.attributes.size.array;
+      var time = Date.now() * 0.001;
+      
+      for (var i = 0; i < sizes.length; i++) {
+        // 不同的闪烁频率
+        var twinkle = Math.sin(time * (0.5 + (i % 10) * 0.2) + i) * 0.5 + 0.5;
+        sizes[i] = starBaseSizes[i] * (0.7 + twinkle * 0.6);
+      }
+      stars.geometry.attributes.size.needsUpdate = true;
+    }
   }
   
   function updateLighting() {
@@ -907,6 +998,19 @@ function updateBirds(time) {
     if (scene.fog) {
       scene.fog.color.setHex(skyColor);
     }
+    
+    // 计算夜间强度并更新星星
+    var nightIntensity = 0;
+    if (hour >= 21 || hour < 5) {
+      nightIntensity = 1.0;
+    } else if (hour >= 19 && hour < 21) {
+      nightIntensity = (hour - 19) / 2 * 0.8;
+    } else if (hour >= 5 && hour < 6) {
+      nightIntensity = 1.0 - (hour - 5) * 0.9;
+    } else if (hour >= 6 && hour < 7) {
+      nightIntensity = 0.1 * (1 - (hour - 6));
+    }
+    updateStars(nightIntensity);
   }
   
   // 颜色插值函数

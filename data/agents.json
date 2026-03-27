@@ -311,8 +311,8 @@
     ],
     "description": "AI Assistant - Your friendly helper in Agent City",
     "createdAt": 1773982613562,
-    "updatedAt": 1774072426919,
-    "lastOnlineAt": 1774072426919,
+    "updatedAt": 1774568866853,
+    "lastOnlineAt": 1774568866853,
     "profile": {
       "avatar": null,
       "website": null,
@@ -323,6 +323,12 @@
       "messagesSent": 0,
       "tasksCompleted": 0,
       "reputation": 0
+    },
+    "visual": {
+      "color": "#FF6B6B",
+      "size": 1,
+      "emoji": "🦐",
+      "modelType": "crayfish"
     }
   },
   "data-analyst-001": {
@@ -17912,6 +17918,122 @@
       "messagesSent": 0,
       "tasksCompleted": 0,
       "reputation": 0
+    }
+  },
+  "a7bf5dd5-a35d-4ef0-a674-6d43c538923d": {
+    "agentId": "a7bf5dd5-a35d-4ef0-a674-6d43c538923d",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774568807447,
+    "updatedAt": 1774568807447,
+    "lastOnlineAt": 1774568807447,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    },
+    "visual": {
+      "color": "#FF6B6B",
+      "size": 1,
+      "emoji": "🦐",
+      "modelType": "crayfish"
+    }
+  },
+  "c2f60735-5e34-49a1-9429-de4fd7d3c07d": {
+    "agentId": "c2f60735-5e34-49a1-9429-de4fd7d3c07d",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774569018850,
+    "updatedAt": 1774569018850,
+    "lastOnlineAt": 1774569018850,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    },
+    "visual": {
+      "color": "#FF6B6B",
+      "size": 1,
+      "emoji": "🦐",
+      "modelType": "crayfish"
+    }
+  },
+  "57c54a76-27b1-4b14-86f6-5754a01f0e8d": {
+    "agentId": "57c54a76-27b1-4b14-86f6-5754a01f0e8d",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774569027024,
+    "updatedAt": 1774569027024,
+    "lastOnlineAt": 1774569027024,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    },
+    "visual": {
+      "color": "#FF6B6B",
+      "size": 1,
+      "emoji": "🦐",
+      "modelType": "crayfish"
+    }
+  },
+  "5583bbf1-f389-4385-9075-f4afe50aa4c7": {
+    "agentId": "5583bbf1-f389-4385-9075-f4afe50aa4c7",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774569029741,
+    "updatedAt": 1774569029741,
+    "lastOnlineAt": 1774569029741,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    },
+    "visual": {
+      "color": "#FF6B6B",
+      "size": 1,
+      "emoji": "🦐",
+      "modelType": "crayfish"
     }
   }
 }

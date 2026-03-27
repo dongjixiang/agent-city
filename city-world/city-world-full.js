@@ -348,7 +348,12 @@ function createLamp() {
 // ============ 智能体模型工厂 ============
 function createAgentMesh(agent) {
     // 根据 modelType 决定创建哪种模型
+    // 强制小吉使用人形模型
     if (agent.visual && agent.visual.modelType === 'human') {
+        return createHumanMesh(agent);
+    }
+    // 备用：如果是小吉或者有 ai/assistant 标签，也使用人形
+    if (agent.name === '小吉' || (agent.tags && agent.tags.includes('ai'))) {
         return createHumanMesh(agent);
     }
     return createLobsterMesh(agent);

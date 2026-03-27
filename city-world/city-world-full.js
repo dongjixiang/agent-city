@@ -14,6 +14,14 @@ let agentDetailPanel = null; // 智能体详情面板
 let raycaster = null; // 射线检测器
 let mouse = null; // 鼠标位置
 
+// ============ 相机模式控制 ============
+let selectedAgentId = null; // 当前选中的智能体ID
+let cameraMode = 'orbit'; // 'orbit' | 'follow' | 'firstPerson'
+let followDistance = 8; // 跟随模式下的距离
+let followHeight = 4; // 跟随模式下的高度
+let firstPersonHeight = 1.5; // 第一人称视角高度（龙虾身高）
+let focusIndicator = null; // 焦点指示器
+
 // WebSocket 连接
 let ws = null;
 let wsConnected = false;
@@ -101,6 +109,10 @@ function init() {
     
     // 事件监听
     window.addEventListener('resize', onWindowResize);
+    
+    // 点击选择智能体
+    renderer.domElement.addEventListener('click', onCanvasClick);
+    renderer.domElement.style.cursor = 'pointer';
 
     // 连接 WebSocket
     connectWebSocket();
@@ -875,6 +887,11 @@ function animate() {
     // Update flying birds
     if (typeof updateBirds === "function") updateBirds(Date.now());
     
+    // 更新相机位置（跟随/第一人称模式）
+    if (cameraMode !== 'orbit' && selectedAgentId) {
+        updateCameraForMode();
+    }
+    
     renderer.render(scene, camera);
 }
 
@@ -1094,6 +1111,190 @@ function updateUI() {
     document.getElementById('online-count').textContent = agents.size;
     document.getElementById('task-count').textContent = taskCount;
     document.getElementById('message-count').textContent = messageCount;
+}
+
+// ============ 智能体选择和相机模式控制 ============
+
+function onCanvasClick(event) {
+    // 计算鼠标位置
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    // 射线检测
+    raycaster.setFromCamera(mouse, camera);
+    
+    // 获取所有智能体mesh
+    const meshes = [];
+    agents.forEach((data) => {
+        meshes.push(data.mesh);
+    });
+    
+    const intersects = raycaster.intersectObjects(meshes, true);
+    
+    if (intersects.length > 0) {
+        // 找到被点击的智能体
+        let clickedMesh = intersects[0].object;
+        // 向上查找智能体根节点
+        while (clickedMesh.parent && !clickedMesh.userData.agentId) {
+            clickedMesh = clickedMesh.parent;
+        }
+        
+        if (clickedMesh.userData.agentId) {
+            selectAgent(clickedMesh.userData.agentId);
+        }
+    } else {
+        // 点击空白区域，取消选择
+        deselectAgent();
+    }
+}
+
+function selectAgent(agentId) {
+    const agentData = agents.get(agentId);
+    if (!agentData) return;
+    
+    // 取消之前的选中状态
+    if (selectedAgentId) {
+        const prevAgent = agents.get(selectedAgentId);
+        if (prevAgent) {
+            // 恢复原始颜色
+            setAgentColor(prevAgent.mesh, false);
+        }
+    }
+    
+    selectedAgentId = agentId;
+    
+    // 高亮选中状态
+    setAgentColor(agentData.mesh, true);
+    
+    // 显示信息面板
+    showAgentInfo(agentData);
+    
+    // 更新相机模式为跟随
+    if (cameraMode === 'orbit') {
+        setCameraMode('follow');
+    }
+    
+    console.log('🎯 选中智能体:', agentData.data.name);
+}
+
+function deselectAgent() {
+    if (selectedAgentId) {
+        const prevAgent = agents.get(selectedAgentId);
+        if (prevAgent) {
+            setAgentColor(prevAgent.mesh, false);
+        }
+    }
+    selectedAgentId = null;
+    hideAgentInfo();
+    
+    // 恢复到俯瞰模式
+    setCameraMode('orbit');
+    
+    console.log('❌ 取消选择');
+}
+
+function setAgentColor(mesh, isSelected) {
+    // 遍历mesh的所有材质
+    mesh.traverse((child) => {
+        if (child.isMesh && child.material) {
+            if (Array.isArray(child.material)) {
+                child.material.forEach(mat => {
+                    if (isSelected) {
+                        mat.emissive = new THREE.Color(0x4444ff);
+                    } else {
+                        mat.emissive = new THREE.Color(0x000000);
+                    }
+                });
+            } else {
+                if (isSelected) {
+                    child.material.emissive = new THREE.Color(0x4444ff);
+                } else {
+                    child.material.emissive = new THREE.Color(0x000000);
+                }
+            }
+        }
+    });
+}
+
+function showAgentInfo(agentData) {
+    // 可以通过自定义事件通知UI
+    window.dispatchEvent(new CustomEvent('agentSelected', {
+        detail: {
+            agentId: agentData.data.agentId,
+            name: agentData.data.name,
+            tags: agentData.data.tags
+        }
+    }));
+}
+
+function hideAgentInfo() {
+    window.dispatchEvent(new CustomEvent('agentDeselected'));
+}
+
+function setCameraMode(mode) {
+    const prevMode = cameraMode;
+    cameraMode = mode;
+    
+    // 禁用/启用 OrbitControls
+    if (controls) {
+        if (mode === 'orbit') {
+            controls.enabled = true;
+            controls.minDistance = 10;
+            controls.maxDistance = 100;
+            controls.maxPolarAngle = Math.PI / 2 - 0.1;
+        } else {
+            controls.enabled = false;
+        }
+    }
+    
+    // 通知UI更新
+    window.dispatchEvent(new CustomEvent('cameraModeChanged', {
+        detail: { mode: mode, prevMode: prevMode }
+    }));
+    
+    console.log('📷 相机模式:', mode);
+}
+
+function updateCameraForMode() {
+    if (!selectedAgentId) return;
+    
+    const agentData = agents.get(selectedAgentId);
+    if (!agentData) return;
+    
+    const mesh = agentData.mesh;
+    
+    if (cameraMode === 'follow') {
+        // 跟随模式：相机在智能体后方上方
+        const angle = Math.atan2(mesh.position.x, mesh.position.z);
+        const offsetX = Math.sin(angle) * followDistance;
+        const offsetZ = Math.cos(angle) * followDistance;
+        
+        // 平滑移动相机
+        camera.position.x += (mesh.position.x + offsetX - camera.position.x) * 0.05;
+        camera.position.y += (mesh.position.y + followHeight - camera.position.y) * 0.05;
+        camera.position.z += (mesh.position.z + offsetZ - camera.position.z) * 0.05;
+        
+        // 看向智能体
+        camera.lookAt(mesh.position.x, mesh.position.y + 1, mesh.position.z);
+        
+    } else if (cameraMode === 'firstPerson') {
+        // 第一人称模式：相机在智能体位置，高度为龙虾视角
+        camera.position.x = mesh.position.x;
+        camera.position.y = mesh.position.y + firstPersonHeight;
+        camera.position.z = mesh.position.z;
+        
+        // 龙虾朝向移动方向
+        const targetX = mesh.userData.targetX;
+        const targetZ = mesh.userData.targetZ;
+        if (targetX !== undefined && targetZ !== undefined) {
+            const lookX = targetX - mesh.position.x;
+            const lookZ = targetZ - mesh.position.z;
+            if (Math.abs(lookX) > 0.1 || Math.abs(lookZ) > 0.1) {
+                camera.lookAt(mesh.position.x + lookX, mesh.position.y + firstPersonHeight, mesh.position.z + lookZ);
+            }
+        }
+    }
 }
 
 // ============ 启动 ============

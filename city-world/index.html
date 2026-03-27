@@ -86,6 +86,19 @@
   
   <div id="controls-hint"><span>鼠标拖动</span> 旋转视角 | <span>滚轮</span> 缩放 | <span>点击龙虾</span> 查看详情</div>
   
+  <!-- 相机模式控制 -->
+  <div id="camera-controls" style="position: fixed; bottom: 20px; right: 20px; display: flex; gap: 8px; z-index: 100;">
+    <button id="btn-orbit" onclick="setCameraModeUI('orbit')" style="background: rgba(78, 205, 196, 0.2); border: 1px solid #4ecdc4; color: #4ecdc4; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">🔭 俯瞰</button>
+    <button id="btn-follow" onclick="setCameraModeUI('follow')" style="background: rgba(26, 26, 46, 0.9); border: 1px solid #666; color: #888; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">👁️ 跟随</button>
+    <button id="btn-first" onclick="setCameraModeUI('firstPerson')" style="background: rgba(26, 26, 46, 0.9); border: 1px solid #666; color: #888; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">🦐 主观</button>
+  </div>
+  
+  <!-- 选中智能体提示 -->
+  <div id="selected-agent-hint" style="position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); background: rgba(78, 205, 196, 0.15); border: 1px solid #4ecdc4; color: #4ecdc4; padding: 8px 16px; border-radius: 20px; font-size: 13px; z-index: 100; display: none;">
+    <span id="selected-agent-name">选中智能体</span> - <span id="selected-camera-mode">跟随模式</span>
+    <span style="margin-left: 10px; color: #888;">点击空白处退出</span>
+  </div>
+  
   <div id="overlay" onclick="closeAgentDetail()"></div>
   
   <div id="agent-detail">
@@ -294,6 +307,84 @@
       if (dashboard) makeDraggable(dashboard);
       if (agentDetail) makeDraggable(agentDetail);
     }, 2000);
+    
+    // ============ 相机模式控制 ============
+    function setCameraModeUI(mode) {
+      if (typeof setCameraMode === 'function') {
+        setCameraMode(mode);
+        updateCameraModeButtons(mode);
+      }
+    }
+    
+    function updateCameraModeButtons(mode) {
+      var btnOrbit = document.getElementById('btn-orbit');
+      var btnFollow = document.getElementById('btn-follow');
+      var btnFirst = document.getElementById('btn-first');
+      
+      // 重置所有按钮样式
+      [btnOrbit, btnFollow, btnFirst].forEach(function(btn) {
+        if (btn) {
+          btn.style.background = 'rgba(26, 26, 46, 0.9)';
+          btn.style.borderColor = '#666';
+          btn.style.color = '#888';
+        }
+      });
+      
+      // 高亮当前模式
+      if (mode === 'orbit') {
+        btnOrbit.style.background = 'rgba(78, 205, 196, 0.2)';
+        btnOrbit.style.borderColor = '#4ecdc4';
+        btnOrbit.style.color = '#4ecdc4';
+      } else if (mode === 'follow') {
+        btnFollow.style.background = 'rgba(78, 205, 196, 0.2)';
+        btnFollow.style.borderColor = '#4ecdc4';
+        btnFollow.style.color = '#4ecdc4';
+      } else if (mode === 'firstPerson') {
+        btnFirst.style.background = 'rgba(78, 205, 196, 0.2)';
+        btnFirst.style.borderColor = '#4ecdc4';
+        btnFirst.style.color = '#4ecdc4';
+      }
+    }
+    
+    // 监听相机模式变化事件
+    window.addEventListener('cameraModeChanged', function(e) {
+      updateCameraModeButtons(e.detail.mode);
+      
+      // 更新选中智能体提示
+      var hint = document.getElementById('selected-agent-hint');
+      var modeText = document.getElementById('selected-camera-mode');
+      if (modeText) {
+        if (e.detail.mode === 'follow') {
+          modeText.textContent = '跟随模式';
+        } else if (e.detail.mode === 'firstPerson') {
+          modeText.textContent = '第一人称视角';
+        } else {
+          modeText.textContent = '俯瞰模式';
+        }
+      }
+      if (e.detail.mode === 'orbit') {
+        if (hint) hint.style.display = 'none';
+      }
+    });
+    
+    // 监听智能体选择事件
+    window.addEventListener('agentSelected', function(e) {
+      var hint = document.getElementById('selected-agent-hint');
+      var nameEl = document.getElementById('selected-agent-name');
+      if (hint) {
+        hint.style.display = 'block';
+        if (nameEl) nameEl.textContent = e.detail.name;
+      }
+      // 默认使用跟随模式
+      updateCameraModeButtons('follow');
+    });
+    
+    // 监听智能体取消选择事件
+    window.addEventListener('agentDeselected', function(e) {
+      var hint = document.getElementById('selected-agent-hint');
+      if (hint) hint.style.display = 'none';
+      updateCameraModeButtons('orbit');
+    });
   </script>
 
 </body>

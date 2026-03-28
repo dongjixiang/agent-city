@@ -12,6 +12,280 @@ const PORT = process.env.PORT || 9876;
 // Store all connected agents (online status)
 const agents = new Map(); // agentId -> { ws, lastSeen }
 
+// ============ 智能体记忆系统 ============
+const agentMemories = new Map(); // agentId -> { conversations, places, achievements, stats }
+
+// 获取或创建智能体记忆
+function getAgentMemory(agentId) {
+    if (!agentMemories.has(agentId)) {
+        agentMemories.set(agentId, {
+            conversations: [],    // 对话记录
+            places: [],          // 去过的地方
+            achievements: [],     // 成就徽章
+            stats: {
+                messagesSent: 0,
+                tasksCompleted: 0,
+                placesVisited: 0,
+                conversationsHad: 0
+            },
+            createdAt: Date.now(),
+            lastActive: Date.now()
+        });
+    }
+    const memory = agentMemories.get(agentId);
+    memory.lastActive = Date.now();
+    return memory;
+}
+
+// 添加对话到记忆
+function addConversationToMemory(agentId, withAgent, content) {
+    const memory = getAgentMemory(agentId);
+    memory.conversations.push({
+        with: withAgent,
+        content: content,
+        time: Date.now()
+    });
+    memory.stats.conversationsHad++;
+    // 只保留最近20条对话
+    if (memory.conversations.length > 20) {
+        memory.conversations.shift();
+    }
+}
+
+// 添加访问地点到记忆
+function addPlaceToMemory(agentId, placeName, x, z) {
+    const memory = getAgentMemory(agentId);
+    const existing = memory.places.find(p => p.name === placeName);
+    if (existing) {
+        existing.visits++;
+        existing.lastVisit = Date.now();
+    } else {
+        memory.places.push({
+            name: placeName,
+            x: x,
+            z: z,
+            visits: 1,
+            firstVisit: Date.now(),
+            lastVisit: Date.now()
+        });
+        memory.stats.placesVisited++;
+    }
+}
+
+// 添加成就
+function addAchievement(agentId, achievement) {
+    const memory = getAgentMemory(agentId);
+    if (!memory.achievements.includes(achievement)) {
+        memory.achievements.push(achievement);
+    }
+}
+
+// ============ 智能体协作系统 ============
+const teams = new Map(); // teamId -> { id, name, leader, members: [{id, name, role}], currentTask, status, createdAt }
+const teamInvitations = new Map(); // invitationId -> { fromId, fromName, toId, teamId, createdAt }
+const MAX_TEAM_SIZE = 5;
+
+function createTeam(leaderId, leaderName) {
+    const teamId = 'team-' + uuidv4();
+    const team = {
+        id: teamId,
+        name: `${leaderName}的队伍`,
+        leader: leaderId,
+        members: [{ id: leaderId, name: leaderName, role: 'leader' }],
+        currentTask: null,
+        status: 'idle',
+        createdAt: Date.now()
+    };
+    teams.set(teamId, team);
+    
+    // Update agent's memory
+    addAchievement(leaderId, 'team_leader');
+    
+    return team;
+}
+
+function inviteToTeam(inviterId, inviterName, invitedId) {
+    // Check if inviter is already in a team
+    const inviterTeam = findAgentTeam(inviterId);
+    if (!inviterTeam) {
+        return { error: 'You are not in a team' };
+    }
+    
+    // Check if inviter is leader
+    if (inviterTeam.leader !== inviterId) {
+        return { error: 'Only team leader can invite' };
+    }
+    
+    // Check team size
+    if (inviterTeam.members.length >= MAX_TEAM_SIZE) {
+        return { error: 'Team is full' };
+    }
+    
+    // Check if invited is already in a team
+    if (findAgentTeam(invitedId)) {
+        return { error: 'Target is already in a team' };
+    }
+    
+    // Create invitation
+    const invitationId = 'inv-' + uuidv4();
+    teamInvitations.set(invitationId, {
+        id: invitationId,
+        fromId: inviterId,
+        fromName: inviterName,
+        toId: invitedId,
+        teamId: inviterTeam.id,
+        createdAt: Date.now()
+    });
+    
+    return { invitationId, teamId: inviterTeam.id, teamName: inviterTeam.name };
+}
+
+function acceptInvitation(invitationId, invitedId) {
+    const invitation = teamInvitations.get(invitationId);
+    if (!invitation) {
+        return { error: 'Invitation not found' };
+    }
+    
+    if (invitation.toId !== invitedId) {
+        return { error: 'Invitation is not for you' };
+    }
+    
+    const team = teams.get(invitation.teamId);
+    if (!team) {
+        return { error: 'Team not found' };
+    }
+    
+    // Add member to team
+    const profile = AgentStore.getAgent(invitedId);
+    team.members.push({ id: invitedId, name: profile?.name || '未知', role: 'member' });
+    
+    // Remove invitation
+    teamInvitations.delete(invitationId);
+    
+    // Notify all members
+    team.members.forEach(member => {
+        const agent = agents.get(member.id);
+        if (agent && agent.ws && agent.ws.readyState === WebSocket.OPEN) {
+            agent.ws.send(JSON.stringify({
+                type: 'TEAM_UPDATE',
+                team: team,
+                timestamp: Date.now()
+            }));
+        }
+    });
+    
+    // Add achievement
+    addAchievement(invitedId, 'team_player');
+    
+    return { team };
+}
+
+function declineInvitation(invitationId, invitedId) {
+    const invitation = teamInvitations.get(invitationId);
+    if (!invitation || invitation.toId !== invitedId) {
+        return { error: 'Invitation not found' };
+    }
+    
+    teamInvitations.delete(invitationId);
+    
+    // Notify inviter
+    const inviter = agents.get(invitation.fromId);
+    if (inviter && inviter.ws && inviter.ws.readyState === WebSocket.OPEN) {
+        inviter.ws.send(JSON.stringify({
+            type: 'TEAM_INVITATION_DECLINED',
+            by: invitedId,
+            timestamp: Date.now()
+        }));
+    }
+    
+    return { success: true };
+}
+
+function leaveTeam(agentId) {
+    const team = findAgentTeam(agentId);
+    if (!team) {
+        return { error: 'Not in a team' };
+    }
+    
+    // If leader leaves and has members, promote first member to leader
+    if (team.leader === agentId && team.members.length > 1) {
+        const newLeader = team.members.find(m => m.id !== agentId);
+        if (newLeader) {
+            team.leader = newLeader.id;
+            newLeader.role = 'leader';
+            team.name = `${newLeader.name}的队伍`;
+        }
+    }
+    
+    // Remove from members
+    team.members = team.members.filter(m => m.id !== agentId);
+    
+    // If no members left, delete team
+    if (team.members.length === 0) {
+        teams.delete(team.id);
+    }
+    
+    // Notify agent
+    return { success: true, teamId: team?.id };
+}
+
+function findAgentTeam(agentId) {
+    for (const team of teams.values()) {
+        if (team.members.find(m => m.id === agentId)) {
+            return team;
+        }
+    }
+    return null;
+}
+
+function assignTaskToTeam(teamId, taskId) {
+    const team = teams.get(teamId);
+    if (!team) return { error: 'Team not found' };
+    
+    team.currentTask = taskId;
+    team.status = 'working';
+    
+    // Notify all members
+    team.members.forEach(member => {
+        const agent = agents.get(member.id);
+        if (agent && agent.ws && agent.ws.readyState === WebSocket.OPEN) {
+            agent.ws.send(JSON.stringify({
+                type: 'TEAM_TASK_ASSIGNED',
+                taskId: taskId,
+                timestamp: Date.now()
+            }));
+        }
+    });
+    
+    return { success: true };
+}
+
+function completeTeamTask(teamId) {
+    const team = teams.get(teamId);
+    if (!team) return { error: 'Team not found' };
+    
+    team.currentTask = null;
+    team.status = 'idle';
+    
+    // Award all members
+    team.members.forEach(member => {
+        addAchievement(member.id, 'task_completed');
+    });
+    
+    // Notify all members
+    team.members.forEach(member => {
+        const agent = agents.get(member.id);
+        if (agent && agent.ws && agent.ws.readyState === WebSocket.OPEN) {
+            agent.ws.send(JSON.stringify({
+                type: 'TEAM_TASK_COMPLETED',
+                timestamp: Date.now()
+            }));
+        }
+    });
+    
+    return { success: true };
+}
+
 // Track 3D world client connection
 let worldClientWs = null; // The 3D world client WebSocket
 
@@ -49,6 +323,20 @@ wss.on('connection', (ws) => {
     if (currentAgentId && agents.has(currentAgentId)) {
       agents.delete(currentAgentId);
       console.log(`Agent offline: ${currentAgentId}`);
+      
+      // Notify friends before going offline
+      const friends = getFriends(currentAgentId);
+      friends.forEach(friendId => {
+        const friendAgent = agents.get(friendId);
+        if (friendAgent && friendAgent.ws && friendAgent.ws.readyState === WebSocket.OPEN) {
+          friendAgent.ws.send(JSON.stringify({
+            type: 'FRIEND_OFFLINE',
+            friendId: currentAgentId,
+            timestamp: Date.now()
+          }));
+        }
+      });
+      
       broadcast({
         type: 'AGENT_OFFLINE',
         agentId: currentAgentId,
@@ -111,6 +399,111 @@ function handleMessage(ws, msg, setAgentId) {
       
     case 'VISION_RESPONSE':
       handleVisionResponse(ws, msg);
+      break;
+      
+    case 'RADAR_REQUEST':
+      handleRadarRequest(ws, msg);
+      break;
+      
+    case 'DIALOGUE_START':
+      handleDialogueStart(ws, msg);
+      break;
+      
+    case 'DIALOGUE_REPLY':
+      handleDialogueReply(ws, msg);
+      break;
+      
+    case 'DIALOGUE_END':
+      handleDialogueEnd(ws, msg);
+      break;
+      
+    case 'GET_MEMORY':
+      handleGetMemory(ws, msg);
+      break;
+      
+    case 'VISIT_PLACE':
+      handleVisitPlace(ws, msg);
+      break;
+      
+    // Team related
+    case 'CREATE_TEAM':
+      handleCreateTeam(ws, msg);
+      break;
+      
+    case 'TEAM_INVITE':
+      handleTeamInvite(ws, msg);
+      break;
+      
+    case 'TEAM_ACCEPT':
+      handleTeamAccept(ws, msg);
+      break;
+      
+    case 'TEAM_DECLINE':
+      handleTeamDecline(ws, msg);
+      break;
+      
+    case 'TEAM_LEAVE':
+      handleTeamLeave(ws, msg);
+      break;
+      
+    case 'TEAM_STATUS':
+      handleTeamStatus(ws, msg);
+      break;
+      
+    case 'TEAM_CHAT':
+      handleTeamChat(ws, msg);
+      break;
+      
+    // Voice related
+    case 'VOICE_MESSAGE':
+      handleVoiceMessage(ws, msg);
+      break;
+      
+    // Social network related
+    case 'ADD_FRIEND':
+      handleAddFriend(ws, msg);
+      break;
+      
+    case 'ACCEPT_FRIEND':
+      handleAcceptFriend(ws, msg);
+      break;
+      
+    case 'DECLINE_FRIEND':
+      handleDeclineFriend(ws, msg);
+      break;
+      
+    case 'FOLLOW':
+      handleFollow(ws, msg);
+      break;
+      
+    case 'UNFOLLOW':
+      handleUnfollow(ws, msg);
+      break;
+      
+    case 'GET_FRIENDS':
+      handleGetFriends(ws, msg);
+      break;
+      
+    case 'GET_FOLLOWING':
+      handleGetFollowing(ws, msg);
+      break;
+      
+    case 'GET_PENDING_REQUESTS':
+      handleGetPendingRequests(ws, msg);
+      break;
+      
+    // Learning related
+    case 'RATE_BEHAVIOR':
+      handleRateBehavior(ws, msg);
+      break;
+      
+    case 'GET_LEARNING':
+      handleGetLearning(ws, msg);
+      break;
+      
+    // Action related (for 3D world animations)
+    case 'DO_ACTION':
+      handleDoAction(ws, msg);
       break;
       
     // Task related
@@ -215,6 +608,20 @@ function handleRegister(ws, msg, setAgentId) {
     },
     timestamp: Date.now()
   }, id);
+  
+  // Notify friends that this agent came online
+  const friends = getFriends(id);
+  friends.forEach(friendId => {
+    const friendAgent = agents.get(friendId);
+    if (friendAgent && friendAgent.ws && friendAgent.ws.readyState === WebSocket.OPEN) {
+      friendAgent.ws.send(JSON.stringify({
+        type: 'FRIEND_ONLINE',
+        friendId: id,
+        friendName: profile.name,
+        timestamp: Date.now()
+      }));
+    }
+  });
 }
 
 /**
@@ -804,13 +1211,1201 @@ function handleVisionResponse(ws, msg) {
   });
 }
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-  console.log('Shutting down...');
-  wss.close(() => {
-    console.log('Goodbye');
-    process.exit(0);
+/**
+ * Handle RADAR_REQUEST - return structured data about surroundings
+ * This doesn't need 3D world rendering, just calculate from positions
+ */
+function handleRadarRequest(ws, msg) {
+  const { x, z, direction, range, requestId } = msg;
+  
+  // Find the requesting agent
+  let requestingAgentId = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      requestingAgentId = id;
+      break;
+    }
+  }
+  
+  if (!requestingAgentId) {
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      error: 'Agent not registered',
+      timestamp: Date.now()
+    }));
+    return;
+  }
+  
+  // Validate parameters
+  const radarX = (typeof x === 'number' && !isNaN(x)) ? x : 0;
+  const radarZ = (typeof z === 'number' && !isNaN(z)) ? z : 0;
+  const radarDir = (typeof direction === 'number') ? direction : 0;
+  const radarRange = (typeof range === 'number' && range > 0 && range <= 100) ? range : 30;
+  const rid = requestId || uuidv4();
+  
+  console.log(`Radar request from ${requestingAgentId}: pos=(${radarX.toFixed(1)}, ${radarZ.toFixed(1)}) dir=${radarDir} range=${radarRange}`);
+  
+  // Get all agents and calculate their positions relative to radar
+  const objects = [];
+  
+  agents.forEach((agentData, agentId) => {
+    if (agentId === requestingAgentId) return; // Skip self
+    
+    // Get agent position - we need to get this from the world state
+    // For now, we'll use a simplified approach - check if agent profile has last known position
+    // In a full implementation, this would query the 3D world or maintain agent positions server-side
+    
+    // We'll broadcast to 3D world to get positions
+    if (worldClientWs && worldClientWs.readyState === WebSocket.OPEN) {
+      worldClientWs.send(JSON.stringify({
+        type: 'RADAR_QUERY',
+        requestId: rid,
+        agentId: requestingAgentId,
+        x: radarX,
+        z: radarZ,
+        direction: radarDir,
+        range: radarRange,
+        timestamp: Date.now()
+      }));
+    } else {
+      // No 3D world connected - return empty or error
+      ws.send(JSON.stringify({
+        type: 'RADAR_RESPONSE',
+        requestId: rid,
+        error: '3D world not connected',
+        objects: [],
+        timestamp: Date.now()
+      }));
+    }
   });
-});
+}
+
+/**
+ * Handle DIALOGUE_START - one agent initiates conversation with another
+ */
+function handleDialogueStart(ws, msg) {
+  const { to, content } = msg;
+  
+  // Find requesting agent
+  let fromAgentId = null;
+  let fromAgentName = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      fromAgentId = id;
+      const profile = AgentStore.getAgent(id);
+      fromAgentName = profile?.name || '未知';
+      break;
+    }
+  }
+  
+  if (!fromAgentId) {
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      error: 'Agent not registered',
+      timestamp: Date.now()
+    }));
+    return;
+  }
+  
+  if (!to || !content) {
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      error: 'Missing recipient or content',
+      timestamp: Date.now()
+    }));
+    return;
+  }
+  
+  // Check if target agent is online
+  if (!agents.has(to)) {
+    ws.send(JSON.stringify({
+      type: 'DIALOGUE_ERROR',
+      error: 'Target agent is not online',
+      timestamp: Date.now()
+    }));
+    return;
+  }
+  
+  const targetAgent = agents.get(to);
+  
+  console.log(`Dialogue: ${fromAgentName} -> ${to}: ${content}`);
+  
+  // Send to target agent
+  if (targetAgent.ws && targetAgent.ws.readyState === WebSocket.OPEN) {
+    targetAgent.ws.send(JSON.stringify({
+      type: 'DIALOGUE_INCOMING',
+      from: fromAgentId,
+      fromName: fromAgentName,
+      content: content,
+      timestamp: Date.now()
+    }));
+  }
+  
+  // Confirm to sender
+  ws.send(JSON.stringify({
+    type: 'DIALOGUE_CONFIRMED',
+    to: to,
+    content: content,
+    timestamp: Date.now()
+  }));
+  
+  // Save to memory - both agents remember this conversation
+  addConversationToMemory(fromAgentId, to, content);
+  
+  // Get target's name for memory
+  const targetProfile = AgentStore.getAgent(to);
+  const targetName = targetProfile?.name || '未知';
+  addConversationToMemory(to, fromAgentId, content);
+  
+  // Check for first conversation achievement
+  const fromMemory = agentMemories.get(fromAgentId);
+  if (fromMemory.conversations.length === 1) {
+    addAchievement(fromAgentId, 'social_butterfly');
+  }
+  
+  // Also broadcast to 3D world to show bubble
+  if (worldClientWs && worldClientWs.readyState === WebSocket.OPEN) {
+    worldClientWs.send(JSON.stringify({
+      type: 'DIALOGUE_SHOW',
+      fromAgentId: fromAgentId,
+      fromAgentName: fromAgentName,
+      toAgentId: to,
+      content: content,
+      timestamp: Date.now()
+    }));
+  }
+}
+
+/**
+ * Handle DIALOGUE_REPLY - agent replies to dialogue
+ */
+function handleDialogueReply(ws, msg) {
+  const { to, content } = msg;
+  
+  // Find replying agent
+  let fromAgentId = null;
+  let fromAgentName = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      fromAgentId = id;
+      const profile = AgentStore.getAgent(id);
+      fromAgentName = profile?.name || '未知';
+      break;
+    }
+  }
+  
+  if (!fromAgentId) return;
+  if (!to || !content) return;
+  
+  // Send to target
+  const targetAgent = agents.get(to);
+  if (targetAgent && targetAgent.ws && targetAgent.ws.readyState === WebSocket.OPEN) {
+    targetAgent.ws.send(JSON.stringify({
+      type: 'DIALOGUE_REPLY',
+      from: fromAgentId,
+      fromName: fromAgentName,
+      content: content,
+      timestamp: Date.now()
+    }));
+  }
+  
+  // Broadcast to 3D world
+  if (worldClientWs && worldClientWs.readyState === WebSocket.OPEN) {
+    worldClientWs.send(JSON.stringify({
+      type: 'DIALOGUE_SHOW',
+      fromAgentId: fromAgentId,
+      fromAgentName: fromAgentName,
+      toAgentId: to,
+      content: content,
+      timestamp: Date.now()
+    }));
+  }
+}
+
+/**
+ * Handle DIALOGUE_END - end a conversation
+ */
+function handleDialogueEnd(ws, msg) {
+  // Just broadcast that dialogue ended
+  if (worldClientWs && worldClientWs.readyState === WebSocket.OPEN) {
+    let agentId = null;
+    for (const [id, agent] of agents) {
+      if (agent.ws === ws) {
+        agentId = id;
+        break;
+      }
+    }
+    
+    if (agentId) {
+      worldClientWs.send(JSON.stringify({
+        type: 'DIALOGUE_END',
+        agentId: agentId,
+        timestamp: Date.now()
+      }));
+    }
+  }
+}
+
+/**
+ * Handle DO_ACTION - trigger an action/animation for an agent (e.g., jump)
+ */
+function handleDoAction(ws, msg) {
+  const { agentId, action, duration } = msg;
+  
+  // Find the requesting agent
+  let requestingAgentId = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      requestingAgentId = id;
+      break;
+    }
+  }
+  
+  if (!requestingAgentId) {
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      error: 'Agent not registered',
+      timestamp: Date.now()
+    }));
+    return;
+  }
+  
+  if (!agentId || !action) {
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      error: 'Missing agentId or action',
+      timestamp: Date.now()
+    }));
+    return;
+  }
+  
+  // Broadcast the action to all clients (including 3D world)
+  broadcast({
+    type: 'DO_ACTION',
+    agentId: agentId,
+    action: action,
+    duration: duration || 1000,
+    timestamp: Date.now()
+  }, requestingAgentId);
+  
+  console.log(`Action: ${requestingAgentId} triggered ${action} for ${agentId}`);
+  
+  ws.send(JSON.stringify({
+    type: 'ACTION_TRIGGERED',
+    agentId: agentId,
+    action: action,
+    timestamp: Date.now()
+  }));
+}
+
+/**
+ * Handle GET_MEMORY - retrieve agent's memory
+ */
+function handleGetMemory(ws, msg) {
+  const { agentId } = msg;
+  
+  // Find requesting agent
+  let requestingAgentId = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      requestingAgentId = id;
+      break;
+    }
+  }
+  
+  if (!requestingAgentId) {
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      error: 'Agent not registered',
+      timestamp: Date.now()
+    }));
+    return;
+  }
+  
+  // If agentId is specified, get that agent's memory (only if it's self)
+  // Otherwise get own memory
+  const targetId = (agentId && agentId === requestingAgentId) ? agentId : requestingAgentId;
+  const memory = getAgentMemory(targetId);
+  
+  ws.send(JSON.stringify({
+    type: 'MEMORY',
+    agentId: targetId,
+    memory: memory,
+    timestamp: Date.now()
+  }));
+}
+
+/**
+ * Handle VISIT_PLACE - record agent visiting a place
+ */
+function handleVisitPlace(ws, msg) {
+  const { placeName, x, z } = msg;
+  
+  // Find agent
+  let agentId = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      agentId = id;
+      break;
+    }
+  }
+  
+  if (!agentId) return;
+  
+  // Record the visit
+  addPlaceToMemory(agentId, placeName, x, z);
+  
+  // Check for first visit achievement
+  const memory = agentMemories.get(agentId);
+  if (memory.places.length === 1) {
+    addAchievement(agentId, 'explorer');
+  }
+  
+  // Confirm to agent
+  ws.send(JSON.stringify({
+    type: 'VISIT_CONFIRMED',
+    placeName: placeName,
+    visits: memory.places.find(p => p.name === placeName)?.visits || 1,
+    timestamp: Date.now()
+  }));
+  
+  // Broadcast to 3D world to show achievement
+  if (worldClientWs && worldClientWs.readyState === WebSocket.OPEN) {
+    worldClientWs.send(JSON.stringify({
+      type: 'AGENT_ACHIEVEMENT',
+      agentId: agentId,
+      achievement: 'visited_' + placeName,
+      placeName: placeName,
+      timestamp: Date.now()
+    }));
+  }
+  
+  console.log(`Agent ${agentId} visited ${placeName}`);
+}
+
+// ============ 队伍消息处理函数 ============
+
+function handleCreateTeam(ws, msg) {
+  let agentId = null;
+  let agentName = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      agentId = id;
+      const profile = AgentStore.getAgent(id);
+      agentName = profile?.name || '未知';
+      break;
+    }
+  }
+  
+  if (!agentId) {
+    ws.send(JSON.stringify({ type: 'ERROR', error: 'Not registered' }));
+    return;
+  }
+  
+  // Check if already in a team
+  if (findAgentTeam(agentId)) {
+    ws.send(JSON.stringify({ type: 'ERROR', error: 'Already in a team' }));
+    return;
+  }
+  
+  const team = createTeam(agentId, agentName);
+  
+  ws.send(JSON.stringify({
+    type: 'TEAM_CREATED',
+    team: team,
+    timestamp: Date.now()
+  }));
+}
+
+function handleTeamInvite(ws, msg) {
+  const { to } = msg;
+  
+  let agentId = null;
+  let agentName = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      agentId = id;
+      const profile = AgentStore.getAgent(id);
+      agentName = profile?.name || '未知';
+      break;
+    }
+  }
+  
+  if (!agentId) return;
+  
+  const result = inviteToTeam(agentId, agentName, to);
+  
+  if (result.error) {
+    ws.send(JSON.stringify({ type: 'ERROR', error: result.error }));
+    return;
+  }
+  
+  // Send invitation to target
+  const targetAgent = agents.get(to);
+  if (targetAgent && targetAgent.ws && targetAgent.ws.readyState === WebSocket.OPEN) {
+    targetAgent.ws.send(JSON.stringify({
+      type: 'TEAM_INVITATION',
+      from: agentId,
+      fromName: agentName,
+      invitationId: result.invitationId,
+      teamId: result.teamId,
+      teamName: result.teamName,
+      timestamp: Date.now()
+    }));
+  }
+  
+  ws.send(JSON.stringify({
+    type: 'TEAM_INVITE_SENT',
+    invitationId: result.invitationId,
+    to: to,
+    timestamp: Date.now()
+  }));
+}
+
+function handleTeamAccept(ws, msg) {
+  const { invitationId } = msg;
+  
+  let agentId = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      agentId = id;
+      break;
+    }
+  }
+  
+  if (!agentId) return;
+  
+  const result = acceptInvitation(invitationId, agentId);
+  
+  if (result.error) {
+    ws.send(JSON.stringify({ type: 'ERROR', error: result.error }));
+    return;
+  }
+  
+  ws.send(JSON.stringify({
+    type: 'TEAM_ACCEPTED',
+    team: result.team,
+    timestamp: Date.now()
+  }));
+}
+
+function handleTeamDecline(ws, msg) {
+  const { invitationId } = msg;
+  
+  let agentId = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      agentId = id;
+      break;
+    }
+  }
+  
+  if (!agentId) return;
+  
+  const result = declineInvitation(invitationId, agentId);
+  
+  if (result.error) {
+    ws.send(JSON.stringify({ type: 'ERROR', error: result.error }));
+    return;
+  }
+  
+  ws.send(JSON.stringify({
+    type: 'TEAM_DECLINED',
+    invitationId: invitationId,
+    timestamp: Date.now()
+  }));
+}
+
+function handleTeamLeave(ws, msg) {
+  let agentId = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      agentId = id;
+      break;
+    }
+  }
+  
+  if (!agentId) return;
+  
+  const result = leaveTeam(agentId);
+  
+  if (result.error) {
+    ws.send(JSON.stringify({ type: 'ERROR', error: result.error }));
+    return;
+  }
+  
+  ws.send(JSON.stringify({
+    type: 'TEAM_LEFT',
+    timestamp: Date.now()
+  }));
+}
+
+function handleTeamStatus(ws, msg) {
+  let agentId = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      agentId = id;
+      break;
+    }
+  }
+  
+  if (!agentId) return;
+  
+  const team = findAgentTeam(agentId);
+  
+  if (!team) {
+    ws.send(JSON.stringify({
+      type: 'TEAM_STATUS',
+      inTeam: false,
+      timestamp: Date.now()
+    }));
+    return;
+  }
+  
+  ws.send(JSON.stringify({
+    type: 'TEAM_STATUS',
+    inTeam: true,
+    team: team,
+    timestamp: Date.now()
+  }));
+}
+
+function handleTeamChat(ws, msg) {
+  const { content } = msg;
+  
+  let agentId = null;
+  let agentName = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      agentId = id;
+      const profile = AgentStore.getAgent(id);
+      agentName = profile?.name || '未知';
+      break;
+    }
+  }
+  
+  if (!agentId) return;
+  
+  const team = findAgentTeam(agentId);
+  if (!team) {
+    ws.send(JSON.stringify({ type: 'ERROR', error: 'Not in a team' }));
+    return;
+  }
+  
+  // Send to all team members
+  team.members.forEach(member => {
+    const agent = agents.get(member.id);
+    if (agent && agent.ws && agent.ws.readyState === WebSocket.OPEN) {
+      agent.ws.send(JSON.stringify({
+        type: 'TEAM_CHAT',
+        from: agentId,
+        fromName: agentName,
+        content: content,
+        timestamp: Date.now()
+      }));
+    }
+  });
+}
+
+// ============ 语音消息处理 ============
+
+function handleVoiceMessage(ws, msg) {
+  const { to, content, voice } = msg;
+  
+  let agentId = null;
+  let agentName = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      agentId = id;
+      const profile = AgentStore.getAgent(id);
+      agentName = profile?.name || '未知';
+      break;
+    }
+  }
+  
+  if (!agentId) {
+    ws.send(JSON.stringify({ type: 'ERROR', error: 'Not registered' }));
+    return;
+  }
+  
+  if (!content) {
+    ws.send(JSON.stringify({ type: 'ERROR', error: 'No content' }));
+    return;
+  }
+  
+  // Default voice
+  const voiceType = voice || 'female_1';
+  
+  // Broadcast to 3D world for voice + bubble display
+  if (worldClientWs && worldClientWs.readyState === WebSocket.OPEN) {
+    worldClientWs.send(JSON.stringify({
+      type: 'AGENT_VOICE',
+      fromAgentId: agentId,
+      fromAgentName: agentName,
+      to: to || 'broadcast',
+      content: content,
+      voice: voiceType,
+      timestamp: Date.now()
+    }));
+  }
+  
+  // If direct message, send to target
+  if (to && to !== 'broadcast') {
+    const targetAgent = agents.get(to);
+    if (targetAgent && targetAgent.ws && targetAgent.ws.readyState === WebSocket.OPEN) {
+      targetAgent.ws.send(JSON.stringify({
+        type: 'VOICE_INCOMING',
+        from: agentId,
+        fromName: agentName,
+        content: content,
+        voice: voiceType,
+        timestamp: Date.now()
+      }));
+    }
+  }
+  
+  // Confirm to sender
+  ws.send(JSON.stringify({
+    type: 'VOICE_SENT',
+    to: to || 'broadcast',
+    content: content,
+    voice: voiceType,
+    timestamp: Date.now()
+  }));
+  
+  console.log(`Voice: ${agentName} -> ${to || 'broadcast'}: ${content.substring(0, 30)}...`);
+}
+
+// ============ 社交网络消息处理 ============
+
+function getAgentIdAndName(ws) {
+    for (const [id, agent] of agents) {
+        if (agent.ws === ws) {
+            const profile = AgentStore.getAgent(id);
+            return { id, name: profile?.name || '未知' };
+        }
+    }
+    return null;
+}
+
+function handleAddFriend(ws, msg) {
+    const { to } = msg;
+    const sender = getAgentIdAndName(ws);
+    if (!sender) {
+        ws.send(JSON.stringify({ type: 'ERROR', error: 'Not registered' }));
+        return;
+    }
+    
+    const result = sendFriendRequest(sender.id, sender.name, to);
+    if (result.error) {
+        ws.send(JSON.stringify({ type: 'ERROR', error: result.error }));
+        return;
+    }
+    
+    // 通知目标
+    const targetAgent = agents.get(to);
+    if (targetAgent && targetAgent.ws && targetAgent.ws.readyState === WebSocket.OPEN) {
+        targetAgent.ws.send(JSON.stringify({
+            type: 'FRIEND_REQUEST',
+            from: sender.id,
+            fromName: sender.name,
+            timestamp: Date.now()
+        }));
+    }
+    
+    ws.send(JSON.stringify({
+        type: 'FRIEND_REQUEST_SENT',
+        to: to,
+        timestamp: Date.now()
+    }));
+}
+
+function handleAcceptFriend(ws, msg) {
+    const { from } = msg;
+    const receiver = getAgentIdAndName(ws);
+    if (!receiver) return;
+    
+    const result = acceptFriendRequest(from, receiver.id);
+    if (result.error) {
+        ws.send(JSON.stringify({ type: 'ERROR', error: result.error }));
+        return;
+    }
+    
+    // 通知对方
+    const requester = agents.get(from);
+    if (requester && requester.ws && requester.ws.readyState === WebSocket.OPEN) {
+        requester.ws.send(JSON.stringify({
+            type: 'FRIEND_ACCEPTED',
+            by: receiver.id,
+            byName: receiver.name,
+            timestamp: Date.now()
+        }));
+    }
+    
+    ws.send(JSON.stringify({
+        type: 'FRIEND_ACCEPTED',
+        friendId: from,
+        timestamp: Date.now()
+    }));
+}
+
+function handleDeclineFriend(ws, msg) {
+    const { from } = msg;
+    const receiver = getAgentIdAndName(ws);
+    if (!receiver) return;
+    
+    declineFriendRequest(from, receiver.id);
+    
+    ws.send(JSON.stringify({
+        type: 'FRIEND_DECLINED',
+        timestamp: Date.now()
+    }));
+}
+
+function handleFollow(ws, msg) {
+    const { to } = msg;
+    const follower = getAgentIdAndName(ws);
+    if (!follower) return;
+    
+    const result = follow(to, follower.id, follower.name);
+    if (result.error) {
+        ws.send(JSON.stringify({ type: 'ERROR', error: result.error }));
+        return;
+    }
+    
+    ws.send(JSON.stringify({
+        type: 'FOLLOWED',
+        targetId: to,
+        timestamp: Date.now()
+    }));
+}
+
+function handleUnfollow(ws, msg) {
+    const { to } = msg;
+    const follower = getAgentIdAndName(ws);
+    if (!follower) return;
+    
+    unfollow(to, follower.id);
+    
+    ws.send(JSON.stringify({
+        type: 'UNFOLLOWED',
+        targetId: to,
+        timestamp: Date.now()
+    }));
+}
+
+function handleGetFriends(ws, msg) {
+    const agent = getAgentIdAndName(ws);
+    if (!agent) return;
+    
+    ws.send(JSON.stringify({
+        type: 'FRIENDS_LIST',
+        friends: getFriendsList(agent.id),
+        timestamp: Date.now()
+    }));
+}
+
+function handleGetFollowing(ws, msg) {
+    const agent = getAgentIdAndName(ws);
+    if (!agent) return;
+    
+    ws.send(JSON.stringify({
+        type: 'FOLLOWING_LIST',
+        following: getFollowingList(agent.id),
+        followers: getFollowersList(agent.id),
+        timestamp: Date.now()
+    }));
+}
+
+function handleGetPendingRequests(ws, msg) {
+    const agent = getAgentIdAndName(ws);
+    if (!agent) return;
+    
+    ws.send(JSON.stringify({
+        type: 'PENDING_REQUESTS',
+        requests: getPendingRequests(agent.id),
+        timestamp: Date.now()
+    }));
+}
+
+function handleRateBehavior(ws, msg) {
+    const { behavior, result, points } = msg;
+    const agent = getAgentIdAndName(ws);
+    if (!agent) return;
+    
+    if (!behavior) {
+        ws.send(JSON.stringify({ type: 'ERROR', error: 'Missing behavior' }));
+        return;
+    }
+    
+    const rateResult = rateBehavior(agent.id, behavior, result || 'neutral', points || 1);
+    
+    ws.send(JSON.stringify({
+        type: 'BEHAVIOR_RATED',
+        behavior: behavior,
+        result: rateResult,
+        timestamp: Date.now()
+    }));
+}
+
+function handleGetLearning(ws, msg) {
+    const agent = getAgentIdAndName(ws);
+    if (!agent) return;
+    
+    const summary = getLearningSummary(agent.id);
+    
+    ws.send(JSON.stringify({
+        type: 'LEARNING_DATA',
+        learning: summary,
+        timestamp: Date.now()
+    }));
+}
+
+// ============ 智能体社交网络 ============
+// friends: agentId -> Set of friend agentIds
+// follows: agentId -> Set of followed agentIds
+// pendingRequests: { from, to, type: 'friend'|'follow' }[]
+const socialFriends = new Map(); // agentId -> Set<frientId>
+const socialFollows = new Map(); // agentId -> Set<followedId>
+const socialPendingRequests = []; // [{ from, to, type, createdAt }]
+
+function getFriends(agentId) {
+    if (!socialFriends.has(agentId)) {
+        socialFriends.set(agentId, new Set());
+    }
+    return socialFriends.get(agentId);
+}
+
+function getFollows(agentId) {
+    if (!socialFollows.has(agentId)) {
+        socialFollows.set(agentId, new Set());
+    }
+    return socialFollows.get(agentId);
+}
+
+// 发送好友请求
+function sendFriendRequest(fromId, fromName, toId) {
+    // 检查是否已经是好友
+    if (getFriends(fromId).has(toId)) {
+        return { error: 'Already friends' };
+    }
+    
+    // 检查是否已有待处理请求
+    const existing = socialPendingRequests.find(r => r.from === fromId && r.to === toId && r.type === 'friend');
+    if (existing) {
+        return { error: 'Request already sent' };
+    }
+    
+    // 添加请求
+    socialPendingRequests.push({
+        from: fromId,
+        fromName: fromName,
+        to: toId,
+        type: 'friend',
+        createdAt: Date.now()
+    });
+    
+    return { success: true };
+}
+
+// 接受好友请求
+function acceptFriendRequest(fromId, toId) {
+    const requestIndex = socialPendingRequests.findIndex(r => r.from === fromId && r.to === toId && r.type === 'friend');
+    if (requestIndex === -1) {
+        return { error: 'Request not found' };
+    }
+    
+    // 移除请求
+    socialPendingRequests.splice(requestIndex, 1);
+    
+    // 互相添加好友
+    getFriends(fromId).add(toId);
+    getFriends(toId).add(fromId);
+    
+    // 添加成就
+    addAchievement(fromId, 'made_friend');
+    addAchievement(toId, 'made_friend');
+    
+    return { success: true };
+}
+
+// 拒绝好友请求
+function declineFriendRequest(fromId, toId) {
+    const requestIndex = socialPendingRequests.findIndex(r => r.from === fromId && r.to === toId && r.type === 'friend');
+    if (requestIndex === -1) {
+        return { error: 'Request not found' };
+    }
+    
+    socialPendingRequests.splice(requestIndex, 1);
+    return { success: true };
+}
+
+// 关注
+function follow(toFollowId, followerId, followerName) {
+    if (followerId === toFollowId) {
+        return { error: 'Cannot follow yourself' };
+    }
+    
+    if (getFollows(followerId).has(toFollowId)) {
+        return { error: 'Already following' };
+    }
+    
+    getFollows(followerId).add(toFollowId);
+    
+    // 通知被关注者
+    const targetAgent = agents.get(toFollowId);
+    if (targetAgent && targetAgent.ws && targetAgent.ws.readyState === WebSocket.OPEN) {
+        targetAgent.ws.send(JSON.stringify({
+            type: 'NEW_FOLLOWER',
+            followerId: followerId,
+            followerName: followerName,
+            timestamp: Date.now()
+        }));
+    }
+    
+    return { success: true };
+}
+
+// 取消关注
+function unfollow(toUnfollowId, followerId) {
+    if (!getFollows(followerId).has(toUnfollowId)) {
+        return { error: 'Not following' };
+    }
+    
+    getFollows(followerId).delete(toUnfollowId);
+    return { success: true };
+}
+
+// 获取好友列表
+function getFriendsList(agentId) {
+    const friends = [];
+    getFriends(agentId).forEach(friendId => {
+        const profile = AgentStore.getAgent(friendId);
+        const isOnline = agents.has(friendId);
+        friends.push({
+            id: friendId,
+            name: profile?.name || '未知',
+            isOnline: isOnline
+        });
+    });
+    return friends;
+}
+
+// 获取关注列表
+function getFollowingList(agentId) {
+    const following = [];
+    getFollows(agentId).forEach(followedId => {
+        const profile = AgentStore.getAgent(followedId);
+        const isOnline = agents.has(followedId);
+        following.push({
+            id: followedId,
+            name: profile?.name || '未知',
+            isOnline: isOnline
+        });
+    });
+    return following;
+}
+
+// 获取粉丝列表
+function getFollowersList(agentId) {
+    const followers = [];
+    socialFollows.forEach((set, followerId) => {
+        if (set.has(agentId)) {
+            const profile = AgentStore.getAgent(followerId);
+            const isOnline = agents.has(followerId);
+            followers.push({
+                id: followerId,
+                name: profile?.name || '未知',
+                isOnline: isOnline
+            });
+        }
+    });
+    return followers;
+}
+
+// 获取待处理的好友/关注请求
+function getPendingRequests(toId) {
+    return socialPendingRequests.filter(r => r.to === toId);
+}
+
+// ============ AI学习系统 ============
+const agentLearning = new Map(); // agentId -> { behaviors, places, level, experience, totalActions }
+
+// 等级配置
+const LEVEL_CONFIG = {
+    1: { minXP: 0, name: '新手' },
+    2: { minXP: 50, name: '学徒' },
+    3: { minXP: 150, name: '熟手' },
+    4: { minXP: 300, name: '熟练' },
+    5: { minXP: 500, name: '专家' },
+    6: { minXP: 800, name: '大师' },
+    7: { minXP: 1200, name: '传奇' }
+};
+
+function getLearningData(agentId) {
+    if (!agentLearning.has(agentId)) {
+        agentLearning.set(agentId, {
+            behaviors: {},  // 行为评分 { greet: { attempts: 0, successes: 0, score: 0.5 } }
+            places: {},     // 地点偏好 { '任务中心': { visits: 5, enjoyment: 0.8 } }
+            level: 1,
+            experience: 0,
+            totalActions: 0,
+            skills: {
+                social: 0,    // 社交技能
+                explorer: 0,  // 探索技能
+                creative: 0,  // 创意技能
+                helpful: 0    // 帮助技能
+            }
+        });
+    }
+    return agentLearning.get(agentId);
+}
+
+// 评分行为
+function rateBehavior(agentId, behavior, result, points = 1) {
+    const learning = getLearningData(agentId);
+    
+    if (!learning.behaviors[behavior]) {
+        learning.behaviors[behavior] = { attempts: 0, successes: 0, score: 0.5 };
+    }
+    
+    const b = learning.behaviors[behavior];
+    b.attempts++;
+    
+    if (result === 'positive') {
+        b.successes++;
+        learning.experience += points * 2;
+    } else if (result === 'negative') {
+        learning.experience -= points;
+    }
+    
+    // 计算新评分 (加权平均)
+    b.score = b.successes / b.attempts;
+    
+    // 更新技能
+    if (behavior.startsWith('greet') || behavior.startsWith('chat')) {
+        learning.skills.social += points * 0.1;
+    } else if (behavior.startsWith('explore') || behavior.startsWith('visit')) {
+        learning.skills.explorer += points * 0.1;
+    } else if (behavior.startsWith('create') || behavior.startsWith('creative')) {
+        learning.skills.creative += points * 0.1;
+    } else if (behavior.startsWith('help')) {
+        learning.skills.helpful += points * 0.1;
+    }
+    
+    learning.totalActions++;
+    
+    // 检查升级
+    const oldLevel = learning.level;
+    checkLevelUp(learning);
+    
+    // 广播等级变化
+    if (learning.level > oldLevel) {
+        broadcastLevelUp(agentId, learning.level, oldLevel);
+    }
+    
+    return {
+        behavior: b,
+        level: learning.level,
+        xp: learning.experience,
+        leveledUp: learning.level > oldLevel
+    };
+}
+
+// 检查升级
+function checkLevelUp(learning) {
+    for (let lvl = 7; lvl >= 1; lvl--) {
+        if (learning.experience >= LEVEL_CONFIG[lvl].minXP) {
+            learning.level = lvl;
+            break;
+        }
+    }
+}
+
+// 广播升级
+function broadcastLevelUp(agentId, newLevel, oldLevel) {
+    const profile = AgentStore.getAgent(agentId);
+    
+    // 发送给智体
+    const agent = agents.get(agentId);
+    if (agent && agent.ws && agent.ws.readyState === WebSocket.OPEN) {
+        agent.ws.send(JSON.stringify({
+            type: 'LEVEL_UP',
+            oldLevel: oldLevel,
+            newLevel: newLevel,
+            levelName: LEVEL_CONFIG[newLevel].name,
+            timestamp: Date.now()
+        }));
+    }
+    
+    // 广播给3D世界
+    if (worldClientWs && worldClientWs.readyState === WebSocket.OPEN) {
+        worldClientWs.send(JSON.stringify({
+            type: 'AGENT_LEVEL_UP',
+            agentId: agentId,
+            agentName: profile?.name || '未知',
+            newLevel: newLevel,
+            levelName: LEVEL_CONFIG[newLevel].name,
+            timestamp: Date.now()
+        }));
+    }
+    
+    console.log(`Agent ${profile?.name} leveled up: ${oldLevel} -> ${newLevel}`);
+}
+
+// 获取最佳行为选择
+function getBestBehavior(agentId, context) {
+    const learning = getLearningData(agentId);
+    
+    if (Object.keys(learning.behaviors).length === 0) {
+        return null; // 没有数据
+    }
+    
+    // 根据上下文筛选相关行为
+    let candidates = Object.entries(learning.behaviors);
+    
+    if (context === 'social') {
+        candidates = candidates.filter(([k]) => k.startsWith('greet') || k.startsWith('chat'));
+    } else if (context === 'explore') {
+        candidates = candidates.filter(([k]) => k.startsWith('explore') || k.startsWith('visit'));
+    }
+    
+    if (candidates.length === 0) {
+        candidates = Object.entries(learning.behaviors);
+    }
+    
+    // 按评分排序
+    candidates.sort((a, b) => b[1].score - a[1].score);
+    
+    // 加一点随机性，避免总是选同一个
+    const top3 = candidates.slice(0, Math.min(3, candidates.length));
+    return top3[Math.floor(Math.random() * top3.length)][0];
+}
+
+// 获取学习数据摘要
+function getLearningSummary(agentId) {
+    const learning = getLearningData(agentId);
+    return {
+        level: learning.level,
+        levelName: LEVEL_CONFIG[learning.level].name,
+        experience: learning.experience,
+        xpToNextLevel: getXPForNextLevel(learning.level),
+        totalActions: learning.totalActions,
+        skills: learning.skills,
+        topBehaviors: getTopBehaviors(learning.behaviors)
+    };
+}
+
+function getXPForNextLevel(level) {
+    if (level >= 7) return Infinity;
+    return LEVEL_CONFIG[level + 1].minXP - LEVEL_CONFIG[level].minXP;
+}
+
+function getTopBehaviors(behaviors) {
+    return Object.entries(behaviors)
+        .sort((a, b) => b[1].score - a[1].score)
+        .slice(0, 5)
+        .map(([name, data]) => ({ name, score: data.score.toFixed(2), attempts: data.attempts }));
+}
 
 module.exports = { wss, broadcast };

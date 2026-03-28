@@ -323,7 +323,7 @@ function createCity() {
     buildings.forEach(b => {
         const building = createBuilding(b.w, b.h, b.d, b.color);
         building.position.set(b.x, b.h / 2, b.z);
-        building.userData = { type: 'building', name: b.name };
+        building.userData = { type: 'building', name: b.name, height: b.h };
         scene.add(building);
         
         // 添加顶部灯光
@@ -946,6 +946,9 @@ function addAgentMesh(agent) {
     
     scene.add(mesh);
     agents.set(agent.agentId, { mesh: mesh, data: agent });
+    
+    // 初始化情绪状态
+    getAgentState(agent.agentId);
 }
 
 function removeAgentMesh(agentId) {
@@ -953,6 +956,8 @@ function removeAgentMesh(agentId) {
     if (agent) {
         scene.remove(agent.mesh);
         agents.delete(agentId);
+        // 清理情绪状态
+        agentStates.delete(agentId);
     }
 }
 
@@ -1052,8 +1057,10 @@ function moveAgentToPosition(agentId, x, z) {
     // Set the target position - the animate loop will handle the actual movement
     mesh.userData.targetX = x;
     mesh.userData.targetZ = z;
-    mesh.userData.speed = 2.0; // 2 units per second
+    mesh.userData.speed = 2.5; // 2.5 units per second - slightly faster for responsive feel
     mesh.userData.isThinking = false; // Allow free movement
+    mesh.userData.serverControlled = true; // Mark as server-controlled, higher priority than autonomous
+    mesh.userData.hasNewTarget = false; // 清除标记，到达后不会自动生成新目标
     
     console.log(`智能体 ${agentId} 目标位置: (${x.toFixed(2)}, ${z.toFixed(2)})`);
 }
@@ -1157,6 +1164,7 @@ function detectObjectsInView(camera, fov, range) {
     const fovRad = fov * Math.PI / 180;
     const halfFov = fovRad / 2;
     
+    // Detect agents
     agents.forEach((data, id) => {
         const mesh = data.mesh;
         const pos = mesh.position;
@@ -1175,25 +1183,522 @@ function detectObjectsInView(camera, fov, range) {
         
         // Check if within FOV
         if (angle <= halfFov) {
-            // Calculate screen position (simple projection)
-            const dx = pos.x - camera.position.x;
-            const dz = pos.z - camera.position.z;
-            
             objects.push({
                 type: 'agent',
                 id: id,
                 name: data.data?.name || '未知',
                 distance: Math.round(distance * 10) / 10,
-                angle: Math.round((angle * 180 / Math.PI) * 10) / 10,  // degrees
+                angle: Math.round((angle * 180 / Math.PI) * 10) / 10,
                 color: data.data?.visual?.color || '#FF6B6B'
             });
         }
     });
     
-    // Add buildings that are visible
-    // (buildings are static, we can add them if needed)
+    // Detect buildings in the scene
+    scene.traverse((obj) => {
+        if (obj.userData && obj.userData.type === 'building') {
+            const pos = obj.position;
+            const height = obj.userData.height || 10;
+            
+            // Calculate center of building
+            const toObj = new THREE.Vector3(pos.x - camera.position.x, 0, pos.z - camera.position.z);
+            const distance = toObj.length();
+            
+            if (distance > range || distance < 1) return;
+            
+            toObj.normalize();
+            const angle = Math.acos(cameraDir.dot(toObj));
+            
+            if (angle <= halfFov) {
+                objects.push({
+                    type: 'building',
+                    name: obj.userData.name || '建筑',
+                    distance: Math.round(distance * 10) / 10,
+                    angle: Math.round((angle * 180 / Math.PI) * 10) / 10,
+                    height: height
+                });
+            }
+        }
+    });
     
     return objects;
+}
+
+// ============ 雷达式视野系统 ============
+
+function handleRadarQuery(msg) {
+    const { requestId, agentId, x, z, direction, range } = msg;
+    
+    const objects = [];
+    const radarDirRad = -direction * Math.PI / 180; // Convert to radians
+    
+    // Get all agents in range
+    agents.forEach((data, id) => {
+        if (id === agentId) return; // Skip self
+        
+        const mesh = data.mesh;
+        const dx = mesh.position.x - x;
+        const dz = mesh.position.z - z;
+        const distance = Math.sqrt(dx * dx + dz * dz);
+        
+        if (distance > range || distance < 0.5) return;
+        
+        // Calculate angle relative to facing direction
+        let angle = Math.atan2(dx, dz) - radarDirRad;
+        // Normalize to -180 to 180
+        while (angle > Math.PI) angle -= Math.PI * 2;
+        while (angle < -Math.PI) angle += Math.PI * 2;
+        
+        const angleDeg = Math.round(angle * 180 / Math.PI);
+        const inFront = Math.abs(angleDeg) < 90;
+        
+        objects.push({
+            type: 'agent',
+            id: id,
+            name: data.data?.name || '未知',
+            distance: Math.round(distance * 10) / 10,
+            angle: angleDeg,
+            inFront: inFront
+        });
+    });
+    
+    // Get buildings in range
+    scene.traverse((obj) => {
+        if (obj.userData && obj.userData.type === 'building') {
+            const pos = obj.position;
+            const dx = pos.x - x;
+            const dz = pos.z - z;
+            const distance = Math.sqrt(dx * dx + dz * dz);
+            
+            if (distance > range || distance < 1) return;
+            
+            let angle = Math.atan2(dx, dz) - radarDirRad;
+            while (angle > Math.PI) angle -= Math.PI * 2;
+            while (angle < -Math.PI) angle += Math.PI * 2;
+            
+            const angleDeg = Math.round(angle * 180 / Math.PI);
+            const inFront = Math.abs(angleDeg) < 90;
+            
+            objects.push({
+                type: 'building',
+                name: obj.userData.name || '建筑',
+                distance: Math.round(distance * 10) / 10,
+                angle: angleDeg,
+                inFront: inFront,
+                height: obj.userData.height || 10
+            });
+        }
+    });
+    
+    // Sort by distance
+    objects.sort((a, b) => a.distance - b.distance);
+    
+    // Generate summary
+    let summary = '';
+    if (objects.length === 0) {
+        summary = '周围' + range + '米内没有发现其他智能体或建筑。';
+    } else {
+        const frontAgents = objects.filter(o => o.type === 'agent' && o.inFront);
+        const backAgents = objects.filter(o => o.type === 'agent' && !o.inFront);
+        const frontBuildings = objects.filter(o => o.type === 'building' && o.inFront);
+        
+        if (frontAgents.length > 0) {
+            summary += '前方' + frontAgents[0].distance + '米有' + frontAgents[0].name;
+            if (frontAgents.length > 1) summary += '等' + frontAgents.length + '只智能体';
+            summary += '。';
+        }
+        if (frontBuildings.length > 0) {
+            summary += '前方' + frontBuildings[0].distance + '米有' + frontBuildings[0].name + '。';
+        }
+        if (backAgents.length > 0) {
+            summary += '后方' + backAgents.length + '只智能体。';
+        }
+    }
+    
+    // Send response back
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'RADAR_RESPONSE',
+            requestId: requestId,
+            objects: objects,
+            summary: summary,
+            timestamp: Date.now()
+        }));
+        console.log('📡 雷达响应已发送:', objects.length, '个目标');
+    }
+}
+
+// ============ 智能体自主行为系统 ============
+
+// 建筑位置列表（智能体可能被吸引去的地方）
+const AUTONOMOUS_BUILDINGS = [
+    { name: '任务中心', x: -25, z: -25, attraction: 0.3 },
+    { name: '声誉塔', x: 25, z: -25, attraction: 0.2 },
+    { name: '交易中心', x: -25, z: 25, attraction: 0.15 },
+    { name: '档案馆', x: 25, z: 25, attraction: 0.15 },
+    { name: '消息站', x: 0, z: -35, attraction: 0.1 },
+    { name: '数据中心', x: -35, z: 0, attraction: 0.1 },
+    { name: '创意工坊', x: 35, z: 0, attraction: 0.1 },
+    { name: '社交广场', x: 0, z: 35, attraction: 0.1 },
+];
+
+// 自主行为类型
+const BEHAVIORS = {
+    WANDER: 'wander',           // 随机漫步
+    GOTO_BUILDING: 'goto_building', // 去某个建筑
+    GREET: 'greet',             // 打招呼
+    REST: 'rest'                // 休息（原地停留）
+};
+
+// ============ 情绪与动作系统 ============
+
+// 情绪类型
+const EMOTIONS = {
+    HAPPY: 'happy',       // 开心
+    CURIOUS: 'curious',    // 好奇
+    BUSY: 'busy',          // 忙碌
+    TIRED: 'tired',        // 疲惫
+    EXCITED: 'excited',    // 兴奋
+    PEACEFUL: 'peaceful',  // 平静
+    CONFUSED: 'confused'    // 困惑
+};
+
+// 情绪图标
+const EMOTION_EMOJIS = {
+    happy: '😊',
+    curious: '🤔',
+    busy: '💼',
+    tired: '😴',
+    excited: '🎉',
+    peaceful: '🧘',
+    confused: '😕'
+};
+
+// 动作类型
+const ACTIONS = {
+    WAVE: 'wave',         // 挥手
+    DANCE: 'dance',       // 跳舞
+    THINK: 'think',       // 思考
+    JUMP: 'jump',         // 跳跃
+    SIT: 'sit'           // 坐下
+};
+
+// 每个智能体的情绪和动作状态
+const agentStates = new Map(); // agentId -> { emotion, action, actionEndTime, emotionTimer }
+
+// 获取或创建智能体状态
+function getAgentState(agentId) {
+    if (!agentStates.has(agentId)) {
+        agentStates.set(agentId, {
+            emotion: EMOTIONS.PEACEFUL,
+            action: null,
+            actionEndTime: 0,
+            emotionTimer: Date.now() + 5000 + Math.random() * 5000 // 5-10秒后变化
+        });
+    }
+    return agentStates.get(agentId);
+}
+
+// 设置智能体情绪
+function setAgentEmotion(agentId, emotion) {
+    const state = getAgentState(agentId);
+    state.emotion = emotion;
+    state.emotionTimer = Date.now() + 30000 + Math.random() * 30000; // 30-60秒后自然变化
+    updateEmotionSprite(agentId);
+}
+
+// 设置智能体动作
+function setAgentAction(agentId, action, duration) {
+    const state = getAgentState(agentId);
+    state.action = action;
+    state.actionEndTime = Date.now() + (duration || 3000);
+    updateActionAnimation(agentId, action);
+}
+
+// 更新情绪显示sprite
+function updateEmotionSprite(agentId) {
+    const agentData = agents.get(agentId);
+    if (!agentData) return;
+    
+    const state = agentStates.get(agentId);
+    if (!state) return;
+    
+    const emoji = EMOTION_EMOJIS[state.emotion] || '😊';
+    
+    // 创建或更新情绪sprite
+    if (!state.emotionSprite) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(emoji, 32, 32);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+        state.emotionSprite = new THREE.Sprite(material);
+        state.emotionSprite.position.set(agentData.mesh.position.x, agentData.mesh.position.y + 3.5, agentData.mesh.position.z);
+        state.emotionSprite.scale.set(0.8, 0.8, 1);
+        scene.add(state.emotionSprite);
+    } else {
+        // 更新emoji
+        const canvas = document.createElement('canvas');
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(emoji, 32, 32);
+        
+        state.emotionSprite.material.map.dispose();
+        state.emotionSprite.material.map = new THREE.CanvasTexture(canvas);
+        state.emotionSprite.material.needsUpdate = true;
+    }
+}
+
+// 更新动作动画
+function updateActionAnimation(agentId, action) {
+    const agentData = agents.get(agentId);
+    if (!agentData) return;
+    
+    const mesh = agentData.mesh;
+    
+    switch (action) {
+        case ACTIONS.WAVE:
+            // 挥手动画 - 简单的旋转
+            animateAction(agentId, (t) => {
+                mesh.rotation.y = Math.sin(t * 10) * 0.5;
+            }, 2000);
+            break;
+            
+        case ACTIONS.DANCE:
+            // 跳舞动画 - 上下跳动 + 旋转
+            animateAction(agentId, (t) => {
+                mesh.position.y = Math.abs(Math.sin(t * 8)) * 0.5;
+                mesh.rotation.y = t * 5;
+            }, 3000);
+            break;
+            
+        case ACTIONS.JUMP:
+            // 跳跃动画
+            animateAction(agentId, (t) => {
+                mesh.position.y = Math.sin(t * 15) * 1.0;
+            }, 1000);
+            break;
+            
+        case ACTIONS.THINK:
+            // 思考动画 - 轻微上下浮动
+            animateAction(agentId, (t) => {
+                mesh.position.y = 0.1 + Math.sin(t * 3) * 0.1;
+            }, 3000);
+            break;
+    }
+}
+
+// 动作动画辅助函数
+function animateAction(agentId, animateFn, duration) {
+    const startTime = Date.now();
+    
+    function animate() {
+        const elapsed = Date.now() - startTime;
+        if (elapsed >= duration) {
+            // 恢复默认
+            const agentData = agents.get(agentId);
+            if (agentData) {
+                agentData.mesh.rotation.y = 0;
+                agentData.mesh.position.y = 0;
+            }
+            const state = agentStates.get(agentId);
+            if (state) {
+                state.action = null;
+            }
+            return;
+        }
+        
+        const t = elapsed / duration;
+        animateFn(t);
+        requestAnimationFrame(animate);
+    }
+    
+    animate();
+}
+
+// 情绪随时间自然变化
+function updateEmotions() {
+    const now = Date.now();
+    
+    agents.forEach((data, agentId) => {
+        const state = agentStates.get(agentId);
+        if (!state) return;
+        
+        // 检查是否需要更新情绪
+        if (now > state.emotionTimer) {
+            // 随机选择新情绪（基于当前行为的偏好）
+            const currentBehavior = agentDecisions.get(agentId)?.behavior;
+            let newEmotion;
+            
+            if (currentBehavior === BEHAVIORS.WANDER) {
+                // 漫步时可能好奇或平静
+                newEmotion = Math.random() > 0.5 ? EMOTIONS.CURIOUS : EMOTIONS.PEACEFUL;
+            } else if (currentBehavior === BEHAVIORS.REST) {
+                // 休息时平静
+                newEmotion = EMOTIONS.PEACEFUL;
+            } else {
+                // 其他时候随机
+                const emotionKeys = Object.keys(EMOTIONS);
+                newEmotion = emotionKeys[Math.floor(Math.random() * emotionKeys.length)];
+            }
+            
+            setAgentEmotion(agentId, newEmotion);
+        }
+    });
+}
+
+// 每个智能体的决策状态
+const agentDecisions = new Map(); // agentId -> { behavior, target, lastDecision, cooldown }
+
+// 获取智能体的决策状态
+function getAgentDecision(agentId) {
+    if (!agentDecisions.has(agentId)) {
+        agentDecisions.set(agentId, {
+            behavior: BEHAVIORS.WANDER,
+            target: null,
+            lastDecision: 0,
+            cooldown: 0
+        });
+    }
+    return agentDecisions.get(agentId);
+}
+
+// 智能体自主决策（每3-5秒做一次决定）
+function agentAutonomousDecision(agentId) {
+    const decision = getAgentDecision(agentId);
+    const now = Date.now();
+    
+    // 冷却中，跳过
+    if (now < decision.cooldown) return;
+    
+    // 随机决定行为
+    const rand = Math.random();
+    let cumulative = 0;
+    
+    // 40% 随机漫步, 35% 去建筑, 15% 休息, 10% 保持当前目标
+    cumulative += 0.40;
+    if (rand < cumulative) {
+        decision.behavior = BEHAVIORS.WANDER;
+        decision.target = null;
+    } else {
+        cumulative += 0.35;
+        if (rand < cumulative) {
+            // 选择一个建筑
+            const building = AUTONOMOUS_BUILDINGS[Math.floor(Math.random() * AUTONOMOUS_BUILDINGS.length)];
+            decision.behavior = BEHAVIORS.GOTO_BUILDING;
+            decision.target = building;
+        } else {
+            cumulative += 0.15;
+            if (rand < cumulative) {
+                decision.behavior = BEHAVIORS.REST;
+                decision.target = null;
+            } else {
+                // 保持当前状态
+            }
+        }
+    }
+    
+    decision.lastDecision = now;
+    decision.cooldown = now + 3000 + Math.random() * 2000; // 3-5秒冷却
+    
+    return decision;
+}
+
+// 当智能体看到其他智能体时的反应
+function onAgentSeeOther(agentId, visibleAgents) {
+    if (visibleAgents.length === 0) return null;
+    
+    // 随机选择一个看到的智能体
+    const target = visibleAgents[Math.floor(Math.random() * visibleAgents.length)];
+    
+    // 30%几率打招呼
+    if (Math.random() < 0.3) {
+        // 实际显示打招呼气泡
+        showGreeting(agentId);
+        return {
+            action: 'greet',
+            target: target
+        };
+    }
+    
+    return null;
+}
+
+// 执行自主行为
+function executeAutonomousBehavior(agentId, decision) {
+    const agentData = agents.get(agentId);
+    if (!agentData || !agentData.mesh) return;
+    if (!decision || !decision.behavior) {
+        console.log('decision=', decision);		
+		return;
+	}   
+    const mesh = agentData.mesh;
+    
+    // 如果是服务器控制的状态，跳过自主行为
+    if (mesh.userData.serverControlled) {
+        // 检查是否到达目标
+        if (mesh.userData.targetX !== undefined && mesh.userData.targetZ !== undefined) {
+            const dx = mesh.userData.targetX - mesh.position.x;
+            const dz = mesh.userData.targetZ - mesh.position.z;
+            const distToTarget = Math.sqrt(dx * dx + dz * dz);
+            if (distToTarget < 0.3) {
+                // 到达目标后，取消服务器控制标记，恢复自主行为
+                mesh.userData.serverControlled = false;
+            }
+        }
+        return;
+    }
+    
+    // 检查当前是否已经接近目标
+    let hasReachedTarget = false;
+    if (mesh.userData.targetX !== undefined && mesh.userData.targetZ !== undefined) {
+        const dx = mesh.userData.targetX - mesh.position.x;
+        const dz = mesh.userData.targetZ - mesh.position.z;
+        const distToTarget = Math.sqrt(dx * dx + dz * dz);
+        hasReachedTarget = distToTarget < 0.3; // 小于0.3米才算到达
+    }
+    
+    switch (decision.behavior) {
+        case BEHAVIORS.WANDER:
+            // 随机漫步 - 只有在没有目标或已到达目标时才生成新目标
+            if (!mesh.userData.targetX || hasReachedTarget) {
+                // 在当前位置附近随机选一个点（半径3-8米）
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 3 + Math.random() * 5;
+                mesh.userData.targetX = mesh.position.x + Math.cos(angle) * radius;
+                mesh.userData.targetZ = mesh.position.z + Math.sin(angle) * radius;
+                mesh.userData.speed = 2.0; // 固定速度2米/秒
+                mesh.userData.hasNewTarget = true; // 标记已有目标
+            }
+            break;
+            
+        case BEHAVIORS.GOTO_BUILDING:
+            if (decision.target && hasReachedTarget) {
+                // 走向目标建筑（只在到达后才更新）
+                mesh.userData.targetX = decision.target.x + (Math.random() - 0.5) * 4;
+                mesh.userData.targetZ = decision.target.z + (Math.random() - 0.5) * 4;
+                mesh.userData.speed = 2.5;
+                mesh.userData.hasNewTarget = true; // 标记已有目标
+            }
+            break;
+            
+        case BEHAVIORS.REST:
+            // 休息 - 停下来
+            mesh.userData.targetX = mesh.position.x;
+            mesh.userData.targetZ = mesh.position.z;
+            mesh.userData.speed = 0;
+            break;
+    }
 }
 
 // ============ 时间跟踪 ============
@@ -1228,14 +1733,25 @@ function animate() {
             const dz = mesh.userData.targetZ - mesh.position.z;
             const distance = Math.sqrt(dx * dx + dz * dz);
             
-            // 如果距离大于0.1，继续移动
-            if (distance > 0.1) {
+            // 如果距离大于0.05米，继续移动
+            if (distance > 0.05) {
                 // 速度单位：每秒移动的距离
                 const speed = mesh.userData.speed || 2.0;
-                const moveX = (dx / distance) * speed * dt;
-                const moveZ = (dz / distance) * speed * dt;
-                mesh.position.x += moveX;
-                mesh.position.z += moveZ;
+                
+                // 计算这个帧能移动的最大距离
+                const maxMove = speed * dt;
+                
+                // 如果剩余距离小于这帧能移动的距离，直接跳到目标
+                if (distance <= maxMove) {
+                    mesh.position.x = mesh.userData.targetX;
+                    mesh.position.z = mesh.userData.targetZ;
+                } else {
+                    // 正常移动
+                    const moveX = (dx / distance) * maxMove;
+                    const moveZ = (dz / distance) * maxMove;
+                    mesh.position.x += moveX;
+                    mesh.position.z += moveZ;
+                }
                 
                 // 计算目标朝向角度
                 const targetAngle = Math.atan2(dx, dz);
@@ -1255,16 +1771,65 @@ function animate() {
                     mesh.rotation.y += Math.sign(angleDiff) * turnSpeed;
                 }
             } else {
-                // 到达目标，如果不在思考状态则生成新目标
-                if (!mesh.userData.isThinking) {
-                    generateNewTarget(mesh);
+                // 到达目标，如果不在思考状态且不是服务器控制，则生成新目标
+                if (!mesh.userData.isThinking && !mesh.userData.serverControlled) {
+                    // 只有在没有pending新目标的情况下才生成
+                    if (!mesh.userData.hasNewTarget) {
+                        generateNewTarget(mesh);
+                        mesh.userData.hasNewTarget = true;
+                    }
                 }
+            }
+        } else {
+            // 清除标记，当有新目标时重新设置
+            mesh.userData.hasNewTarget = false;
+        }
+        
+        // ========== 自主行为处理 ==========
+        // 如果智能体不在思考状态，执行自主行为
+        if (!mesh.userData.isThinking) {
+            // 每3-5秒做一次决策
+            const decision = agentAutonomousDecision(id);
+            
+            // 执行自主行为
+            executeAutonomousBehavior(id, decision);
+            
+            // 检测附近的智能体并做出反应
+            const nearbyAgents = [];
+            agents.forEach((otherData, otherId) => {
+                if (otherId === id) return;
+                const otherMesh = otherData.mesh;
+                const dist = Math.sqrt(
+                    Math.pow(mesh.position.x - otherMesh.position.x, 2) +
+                    Math.pow(mesh.position.z - otherMesh.position.z, 2)
+                );
+                if (dist < 8) {  // 8米内
+                    nearbyAgents.push({ id: otherId, name: otherData.data?.name || '未知', distance: dist });
+                }
+            });
+            
+            // 如果附近有其他智能体，有几率打招呼
+            if (nearbyAgents.length > 0 && Math.random() < 0.02) { // 2%几率每帧检测
+                onAgentSeeOther(id, nearbyAgents);
             }
         }
     });
     
     // Update flying birds
     if (typeof updateBirds === "function") updateBirds(Date.now());
+    
+    // 更新智能体情绪（每秒检查一次）
+    if (typeof updateEmotions === "function") updateEmotions();
+    
+    // 更新情绪图标位置
+    agents.forEach((data, agentId) => {
+        const state = agentStates.get(agentId);
+        if (state && state.emotionSprite) {
+            state.emotionSprite.position.x = data.mesh.position.x;
+            state.emotionSprite.position.z = data.mesh.position.z;
+            state.emotionSprite.position.y = data.mesh.position.y + 3.5;
+        }
+    });
     
     // 更新相机位置（跟随/第一人称模式）
     if (cameraMode !== 'orbit' && selectedAgentId) {
@@ -1276,14 +1841,32 @@ function animate() {
 
 // 生成新的移动目标
 function generateNewTarget(mesh) {
-    // 根据智能体类型，在一定范围内生成新目标
-    const range = 8;
-    mesh.userData.targetX = mesh.position.x + (Math.random() - 0.5) * range;
-    mesh.userData.targetZ = mesh.position.z + (Math.random() - 0.5) * range;
-    
-    // 限制在合理范围内
-    mesh.userData.targetX = Math.max(-50, Math.min(50, mesh.userData.targetX));
-    mesh.userData.targetZ = Math.max(-50, Math.min(50, mesh.userData.targetZ));
+  // 安全检查：确保mesh和position存在
+  if (!mesh) {
+    console.warn('generateNewTarget: 无效的mesh对象');
+    return;
+  }
+  
+  // 根据智能体类型，在一定范围内生成新目标（半径5-15米）
+  const angle = Math.random() * Math.PI * 2;
+  const radius = 5 + Math.random() * 10;
+  
+  // 安全获取当前位置（如果position不存在则使用默认值）
+  const currentX = (mesh.position && mesh.position.x !== undefined) ? mesh.position.x : 0;
+  const currentZ = (mesh.position && mesh.position.z !== undefined) ? mesh.position.z : 0;
+  
+  mesh.userData.targetX = currentX + Math.cos(angle) * radius;
+  mesh.userData.targetZ = currentZ + Math.sin(angle) * radius;
+  
+  // 限制在合理范围内
+  mesh.userData.targetX = Math.max(-45, Math.min(45, mesh.userData.targetX));
+  mesh.userData.targetZ = Math.max(-45, Math.min(45, mesh.userData.targetZ));
+  
+  // 设置速度
+  mesh.userData.speed = 2.0;
+  
+  // 标记已有新目标，防止重复生成
+  mesh.userData.hasNewTarget = true;
 }
 
 // ============ 窗口大小调整 ============
@@ -1456,6 +2039,53 @@ function handleWSMessage(msg) {
             // Render first-person view from requested position
             console.log('👁️ 渲染视野请求:', msg.agentId, 'pos=(', msg.x.toFixed(1), ',', msg.z.toFixed(1), ') dir=', msg.direction);
             renderFirstPersonView(msg);
+            break;
+            
+        case 'RADAR_QUERY':
+            // Handle radar query - calculate objects in range
+            console.log('📡 雷达查询:', msg.agentId, 'range=', msg.range);
+            handleRadarQuery(msg);
+            break;
+            
+        case 'DIALOGUE_SHOW':
+            // Show dialogue bubble for the agent
+            console.log('💬 对话气泡:', msg.fromAgentName, '->', msg.toAgentId, ':', msg.content);
+            showDialogueBubble(msg.fromAgentId, msg.toAgentId, msg.content);
+            break;
+            
+        case 'DIALOGUE_END':
+            // Hide any active dialogue for this agent
+            hideDialogueBubble(msg.agentId);
+            break;
+            
+        case 'AGENT_ACHIEVEMENT':
+            // Show achievement notification for agent
+            console.log('🏆 成就:', msg.agentId, '-', msg.achievement);
+            showAchievementBadge(msg.agentId, msg.achievement, msg.placeName);
+            break;
+            
+        case 'SET_EMOTION':
+            // Set agent's emotion
+            console.log('😊 情绪设置:', msg.agentId, '->', msg.emotion);
+            setAgentEmotion(msg.agentId, msg.emotion);
+            break;
+            
+        case 'DO_ACTION':
+            // Execute an action
+            console.log('🎬 动作:', msg.agentId, '->', msg.action, 'duration=', msg.duration);
+            setAgentAction(msg.agentId, msg.action, msg.duration);
+            break;
+            
+        case 'AGENT_VOICE':
+            // Agent is speaking with voice
+            console.log('🔊 语音:', msg.fromAgentName, ':', msg.content);
+            showVoiceBubble(msg.fromAgentId, msg.fromAgentName, msg.content, msg.voice);
+            break;
+            
+        case 'AGENT_LEVEL_UP':
+            // Agent leveled up!
+            console.log('🎉 升级:', msg.agentName, '-> Lv.', msg.newLevel);
+            showLevelUpBadge(msg.agentId, msg.agentName, msg.newLevel, msg.levelName);
             break;
     }
 }
@@ -1696,3 +2326,460 @@ if (document.readyState === 'loading') {
     // DOM 已加载完成
     setTimeout(init, 100);
 }
+
+// ============ 打招呼气泡 ============
+const greetingBubbles = new Map(); // agentId -> { sprite, timeout }
+
+const GREETINGS = ['你好!', '嗨~', '早上好!', '很高兴见到你!', '你好呀!', '嘿!'];
+
+function showGreeting(agentId) {
+    const agentData = agents.get(agentId);
+    if (!agentData) return;
+    
+    // 如果已有气泡，先移除
+    if (greetingBubbles.has(agentId)) {
+        const existing = greetingBubbles.get(agentId);
+        if (existing.timeout) clearTimeout(existing.timeout);
+        if (existing.sprite) {
+            scene.remove(existing.sprite);
+        }
+    }
+    
+    // 创建气泡
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    
+    // 气泡背景
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, 256, 64, 12);
+    ctx.fill();
+    
+    // 气泡边框
+    ctx.strokeStyle = '#9333EA';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    
+    // 文字
+    ctx.fillStyle = '#333';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const text = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+    ctx.fillText(text, 128, 32);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(agentData.mesh.position.x, agentData.mesh.position.y + 2.5, agentData.mesh.position.z);
+    sprite.scale.set(2, 0.5, 1);
+    scene.add(sprite);
+    
+    // 保存引用
+    greetingBubbles.set(agentId, { sprite, timeout: null });
+    
+    // 3秒后自动消失
+    const timeout = setTimeout(() => {
+        const bubble = greetingBubbles.get(agentId);
+        if (bubble && bubble.sprite) {
+            scene.remove(bubble.sprite);
+        }
+        greetingBubbles.delete(agentId);
+    }, 3000);
+    
+    greetingBubbles.set(agentId, { sprite, timeout });
+}
+
+// 暴露给全局，让其他代码可以调用
+window.showGreeting = showGreeting;
+
+// ============ 对话气泡 ============
+const dialogueBubbles = new Map(); // agentId -> { sprite, timeout }
+
+function showDialogueBubble(fromAgentId, toAgentId, content) {
+    // 显示在发送消息的智能体头顶
+    const agentData = agents.get(fromAgentId);
+    if (!agentData) {
+        // 尝试显示在接收方
+        const targetData = agents.get(toAgentId);
+        if (!targetData) return;
+    }
+    
+    const mesh = agentData?.mesh || agents.get(toAgentId)?.mesh;
+    if (!mesh) return;
+    
+    // 移除已有的气泡
+    if (dialogueBubbles.has(fromAgentId)) {
+        const existing = dialogueBubbles.get(fromAgentId);
+        if (existing.timeout) clearTimeout(existing.timeout);
+        if (existing.sprite) {
+            scene.remove(existing.sprite);
+        }
+    }
+    
+    // 创建气泡
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 80;
+    const ctx = canvas.getContext('2d');
+    
+    // 气泡背景（蓝色表示对话）
+    ctx.fillStyle = 'rgba(147, 51, 234, 0.95)';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, 320, 80, 16);
+    ctx.fill();
+    
+    // 气泡边框
+    ctx.strokeStyle = '#7C3AED';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    
+    // 文字（白色）
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // 截断过长的消息
+    let displayContent = content;
+    if (displayContent.length > 20) {
+        displayContent = displayContent.substring(0, 18) + '...';
+    }
+    ctx.fillText(displayContent, 160, 40);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(mesh.position.x, mesh.position.y + 2.8, mesh.position.z);
+    sprite.scale.set(2.5, 0.625, 1);
+    scene.add(sprite);
+    
+    // 保存引用
+    const timeout = setTimeout(() => {
+        const bubble = dialogueBubbles.get(fromAgentId);
+        if (bubble && bubble.sprite) {
+            scene.remove(bubble.sprite);
+        }
+        dialogueBubbles.delete(fromAgentId);
+    }, 5000);
+    
+    dialogueBubbles.set(fromAgentId, { sprite, timeout });
+}
+
+function hideDialogueBubble(agentId) {
+    if (dialogueBubbles.has(agentId)) {
+        const bubble = dialogueBubbles.get(agentId);
+        if (bubble.timeout) clearTimeout(bubble.timeout);
+        if (bubble.sprite) {
+            scene.remove(bubble.sprite);
+        }
+        dialogueBubbles.delete(agentId);
+    }
+}
+
+// ============ 成就徽章 ============
+const achievementBadges = new Map(); // agentId -> { sprite, timeout }
+
+const ACHIEVEMENT_EMOJIS = {
+    'explorer': '🗺️',
+    'social_butterfly': '🦋',
+    'task_master': '📋',
+    'helper': '🤝'
+};
+
+function showAchievementBadge(agentId, achievement, placeName) {
+    const agentData = agents.get(agentId);
+    if (!agentData) return;
+    
+    const mesh = agentData.mesh;
+    
+    // 移除已有的徽章
+    if (achievementBadges.has(agentId)) {
+        const existing = achievementBadges.get(agentId);
+        if (existing.timeout) clearTimeout(existing.timeout);
+        if (existing.sprite) {
+            scene.remove(existing.sprite);
+        }
+    }
+    
+    // 获取成就emoji
+    const emoji = ACHIEVEMENT_EMOJIS[achievement] || '🏆';
+    const displayText = placeName ? `${emoji} 新地点!` : emoji;
+    
+    // 创建徽章气泡
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    
+    // 徽章背景（金色）
+    ctx.fillStyle = 'rgba(251, 191, 36, 0.95)';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, 128, 64, 32);
+    ctx.fill();
+    
+    // 边框
+    ctx.strokeStyle = '#F59E0B';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    
+    // 文字
+    ctx.font = 'bold 36px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, 64, 32);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(mesh.position.x, mesh.position.y + 3.2, mesh.position.z);
+    sprite.scale.set(1.5, 0.75, 1);
+    scene.add(sprite);
+    
+    // 保存引用
+    const timeout = setTimeout(() => {
+        const badge = achievementBadges.get(agentId);
+        if (badge && badge.sprite) {
+            scene.remove(badge.sprite);
+        }
+        achievementBadges.delete(agentId);
+    }, 4000);
+    
+    achievementBadges.set(agentId, { sprite, timeout });
+}
+
+// ============ 语音气泡系统 ============
+const voiceBubbles = new Map(); // agentId -> { sprite, timeout }
+
+// 语音配置
+const VOICE_CONFIG = {
+    female_1: { lang: 'zh-CN', pitch: 1.0, rate: 0.9 },  // 温柔女声
+    female_2: { lang: 'zh-CN', pitch: 1.2, rate: 1.1 },   // 明亮女声
+    male_1: { lang: 'zh-CN', pitch: 0.8, rate: 0.85 },    // 沉稳男声
+    male_2: { lang: 'zh-CN', pitch: 1.0, rate: 1.0 },     // 年轻男声
+    default: { lang: 'zh-CN', pitch: 1.0, rate: 0.95 }
+};
+
+// 显示语音气泡
+function showVoiceBubble(fromAgentId, fromAgentName, content, voiceType) {
+    const agentData = agents.get(fromAgentId);
+    if (!agentData) return;
+    
+    const mesh = agentData.mesh;
+    
+    // 移除已有的气泡
+    if (voiceBubbles.has(fromAgentId)) {
+        const existing = voiceBubbles.get(fromAgentId);
+        if (existing.timeout) clearTimeout(existing.timeout);
+        if (existing.sprite) {
+            scene.remove(existing.sprite);
+        }
+    }
+    
+    // 创建气泡（带语音图标）
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 80;
+    const ctx = canvas.getContext('2d');
+    
+    // 气泡背景（绿色表示语音）
+    ctx.fillStyle = 'rgba(34, 197, 94, 0.95)';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, 320, 80, 16);
+    ctx.fill();
+    
+    // 气泡边框
+    ctx.strokeStyle = '#16A34A';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    
+    // 语音图标
+    ctx.font = 'bold 32px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('🔊', 15, 48);
+    
+    // 说话者名字
+    ctx.font = 'bold 18px Arial';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(fromAgentName, 55, 28);
+    
+    // 内容（截断）
+    ctx.font = '18px Arial';
+    let displayContent = content;
+    if (displayContent.length > 22) {
+        displayContent = displayContent.substring(0, 20) + '...';
+    }
+    ctx.fillText(displayContent, 55, 55);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(mesh.position.x, mesh.position.y + 3.0, mesh.position.z);
+    sprite.scale.set(2.5, 0.625, 1);
+    scene.add(sprite);
+    
+    // 保存引用
+    const timeout = setTimeout(() => {
+        const bubble = voiceBubbles.get(fromAgentId);
+        if (bubble && bubble.sprite) {
+            scene.remove(bubble.sprite);
+        }
+        voiceBubbles.delete(fromAgentId);
+    }, 5000);
+    
+    voiceBubbles.set(fromAgentId, { sprite, timeout });
+    
+    // 播放语音
+    playVoice(content, voiceType || 'default');
+}
+
+// 使用 Web Speech API 播放语音
+function playVoice(text, voiceType) {
+    // 检查浏览器是否支持语音合成
+    if (!('speechSynthesis' in window)) {
+        console.log('浏览器不支持语音合成');
+        return;
+    }
+    
+    // 获取语音配置
+    const config = VOICE_CONFIG[voiceType] || VOICE_CONFIG.default;
+    
+    // 创建语音合成对象
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = config.lang;
+    utterance.pitch = config.pitch;
+    utterance.rate = config.rate;
+    utterance.volume = 1.0;
+    
+    // 选择语音（如果可用）
+    const voices = speechSynthesis.getVoices();
+    // 优先选择中文语音
+    const zhVoice = voices.find(v => v.lang.includes('zh'));
+    if (zhVoice) {
+        utterance.voice = zhVoice;
+    }
+    
+    // 播放
+    speechSynthesis.speak(utterance);
+}
+
+// 预加载语音列表
+if ('speechSynthesis' in window) {
+    speechSynthesis.getVoices();
+    speechSynthesis.onvoiceschanged = () => {
+        speechSynthesis.getVoices();
+    };
+}
+
+// ============ 等级徽章 ============
+const levelBadges = new Map(); // agentId -> { sprite, level }
+
+function showLevelUpBadge(agentId, agentName, level, levelName) {
+    const agentData = agents.get(agentId);
+    if (!agentData) return;
+    
+    const mesh = agentData.mesh;
+    
+    // 创建升级庆祝气泡
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 96;
+    const ctx = canvas.getContext('2d');
+    
+    // 金色渐变背景
+    const gradient = ctx.createLinearGradient(0, 0, 256, 96);
+    gradient.addColorStop(0, '#FFD700');
+    gradient.addColorStop(1, '#FFA500');
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, 256, 96, 20);
+    ctx.fill();
+    
+    // 边框
+    ctx.strokeStyle = '#FF8C00';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    
+    // 星星装饰
+    ctx.font = 'bold 28px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('⭐', 40, 35);
+    ctx.fillText('⭐', 216, 35);
+    
+    // 等级文字
+    ctx.font = 'bold 36px Arial';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(`Lv.${level}`, 128, 40);
+    
+    // 等级名称
+    ctx.font = '20px Arial';
+    ctx.fillStyle = '#FFF8DC';
+    ctx.fillText(levelName, 128, 72);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(mesh.position.x, mesh.position.y + 4.0, mesh.position.z);
+    sprite.scale.set(2.5, 1, 1);
+    scene.add(sprite);
+    
+    // 保存引用
+    const timeout = setTimeout(() => {
+        if (sprite) {
+            scene.remove(sprite);
+        }
+        levelBadges.delete(agentId);
+    }, 4000);
+    
+    levelBadges.set(agentId, { sprite, level });
+    
+    // 添加升级动画 - 向上飘动
+    const startY = sprite.position.y;
+    const startTime = Date.now();
+    
+    function animateLevelUp() {
+        const elapsed = Date.now() - startTime;
+        if (elapsed < 2000) {
+            sprite.position.y = startY + (elapsed / 2000) * 1.5;
+            requestAnimationFrame(animateLevelUp);
+        }
+    }
+    animateLevelUp();
+    
+    // 播放庆祝音效（使用Web Audio API发出简单的声音）
+    playCelebrationSound();
+}
+
+function playCelebrationSound() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+        oscillator.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+        oscillator.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2); // G5
+        
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.5);
+    } catch (e) {
+        console.log('Could not play celebration sound');
+    }
+}
+
+// 暴露给全局
+window.showDialogueBubble = showDialogueBubble;
+window.hideDialogueBubble = hideDialogueBubble;
+window.showAchievementBadge = showAchievementBadge;
+window.showVoiceBubble = showVoiceBubble;
+window.playVoice = playVoice;
+window.showLevelUpBadge = showLevelUpBadge;

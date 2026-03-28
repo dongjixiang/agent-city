@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 智体城 3D 世界 - 完整版
  * WebSocket连接 + 3D场景渲染
  */
@@ -750,6 +750,9 @@ function createHumanMesh(agent) {
     
     // 应用缩放
     group.scale.set(scale, scale, scale);
+    
+    // 修复：偏移模型使脚刚好在地面上（脚在 y=-0.44，现在抬高0.44）
+    group.position.y = 0.44 * scale;
     
     return group;
 }
@@ -1579,7 +1582,7 @@ function agentAutonomousDecision(agentId) {
     const now = Date.now();
     
     // 冷却中，跳过
-    if (now < decision.cooldown) return;
+    if (now < decision.cooldown) return decision;
     
     // 随机决定行为
     const rand = Math.random();
@@ -1756,6 +1759,28 @@ function animate() {
                 // 计算目标朝向角度
                 const targetAngle = Math.atan2(dx, dz);
                 
+                // 行走动画：摆动手脚
+                const walkSpeed = mesh.userData.walkPhase || 0;
+                mesh.userData.walkPhase = walkSpeed + dt * 8; // 行走频率
+                const walkSwing = Math.sin(mesh.userData.walkPhase) * 0.4;
+                
+                // 获取骨骼引用并动画
+                if (mesh.userData.bones) {
+                    const bones = mesh.userData.bones;
+                    // 左手臂摆动
+                    if (bones.leftForearm) bones.leftForearm.rotation.x = walkSwing;
+                    if (bones.leftUpperArm) bones.leftUpperArm.rotation.x = walkSwing * 0.5;
+                    // 右手臂摆动（反向）
+                    if (bones.rightForearm) bones.rightForearm.rotation.x = -walkSwing;
+                    if (bones.rightUpperArm) bones.rightUpperArm.rotation.x = -walkSwing * 0.5;
+                    // 左腿摆动（反向于左臂）
+                    if (bones.leftThigh) bones.leftThigh.rotation.x = -walkSwing * 0.7;
+                    if (bones.leftCalf) bones.leftCalf.rotation.x = Math.max(0, -walkSwing * 0.3);
+                    // 右腿摆动（反向于右臂）
+                    if (bones.rightThigh) bones.rightThigh.rotation.x = walkSwing * 0.7;
+                    if (bones.rightCalf) bones.rightCalf.rotation.x = Math.max(0, walkSwing * 0.3);
+                }
+                
                 // 平滑转向（使用lerp插值，转向速度约每秒转4弧度）
                 const turnSpeed = 4.0 * dt;
                 let angleDiff = targetAngle - mesh.rotation.y;
@@ -1771,6 +1796,22 @@ function animate() {
                     mesh.rotation.y += Math.sign(angleDiff) * turnSpeed;
                 }
             } else {
+                // 到达目标，停止行走动画
+                if (mesh.userData.bones) {
+                    const bones = mesh.userData.bones;
+                    // 平滑复位所有骨骼
+                    const resetSpeed = 10 * dt;
+                    if (bones.leftForearm) bones.leftForearm.rotation.x *= (1 - resetSpeed);
+                    if (bones.leftUpperArm) bones.leftUpperArm.rotation.x *= (1 - resetSpeed);
+                    if (bones.rightForearm) bones.rightForearm.rotation.x *= (1 - resetSpeed);
+                    if (bones.rightUpperArm) bones.rightUpperArm.rotation.x *= (1 - resetSpeed);
+                    if (bones.leftThigh) bones.leftThigh.rotation.x *= (1 - resetSpeed);
+                    if (bones.leftCalf) bones.leftCalf.rotation.x *= (1 - resetSpeed);
+                    if (bones.rightThigh) bones.rightThigh.rotation.x *= (1 - resetSpeed);
+                    if (bones.rightCalf) bones.rightCalf.rotation.x *= (1 - resetSpeed);
+                }
+                mesh.userData.walkPhase = 0;
+                
                 // 到达目标，如果不在思考状态且不是服务器控制，则生成新目标
                 if (!mesh.userData.isThinking && !mesh.userData.serverControlled) {
                     // 只有在没有pending新目标的情况下才生成

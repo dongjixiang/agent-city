@@ -702,16 +702,16 @@ function createHumanMesh(agent) {
     bones.rightCalf = rightCalf;
     group.add(rightCalf);
     
-    // 脚
+    // 脚 - 调整位置使脚底刚好在地面上（脚高度0.07，一半是0.035）
     const footGeom = new THREE.BoxGeometry(0.09, 0.07, 0.16);
     const leftFoot = new THREE.Mesh(footGeom, shoesMat);
-    leftFoot.position.set(-0.12, -0.44 * scale, 0.03);
+    leftFoot.position.set(-0.12, -0.405 * scale, 0.03); // 脚底在地面
     leftFoot.castShadow = true;
     bones.leftFoot = leftFoot;
     group.add(leftFoot);
     
     const rightFoot = new THREE.Mesh(footGeom, shoesMat);
-    rightFoot.position.set(0.12, -0.44 * scale, 0.03);
+    rightFoot.position.set(0.12, -0.405 * scale, 0.03); // 脚底在地面
     rightFoot.castShadow = true;
     bones.rightFoot = rightFoot;
     group.add(rightFoot);

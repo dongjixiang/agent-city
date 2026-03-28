@@ -6,6 +6,7 @@
 // ============ 全局变量 ============
 let scene, camera, renderer, controls;
 let agents = new Map(); // agentId -> { mesh, data }
+let sceneBuildings = []; // 建筑列表用于碰撞检测
 let messageCount = 0;
 let taskCount = 0;
 let dashboard = null; // 数据面板
@@ -320,11 +321,15 @@ function createCity() {
         { x: 0, z: 35, w: 15, h: 5, d: 15, color: 0xec4899, name: '💕 社交广场' },
     ];
 
+    // 存储建筑列表用于碰撞检测（使用全局变量）
+    sceneBuildings = [];
+
     buildings.forEach(b => {
         const building = createBuilding(b.w, b.h, b.d, b.color);
         building.position.set(b.x, b.h / 2, b.z);
-        building.userData = { type: 'building', name: b.name, height: b.h };
+        building.userData = { type: 'building', name: b.name, height: b.h, width: b.w, depth: b.d };
         scene.add(building);
+        sceneBuildings.push(building);
         
         // 添加顶部灯光
         const lightGeom = new THREE.SphereGeometry(0.3, 8, 8);
@@ -1763,6 +1768,29 @@ function animate() {
                 const walkSpeed = mesh.userData.walkPhase || 0;
                 mesh.userData.walkPhase = walkSpeed + dt * 8; // 行走频率
                 const walkSwing = Math.sin(mesh.userData.walkPhase) * 0.4;
+                
+                // 确保 agent 始终在地面上（防止脚陷入地面）
+                mesh.position.y = 0;
+                
+                // 建筑碰撞检测
+                const nextX = mesh.position.x + (dx / distance) * maxMove;
+                const nextZ = mesh.position.z + (dz / distance) * maxMove;
+                let blocked = false;
+                for (const building of sceneBuildings) {
+                    const bPos = building.position;
+                    const bHalf = { x: building.userData.width / 2, z: building.userData.depth / 2 };
+                    if (nextX > bPos.x - bHalf.x - 0.3 && nextX < bPos.x + bHalf.x + 0.3 &&
+                        nextZ > bPos.z - bHalf.z - 0.3 && nextZ < bPos.z + bHalf.z + 0.3) {
+                        blocked = true;
+                        break;
+                    }
+                }
+                if (blocked) {
+                    // 碰撞了，停止移动
+                    mesh.position.x = mesh.userData.targetX;
+                    mesh.position.z = mesh.userData.targetZ;
+                    continue; // 跳过后续移动代码
+                }
                 
                 // 获取骨骼引用并动画
                 if (mesh.userData.bones) {

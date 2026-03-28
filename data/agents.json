@@ -18035,5 +18035,63 @@
       "emoji": "🦐",
       "modelType": "crayfish"
     }
+  },
+  "93551cff-fc33-4791-b496-f23650b684ab": {
+    "agentId": "93551cff-fc33-4791-b496-f23650b684ab",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774617607400,
+    "updatedAt": 1774617607400,
+    "lastOnlineAt": 1774617607400,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    },
+    "visual": {
+      "color": "#FF6B6B",
+      "size": 1,
+      "emoji": "🦐",
+      "modelType": "crayfish"
+    }
+  },
+  "6bdab327-c8fc-46ce-880a-1c60f2191729": {
+    "agentId": "6bdab327-c8fc-46ce-880a-1c60f2191729",
+    "name": "🏙️ 3D观察者",
+    "tags": [
+      "observer",
+      "3d-world"
+    ],
+    "description": "",
+    "createdAt": 1774624192426,
+    "updatedAt": 1774624192426,
+    "lastOnlineAt": 1774624192426,
+    "profile": {
+      "avatar": null,
+      "website": null,
+      "capabilities": [],
+      "preferences": {}
+    },
+    "stats": {
+      "messagesSent": 0,
+      "tasksCompleted": 0,
+      "reputation": 0
+    },
+    "visual": {
+      "color": "#FF6B6B",
+      "size": 1,
+      "emoji": "🦐",
+      "modelType": "crayfish"
+    }
   }
 }

@@ -12,6 +12,9 @@ const PORT = process.env.PORT || 9876;
 // Store all connected agents (online status)
 const agents = new Map(); // agentId -> { ws, lastSeen }
 
+// Track 3D world client connection
+let worldClientWs = null; // The 3D world client WebSocket
+
 // Create WebSocket Server
 const wss = new WebSocket.Server({ port: PORT });
 
@@ -37,6 +40,12 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
+    // Check if this was the 3D world client
+    if (ws === worldClientWs) {
+      worldClientWs = null;
+      console.log('🔌 3D World client disconnected');
+    }
+    
     if (currentAgentId && agents.has(currentAgentId)) {
       agents.delete(currentAgentId);
       console.log(`Agent offline: ${currentAgentId}`);
@@ -90,6 +99,18 @@ function handleMessage(ws, msg, setAgentId) {
       
     case 'SEARCH':
       handleSearchAgents(ws, msg);
+      break;
+      
+    case 'MOVE_TO':
+      handleMoveTo(ws, msg);
+      break;
+      
+    case 'VISION_REQUEST':
+      handleVisionRequest(ws, msg);
+      break;
+      
+    case 'VISION_RESPONSE':
+      handleVisionResponse(ws, msg);
       break;
       
     // Task related
@@ -162,6 +183,13 @@ function handleRegister(ws, msg, setAgentId) {
   setAgentId(id);
 
   console.log(`Agent online: ${id} (${profile.name})`);
+  
+  // Check if this is the 3D world client
+  if (profile.name && profile.name.includes('3D观察者') || 
+      (profile.tags && profile.tags.includes('3d-world'))) {
+    worldClientWs = ws;
+    console.log('🔌 3D World client registered');
+  }
 
   ws.send(JSON.stringify({
     type: 'REGISTERED',
@@ -622,6 +650,158 @@ function handleSearchTasks(ws, msg) {
     results: limited,
     timestamp: Date.now()
   }));
+}
+
+/**
+ * Handle MOVE_TO command - agent wants to move to a position in 3D world
+ */
+function handleMoveTo(ws, msg) {
+  const { x, z } = msg;
+  
+  // Find the agent by their WebSocket connection
+  let agentId = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      agentId = id;
+      break;
+    }
+  }
+  
+  if (!agentId) {
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      error: 'Agent not registered',
+      timestamp: Date.now()
+    }));
+    return;
+  }
+  
+  // Validate coordinates
+  if (typeof x !== 'number' || typeof z !== 'number' || isNaN(x) || isNaN(z)) {
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      error: 'Invalid coordinates',
+      timestamp: Date.now()
+    }));
+    return;
+  }
+  
+  // Clamp to reasonable bounds (-50 to 50)
+  const clampedX = Math.max(-50, Math.min(50, x));
+  const clampedZ = Math.max(-50, Math.min(50, z));
+  
+  // Get agent profile for broadcasting
+  const profile = AgentStore.getAgent(agentId);
+  
+  // Broadcast the movement to all clients (including 3D world observer)
+  broadcast({
+    type: 'AGENT_MOVE_TO',
+    agentId: agentId,
+    x: clampedX,
+    z: clampedZ,
+    timestamp: Date.now()
+  }, agentId);
+  
+  console.log(`Agent ${agentId} (${profile?.name || 'unknown'}) moving to (${clampedX.toFixed(2)}, ${clampedZ.toFixed(2)})`);
+  
+  // Confirm to the agent
+  ws.send(JSON.stringify({
+    type: 'MOVE_TO_CONFIRMED',
+    x: clampedX,
+    z: clampedZ,
+    timestamp: Date.now()
+  }));
+}
+
+/**
+ * Handle VISION_REQUEST - render first-person view from agent's position
+ */
+function handleVisionRequest(ws, msg) {
+  const { agentId, x, z, direction, fov, range, requestId } = msg;
+  
+  // Find the requesting agent
+  let requestingAgentId = null;
+  for (const [id, agent] of agents) {
+    if (agent.ws === ws) {
+      requestingAgentId = id;
+      break;
+    }
+  }
+  
+  if (!requestingAgentId) {
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      error: 'Agent not registered',
+      timestamp: Date.now()
+    }));
+    return;
+  }
+  
+  // Check if 3D world is connected
+  if (!worldClientWs || worldClientWs.readyState !== WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'VISION_RESPONSE',
+      requestId: requestId,
+      error: '3D world not connected',
+      timestamp: Date.now()
+    }));
+    return;
+  }
+  
+  // Validate parameters
+  const renderX = (typeof x === 'number' && !isNaN(x)) ? x : 0;
+  const renderZ = (typeof z === 'number' && !isNaN(z)) ? z : 0;
+  const renderDir = (typeof direction === 'number') ? direction : 0;
+  const renderFov = (typeof fov === 'number' && fov > 0 && fov <= 180) ? fov : 90;
+  const renderRange = (typeof range === 'number' && range > 0) ? range : 50;
+  const rid = requestId || uuidv4();
+  
+  console.log(`Vision request from ${requestingAgentId}: pos=(${renderX.toFixed(1)}, ${renderZ.toFixed(1)}) dir=${renderDir} fov=${renderFov} range=${renderRange}`);
+  
+  // Forward to 3D world client
+  worldClientWs.send(JSON.stringify({
+    type: 'RENDER_VISION',
+    requestId: rid,
+    agentId: requestingAgentId,
+    x: renderX,
+    z: renderZ,
+    direction: renderDir,
+    fov: renderFov,
+    range: renderRange,
+    timestamp: Date.now()
+  }));
+}
+
+/**
+ * Handle VISION_RESPONSE from 3D world - route to requesting agent
+ */
+function handleVisionResponse(ws, msg) {
+  // Verify this is coming from the 3D world
+  if (ws !== worldClientWs) {
+    console.error('VISION_RESPONSE from unknown source');
+    return;
+  }
+  
+  const { requestId, imageData, width, height, objects, error } = msg;
+  
+  if (error) {
+    console.error('Vision render error:', error);
+  } else {
+    console.log(`Vision rendered for request ${requestId}: ${width}x${height}`);
+  }
+  
+  // Broadcast the vision response to all agents
+  // The client will use requestId to match with the original request
+  broadcast({
+    type: 'VISION_RESPONSE',
+    requestId: requestId,
+    imageData: imageData,
+    width: width,
+    height: height,
+    objects: objects || [],
+    error: error,
+    timestamp: Date.now()
+  });
 }
 
 // Graceful shutdown

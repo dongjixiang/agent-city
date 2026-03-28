@@ -169,6 +169,115 @@ class AgentCitySkill {
     console.log('[AgentCity] Broadcasted message');
   }
   
+  // Request first-person vision from Agent City
+  async requestVision(options = {}) {
+    return new Promise((resolve, reject) => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        reject(new Error('Not connected to Agent City'));
+        return;
+      }
+      
+      const {
+        x = 0,
+        z = 0,
+        direction = 0,
+        fov = 90,
+        range = 50
+      } = options;
+      
+      const requestId = 'vision-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+      
+      // Set up one-time handler for VISION_RESPONSE
+      const handleVisionResponse = (msg) => {
+        if (msg.requestId === requestId) {
+          this.ws.removeListener('message', handleVisionResponse);
+          clearTimeout(timeout);
+          
+          if (msg.error) {
+            reject(new Error(msg.error));
+          } else {
+            resolve({
+              imageData: msg.imageData,
+              width: msg.width,
+              height: msg.height,
+              objects: msg.objects,
+              requestId: msg.requestId
+            });
+          }
+        }
+      };
+      
+      this.ws.on('message', handleVisionResponse);
+      
+      // Timeout after 10 seconds
+      const timeout = setTimeout(() => {
+        this.ws.removeListener('message', handleVisionResponse);
+        reject(new Error('Vision request timeout'));
+      }, 10000);
+      
+      // Send vision request
+      this.ws.send(JSON.stringify({
+        type: 'VISION_REQUEST',
+        x,
+        z,
+        direction,
+        fov,
+        range,
+        requestId
+      }));
+      
+      console.log('[AgentCity] Vision request sent:', requestId);
+    });
+  }
+  
+  // Get my current position in the city
+  async getMyPosition() {
+    if (!this.agentId) {
+      return { x: 0, z: 0 };
+    }
+    // For now, return default position
+    // In future, this could query the server for actual position
+    return { x: 0, z: 0 };
+  }
+  
+  // Move to a position in the city
+  async moveTo(x, z) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('Not connected to Agent City');
+    }
+    
+    return new Promise((resolve, reject) => {
+      const requestId = 'move-' + Date.now();
+      
+      const handleResponse = (msg) => {
+        if (msg.type === 'MOVE_TO_CONFIRMED' || msg.type === 'MOVE_TO') {
+          this.ws.removeListener('message', handleResponse);
+          clearTimeout(timeout);
+          resolve({ x: msg.x, z: msg.z });
+        } else if (msg.type === 'ERROR') {
+          this.ws.removeListener('message', handleResponse);
+          clearTimeout(timeout);
+          reject(new Error(msg.error));
+        }
+      };
+      
+      this.ws.on('message', handleResponse);
+      
+      const timeout = setTimeout(() => {
+        this.ws.removeListener('message', handleResponse);
+        reject(new Error('Move request timeout'));
+      }, 5000);
+      
+      this.ws.send(JSON.stringify({
+        type: 'MOVE_TO',
+        x,
+        z
+      }));
+      
+      console.log('[AgentCity] Move request sent: (', x, ',', z, ')');
+    });
+  }
+  
   // Set message handler
   setMessageHandler(handler) {
     this.onMessage = handler;

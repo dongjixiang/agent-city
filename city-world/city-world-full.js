@@ -1789,24 +1789,23 @@ function animate() {
                     // 碰撞了，停止移动
                     mesh.position.x = mesh.userData.targetX;
                     mesh.position.z = mesh.userData.targetZ;
-                    continue; // 跳过后续移动代码
-                }
-                
-                // 获取骨骼引用并动画
-                if (mesh.userData.bones) {
-                    const bones = mesh.userData.bones;
-                    // 左手臂摆动
-                    if (bones.leftForearm) bones.leftForearm.rotation.x = walkSwing;
-                    if (bones.leftUpperArm) bones.leftUpperArm.rotation.x = walkSwing * 0.5;
-                    // 右手臂摆动（反向）
-                    if (bones.rightForearm) bones.rightForearm.rotation.x = -walkSwing;
-                    if (bones.rightUpperArm) bones.rightUpperArm.rotation.x = -walkSwing * 0.5;
-                    // 左腿摆动（反向于左臂）
-                    if (bones.leftThigh) bones.leftThigh.rotation.x = -walkSwing * 0.7;
-                    if (bones.leftCalf) bones.leftCalf.rotation.x = Math.max(0, -walkSwing * 0.3);
-                    // 右腿摆动（反向于右臂）
-                    if (bones.rightThigh) bones.rightThigh.rotation.x = walkSwing * 0.7;
-                    if (bones.rightCalf) bones.rightCalf.rotation.x = Math.max(0, walkSwing * 0.3);
+                } else {
+                    // 获取骨骼引用并动画
+                    if (mesh.userData.bones) {
+                        const bones = mesh.userData.bones;
+                        // 左手臂摆动
+                        if (bones.leftForearm) bones.leftForearm.rotation.x = walkSwing;
+                        if (bones.leftUpperArm) bones.leftUpperArm.rotation.x = walkSwing * 0.5;
+                        // 右手臂摆动（反向）
+                        if (bones.rightForearm) bones.rightForearm.rotation.x = -walkSwing;
+                        if (bones.rightUpperArm) bones.rightUpperArm.rotation.x = -walkSwing * 0.5;
+                        // 左腿摆动（反向于左臂）
+                        if (bones.leftThigh) bones.leftThigh.rotation.x = -walkSwing * 0.7;
+                        if (bones.leftCalf) bones.leftCalf.rotation.x = Math.max(0, -walkSwing * 0.3);
+                        // 右腿摆动（反向于右臂）
+                        if (bones.rightThigh) bones.rightThigh.rotation.x = walkSwing * 0.7;
+                        if (bones.rightCalf) bones.rightCalf.rotation.x = Math.max(0, walkSwing * 0.3);
+                    }
                 }
                 
                 // 平滑转向（使用lerp插值，转向速度约每秒转4弧度）

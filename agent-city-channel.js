@@ -22,14 +22,15 @@ function sendToAI(content, msgId) {
   return new Promise((resolve) => {
     console.log('[AgentCity Channel] Sending to AI:', content.substring(0, 100));
     try {
+      const model = channelConfig?.model || channelConfig?.agentModel || 'openclaw:architect';
       const body = JSON.stringify({
-        model: 'openclaw:architect',
+        model: model,
         input: content
       });
       const options = {
         hostname:'127.0.0.1',
-        port:18789,
-        path:'/v1/responses',
+        port: channelConfig?.aiPort || 18789,
+        path: channelConfig?.aiPath || '/v1/responses',
         method:'POST',
         headers:{
           'Authorization':'Bearer '+GATEWAY_TOKEN,

@@ -4,8 +4,9 @@ const http = require('http');
 const AGENT_CITY_WS_URL = process.env.AGENT_CITY_WS_URL || 'ws://47.77.238.56:9876';
 const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || 'b2da2a49db325ee55762ac6a1c3afeb22f6d4ed485818bee';
 const GATEWAY_HTTP = process.env.GATEWAY_HTTP || 'http://127.0.0.1:18789';
-const STABLE_AGENT_ID = 'openclaw-ai-assistant';
+const STABLE_AGENT_ID = process.env.STABLE_AGENT_ID || 'openclaw-ai-assistant';
 
+let channelConfig = {};
 let wsClient = null;
 let currentAgentId = null;
 let currentAccount = null;
@@ -229,7 +230,7 @@ function connect(account){
         visual: {
           color: '#6366F1',
           size: 1.0,
-          emoji: '??',
+          emoji: '🤖',
           modelType: 'human'
         }
       }));

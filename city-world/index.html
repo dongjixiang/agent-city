@@ -23,10 +23,12 @@
     #status-bar .connection-status.connected { background: rgba(78, 205, 196, 0.2); color: #4ecdc4; }
     #status-bar .connection-status.disconnected { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; animation: pulse 2s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    #info-panel { position: fixed; top: 60px; right: 10px; width: 280px; background: rgba(26, 26, 46, 0.95); border-radius: 10px; padding: 15px; color: #fff; z-index: 100; max-height: calc(100vh - 80px); overflow-y: auto; }
+    #info-panel { position: fixed; top: 60px; right: 10px; width: 280px; background: rgba(26, 26, 46, 0.95); border-radius: 10px; padding: 15px; color: #fff; z-index: 100; max-height: calc(100vh - 80px); overflow-y: auto; transition: width 0.3s ease, padding 0.3s ease, opacity 0.3s ease; }
+    #info-panel.collapsed { width: 0; padding: 0; overflow: hidden; opacity: 0; }
     #info-panel h3 { color: #4ecdc4; margin-bottom: 10px; font-size: 14px; cursor: pointer; user-select: none; }
   #info-panel h3:hover { color: #7ef0e5; }
   #info-panel h3 .collapse-icon { margin-right: 8px; transition: transform 0.3s; display: inline-block; }
+  #info-panel.collapsed h3 { opacity: 0; }
   #info-panel h3.collapsed .collapse-icon { transform: rotate(-90deg); }
     .agent-item { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
     .agent-item:hover { background: rgba(255,255,255,0.1); }
@@ -124,13 +126,13 @@
   <script>
     // Toggle info panel function
     function toggleInfoPanel(header) {
-      var content = document.getElementById('agent-list');
-      if (content) {
-        if (content.style.display === 'none') {
-          content.style.display = 'block';
+      var panel = document.getElementById('info-panel');
+      if (panel) {
+        if (panel.classList.contains('collapsed')) {
+          panel.classList.remove('collapsed');
           header.classList.remove('collapsed');
         } else {
-          content.style.display = 'none';
+          panel.classList.add('collapsed');
           header.classList.add('collapsed');
         }
       }

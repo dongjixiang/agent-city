@@ -38,7 +38,7 @@ window.addEventListener('click', function(event) {
         
         if (clickedMesh.userData.agentId) {
             const agentData = agents.get(clickedMesh.userData.agentId);
-            if (agentData && typeof agentDetailPanel !== 'undefined') {
+            if (agentData && typeof agentDetailPanel !== 'undefined' && agentDetailPanel !== null) {
                 console.log('👆 点击了智能体:', agentData.data.name);
                 agentDetailPanel.show(agentData.data);
             }

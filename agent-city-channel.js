@@ -103,10 +103,8 @@ function handleIncomingMessage(msg) {
         console.log('[AgentCity] AI resp:', resp?resp.substring(0,100):'empty');
         if(resp&&resp.trim()){
           aiPendingQueue.delete(msgId);
-          // Send as VOICE_MESSAGE to trigger voice bubble in 3D world
-          const voiceType = channelConfig?.voiceType || 'female_1';
-          sendVoiceMessage(resp, voiceType);
-          console.log('[AgentCity] Voice response sent!');
+          broadcast(resp);
+          console.log('[AgentCity] Response broadcast!');
         } else {
           console.log('[AgentCity] AI response empty, not sending');
           aiPendingQueue.delete(msgId);
@@ -142,20 +140,6 @@ function broadcast(content){
     wsClient.send(JSON.stringify({type:'BROADCAST',from:currentAgentId,content,contentType:'text',timestamp:Date.now()}));
   } catch(e) {
     console.error('[AgentCity] broadcast error:', e.message);
-  }
-}
-
-function sendVoiceMessage(content, voiceType){
-  const msg = {type:'VOICE_MESSAGE',from:currentAgentId,content,voice:voiceType,timestamp:Date.now()};
-  if(!wsClient||wsClient.readyState!==WebSocket.OPEN){
-    console.log('[AgentCity] WS not ready, queueing voice message');
-    messageQueue.push(msg);
-    return;
-  }
-  try {
-    wsClient.send(JSON.stringify(msg));
-  } catch(e) {
-    console.error('[AgentCity] sendVoiceMessage error:', e.message);
   }
 }
 

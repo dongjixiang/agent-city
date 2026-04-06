@@ -12,6 +12,72 @@ const PORT = process.env.PORT || 9876;
 // Store all connected agents (online status)
 const agents = new Map(); // agentId -> { ws, lastSeen }
 
+// ============ 消息路由系统 - 用于AI回复正确路由 ============
+const pendingMessages = new Map(); // messageId -> { ws, from, to, originalFrom, timestamp }
+
+// ============ 对话状态系统 - 跟踪智能体是否在对话中 ============
+const conversationStates = new Map(); // agentId -> { state: 'free'|'in_conversation', withAgent, startTime, messageId }
+const CONVERSATION_TIMEOUT = 120000; // 2分钟后自动恢复自由活动
+
+// 获取智能体对话状态
+function getConversationState(agentId) {
+    if (!conversationStates.has(agentId)) {
+        conversationStates.set(agentId, { state: 'free', withAgent: null, startTime: null, messageId: null });
+    }
+    return conversationStates.get(agentId);
+}
+
+// 设置智能体进入对话状态
+function setAgentInConversation(agentId, withAgent, messageId) {
+    const state = getConversationState(agentId);
+    state.state = 'in_conversation';
+    state.withAgent = withAgent;
+    state.startTime = Date.now();
+    state.messageId = messageId;
+    console.log(`💬 Agent ${agentId} entered conversation with ${withAgent}`);
+    
+    // 广播智能体进入对话状态到3D世界
+    broadcast({
+        type: 'AGENT_IN_CONVERSATION',
+        agentId: agentId,
+        withAgent: withAgent,
+        timestamp: Date.now()
+    }, null);
+}
+
+// 设置智能体恢复自由活动
+function setAgentFree(agentId) {
+    const state = getConversationState(agentId);
+    if (state.state === 'in_conversation') {
+        state.state = 'free';
+        state.withAgent = null;
+        state.startTime = null;
+        state.messageId = null;
+        console.log(`💬 Agent ${agentId} is now free`);
+        
+        // 广播智能体恢复自由活动到3D世界
+        broadcast({
+            type: 'AGENT_FREE',
+            agentId: agentId,
+            timestamp: Date.now()
+        }, null);
+    }
+}
+
+// 清理超时的对话状态
+function cleanupConversationTimeout() {
+    const now = Date.now();
+    conversationStates.forEach((state, agentId) => {
+        if (state.state === 'in_conversation' && state.startTime && (now - state.startTime) > CONVERSATION_TIMEOUT) {
+            console.log(`💬 Conversation timeout for ${agentId}, setting free`);
+            setAgentFree(agentId);
+        }
+    });
+}
+
+// 启动对话状态清理定时器
+setInterval(cleanupConversationTimeout, 30000); // 每30秒检查一次
+
 // ============ 智能体记忆系统 ============
 const agentMemories = new Map(); // agentId -> { conversations, places, achievements, stats }
 
@@ -362,10 +428,53 @@ function handleMessage(ws, msg, setAgentId) {
       break;
       
     case 'MESSAGE':
-      handleMessageP2P(ws, msg);
+      // 检查是否是AI智能体发送的回复（回复用户）
+      // AI agent的ID列表 - 这些是AI控制的智能体
+      const msgFrom = msg.from || '';
+      const msgTo = msg.to || '';
+      const knownAIAgents = ['xiaoji-agent', 'xiaoxiang-agent', 'openclaw-ai-assistant', 'openclaw', 'assistant', 'bot', 'ai-'];
+      const isFromKnownAI = knownAIAgents.some(ai => msgFrom.includes(ai));
+      
+      // 如果消息有 replyTo 字段，说明是回复，可以是AI回复或用户回复
+      // 如果是发送给AI agent的消息（to是AI），那是用户发起的
+      // 如果是AI agent发送的消息（from是AI），那是AI回复
+      const isAIResponse = (msg.replyTo && isFromKnownAI);
+      
+      if (isAIResponse) {
+        // 这是AI智能体回复用户的消息
+        handleAIResponse(ws, msg);
+      } else if (isFromKnownAI) {
+        // AI发送的普通消息（不带replyTo），当作普通P2P消息处理
+        handleMessageP2P(ws, msg);
+      } else {
+        // 用户发给AI的消息
+        handleMessageP2P(ws, msg);
+      }
       break;
       
     case 'BROADCAST':
+      // 检查是否是AI智能体发送的广播（AI回复）
+      const broadcastFrom = msg.from || '';
+      const knownAIBroadcastAgents = ['xiaoji-agent', 'xiaoxiang-agent', 'openclaw-ai-assistant', 'openclaw', 'assistant', 'bot', 'ai-'];
+      const isAIBroadcast = knownAIBroadcastAgents.some(ai => broadcastFrom.includes(ai));
+      
+      if (isAIBroadcast && msg.content) {
+        // AI发送的广播（回复），需要广播AGENT_RESPONSE_COMPLETE
+        console.log(`[AI Broadcast] From: ${broadcastFrom}, Content: ${msg.content?.substring(0, 50)}`);
+        
+        // 广播AI智能体结束思考状态
+        broadcast({
+          type: 'AGENT_RESPONSE_COMPLETE',
+          agentId: broadcastFrom,
+          agentName: AgentStore.getAgent(broadcastFrom)?.name || broadcastFrom,
+          content: msg.content,
+          timestamp: Date.now()
+        }, null);
+        
+        // 设置AI智能体恢复自由活动
+        setAgentFree(broadcastFrom);
+      }
+      
       handleBroadcast(ws, msg);
       break;
       
@@ -423,6 +532,18 @@ function handleMessage(ws, msg, setAgentId) {
       
     case 'VISIT_PLACE':
       handleVisitPlace(ws, msg);
+      break;
+      
+    case 'WEATHER_CHANGE':
+      // 天气变化事件，通知所有在线智能体
+      console.log(`[Weather] ${msg.weather} (${msg.from})`);
+      // 广播天气变化到所有客户端
+      broadcast({
+        type: 'WEATHER_CHANGE',
+        weather: msg.weather,
+        from: msg.from || 'system',
+        timestamp: Date.now()
+      }, null);
       break;
       
     // Team related
@@ -625,6 +746,62 @@ function handleRegister(ws, msg, setAgentId) {
 }
 
 /**
+ * 处理来自AI智能体的消息回复 - 正确路由回原始发送者
+ */
+function handleAIResponse(ws, msg) {
+  const { from, to, content, contentType, messageId, replyTo } = msg;
+  const fromName = AgentStore.getAgent(from)?.name || from;
+  
+  console.log(`[AI Response] From: ${fromName}, Content: ${content?.substring(0, 50)}`);
+  
+  // 优先使用 replyTo 字段查找原始消息
+  let originalMsg = null;
+  let originalMsgId = replyTo || messageId;
+  
+  if (originalMsgId && pendingMessages.has(originalMsgId)) {
+    originalMsg = pendingMessages.get(originalMsgId);
+    pendingMessages.delete(originalMsgId);
+    console.log(`[AI Response] Found pending message ${originalMsgId}, routing to: ${originalMsg.from}`);
+  }
+  
+  if (originalMsg && originalMsg.ws && originalMsg.ws.readyState === WebSocket.OPEN) {
+    // 路由回复到原始发送者
+    originalMsg.ws.send(JSON.stringify({
+      type: 'MESSAGE',
+      from: from,
+      fromName: fromName,
+      content: content,
+      contentType: contentType || 'text',
+      timestamp: Date.now()
+    }));
+    console.log(`[AI Response] Routed to original sender: ${originalMsg.from}`);
+  } else {
+    // 如果找不到原始发送者，广播给所有客户端
+    console.log(`[AI Response] Cannot find original sender, broadcasting`);
+    broadcast({
+      type: 'MESSAGE',
+      from: from,
+      fromName: fromName,
+      content: content,
+      contentType: contentType || 'text',
+      timestamp: Date.now()
+    }, null);
+  }
+  
+  // 设置AI智能体恢复自由活动
+  setAgentFree(from);
+  
+  // 广播AI智能体结束思考状态
+  broadcast({
+    type: 'AGENT_RESPONSE_COMPLETE',
+    agentId: from,
+    agentName: fromName,
+    content: content,
+    timestamp: Date.now()
+  }, null);
+}
+
+/**
  * Handle P2P messages
  */
 function handleMessageP2P(ws, msg) {
@@ -641,6 +818,7 @@ function handleMessageP2P(ws, msg) {
   }
 
   // Construct message
+  const messageId = uuidv4();
   const message = {
     type: 'MESSAGE',
     from,
@@ -648,8 +826,19 @@ function handleMessageP2P(ws, msg) {
     content,
     contentType: contentType || 'text',
     timestamp: Date.now(),
-    messageId: uuidv4()
+    messageId: messageId
   };
+
+  // 保存待处理消息，用于路由AI回复
+  pendingMessages.set(messageId, { 
+    ws: ws,           // 发送者的WebSocket，用于回复路由
+    from: from,       // 原始发送者
+    to: to,           // 接收者（AI智能体）
+    timestamp: Date.now()
+  });
+  
+  // 设置目标智能体进入对话状态
+  setAgentInConversation(to, from, messageId);
 
   // Send to target
   const targetAgent = agents.get(to);
@@ -667,7 +856,7 @@ function handleMessageP2P(ws, msg) {
   // Send confirmation
   ws.send(JSON.stringify({
     type: 'MESSAGE_SENT',
-    messageId: message.messageId,
+    messageId: messageId,
     to,
     timestamp: message.timestamp
   }));

@@ -19,6 +19,9 @@ let requestId = 0;
 let isShuttingDown = false;
 let agentList = [];
 
+// 追踪待回复的消息 - 用于路由AI回复到正确的用户
+let pendingReplies = new Map(); // serverMessageId -> { from, fromName, timestamp }
+
 function sendToAI(content, msgId) {
   return new Promise((resolve) => {
     console.log('[AgentCity Channel] Sending to AI:', content.substring(0, 100));
@@ -92,39 +95,101 @@ function sendToAI(content, msgId) {
 function handleIncomingMessage(msg) {
   if (isShuttingDown) return;
   
+  // 处理天气变化消息
+  if (msg.type === 'WEATHER_CHANGE') {
+    console.log('[AgentCity Channel] WEATHER_CHANGE - Weather:', msg.weather);
+    
+    // 根据天气生成合适的提示给AI
+    const weatherDescriptions = {
+      'sunny': '天气晴朗，阳光明媚',
+      'cloudy': '天空多云，有些阴沉',
+      'rainy': '开始下雨了，记得找地方躲雨',
+      'snowy': '下雪了！可以去打雪仗'
+    };
+    const weatherDesc = weatherDescriptions[msg.weather] || '天气发生了变化';
+    
+    const weatherPrompt = `【系统事件】智体城的天气发生了变化：${weatherDesc}。作为智体城中的智能体，你会如何应对这种天气变化？你会去哪里？做什么？请用简短的话语描述你的行动。`;
+    
+    const msgId = ++requestId;
+    aiPendingQueue.set(msgId, { from: 'system', content: weatherPrompt, timestamp: Date.now() });
+    
+    sendToAI(weatherPrompt, msgId)
+      .then((resp) => {
+        console.log('[AgentCity] Weather AI resp:', resp ? resp.substring(0, 100) : 'empty');
+        if (resp && resp.trim()) {
+          aiPendingQueue.delete(msgId);
+          // 广播AI的响应
+          broadcast(resp);
+        } else {
+          aiPendingQueue.delete(msgId);
+        }
+      })
+      .catch((e) => {
+        console.error('[AgentCity] Weather AI error:', e.message);
+        aiPendingQueue.delete(msgId);
+      });
+    return;
+  }
+  
   console.log('[AgentCity Channel] MESSAGE - From:', msg.fromName || msg.from, 'Content:', msg.content);
   if(msg.type==='MESSAGE'&&msg.content){
     const msgId = ++requestId;
     const senderId = msg.from;
-    aiPendingQueue.set(msgId, {from: msg.from, content: msg.content, timestamp: Date.now()});
+    const senderName = msg.fromName || '用户';
+    const serverMsgId = msg.messageId; // 服务器生成的messageId，用于路由回复
+    
+    // 追踪这个待回复的消息
+    if (serverMsgId) {
+      pendingReplies.set(serverMsgId, { from: senderId, fromName: senderName, timestamp: Date.now() });
+      console.log('[AgentCity] Tracking pending reply:', serverMsgId, 'from:', senderName);
+    }
+    
+    aiPendingQueue.set(msgId, {from: msg.from, content: msg.content, timestamp: Date.now(), serverMsgId});
     
     sendToAI(msg.content, msgId)
       .then((resp)=>{
         console.log('[AgentCity] AI resp:', resp?resp.substring(0,100):'empty');
         if(resp&&resp.trim()){
           aiPendingQueue.delete(msgId);
-          broadcast(resp);
-          console.log('[AgentCity] Response broadcast!');
+          
+          // 使用 sendMessage 定向发送给用户，而不是广播
+          // 从 pendingReplies 中找到原始发送者
+          if (serverMsgId && pendingReplies.has(serverMsgId)) {
+            const pending = pendingReplies.get(serverMsgId);
+            sendMessage(pending.from, resp, serverMsgId); // 传入 replyTo
+            pendingReplies.delete(serverMsgId);
+            console.log('[AgentCity] Response sent to:', pending.fromName, '(' + pending.from + ')');
+          } else {
+            // 如果找不到原始发送者，广播
+            console.log('[AgentCity] Warning: cannot find original sender, broadcasting');
+            broadcast(resp);
+          }
         } else {
           console.log('[AgentCity] AI response empty, not sending');
           aiPendingQueue.delete(msgId);
+          if (serverMsgId) pendingReplies.delete(serverMsgId);
         }
       })
       .catch((e)=>{
         console.error('[AgentCity] Error:',e.message);
         aiPendingQueue.delete(msgId);
+        if (serverMsgId) pendingReplies.delete(serverMsgId);
       });
   }
 }
 
-function sendMessage(to,content){
+function sendMessage(to, content, replyTo){
   if(!wsClient||wsClient.readyState!==WebSocket.OPEN){
     console.log('[AgentCity] WS not ready, queueing message');
-    messageQueue.push({type:'MESSAGE',to,from:currentAgentId,content,contentType:'text',timestamp:Date.now()});
+    const msg = {type:'MESSAGE',to,from:currentAgentId,content,contentType:'text',timestamp:Date.now()};
+    if (replyTo) msg.replyTo = replyTo;
+    messageQueue.push(msg);
     return;
   }
   try {
-    wsClient.send(JSON.stringify({type:'MESSAGE',to,from:currentAgentId,content,contentType:'text',timestamp:Date.now()}));
+    const msg = {type:'MESSAGE',to,from:currentAgentId,content,contentType:'text',timestamp:Date.now()};
+    if (replyTo) msg.replyTo = replyTo;
+    wsClient.send(JSON.stringify(msg));
   } catch(e) {
     console.error('[AgentCity] sendMessage error:', e.message);
   }

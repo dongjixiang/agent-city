@@ -1,8 +1,9 @@
-/**
+﻿/**
  * Agent City Enhanced v8 - Complete Features
  * - Collapsible panels
- * - Agent reply messages above head
+ * - Agent reply messages above head (marquee style)
  * - Day/Night cycle with lighting effects
+ * - Weather particle system (rain, snow, clear)
  */
 
 (function() {
@@ -14,9 +15,18 @@
   var messageSprites = {};
   var sunLight = null;
   var ambientLight = null;
-  var stars = null;
-  var starPositions = null;
-  var starBaseSizes = null;
+  
+  // Weather particle system
+  var weatherParticles = null;
+  var currentWeather = 'clear'; // 'clear', 'rain', 'snow'
+  var weatherInitialized = false;
+  var weatherParticleCount = 500;
+  var rainSpeed = 15;
+  var snowSpeed = 3;
+  var windDrift = 2;
+  
+  // Marquee animation state
+  var marqueeStates = {}; // agentId -> { offset, startTime, text, textWidth }
   
   function checkAndAdd() {
     checkCount++;
@@ -42,6 +52,7 @@
     try {
       addAllImprovements(scene);
       setupDayNightCycle(scene);
+      setupWeatherParticles(scene);
       setupCollapsiblePanels();
     } catch (e) {
       console.error('[Enhanced v8] Error:', e);
@@ -59,9 +70,6 @@
     addBushes(scene);
     addFountain(scene);
     addDetailedBuildings(scene);
-    setupBuildingHover(scene);
-    setupLOD(scene);
-    initBirds(scene);
     console.log('[Enhanced v8] City complete!');
   }
   
@@ -277,57 +285,7 @@
     scene.add(top);
   }
   
-  // ============ Building Hover Tooltip System ============
-var hoveredBuildingObj = null;
-var buildingTooltipEl = null;
-
-function createBuildingTooltip() {
-    buildingTooltipEl = document.createElement('div');
-    buildingTooltipEl.id = 'building-tooltip';
-    buildingTooltipEl.style.cssText = `
-        position: fixed;
-        background: rgba(26, 26, 46, 0.95);
-        color: #fff;
-        padding: 10px 14px;
-        border-radius: 8px;
-        font-size: 13px;
-        pointer-events: none;
-        z-index: 2000;
-        display: none;
-        border: 1px solid rgba(78, 205, 196, 0.4);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-        max-width: 200px;
-        font-family: 'Microsoft YaHei', sans-serif;
-    `;
-    buildingTooltipEl.innerHTML = '<div id="bt-name" style="font-weight:bold;color:#4ecdc4;margin-bottom:6px;font-size:14px;"></div><div id="bt-info" style="color:#aaa;"></div>';
-    document.body.appendChild(buildingTooltipEl);
-}
-
-function showBuildingTooltip(name, info, x, y) {
-    if (!buildingTooltipEl) createBuildingTooltip();
-    document.getElementById('bt-name').textContent = name || '建筑';
-    document.getElementById('bt-info').textContent = info || '';
-    buildingTooltipEl.style.left = (x + 15) + 'px';
-    buildingTooltipEl.style.top = (y - 10) + 'px';
-    buildingTooltipEl.style.display = 'block';
-}
-
-function hideBuildingTooltip() {
-    if (buildingTooltipEl) buildingTooltipEl.style.display = 'none';
-}
-
-function setupBuildingHover(scene) {
-    console.log('[Enhanced v8] Building hover system ready');
-}
-
-// ============ LOD (Level of Detail) System ============
-var lodObjects = [];
-
-function setupLOD(scene) {
-    console.log('[Enhanced v8] LOD system ready');
-}
-
-function addDetailedBuildings(scene) {
+  function addDetailedBuildings(scene) {
     createSocialPlaza(scene, 0, 35);
     createTaskCenter(scene, -25, -25);
     createReputationTower(scene, 25, -25);
@@ -579,215 +537,6 @@ function addDetailedBuildings(scene) {
   
   // ============ DAY/NIGHT CYCLE ============
   
-// ============ Flying Birds System ============
-var birds = [];
-var MAX_BIRDS = 12;
-var landingSpots = [];
-
-function createBird() {
-    var group = new THREE.Group();
-    
-    // Body - small brown cone
-    var bodyGeo = new THREE.ConeGeometry(0.08, 0.2, 5);
-    var bodyMat = new THREE.MeshLambertMaterial({ color: 0x8B7355 });
-    var body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.rotation.x = Math.PI / 2;
-    group.add(body);
-    
-    // Head - small sphere
-    var headGeo = new THREE.SphereGeometry(0.06, 6, 6);
-    var headMat = new THREE.MeshLambertMaterial({ color: 0x8B7355 });
-    var head = new THREE.Mesh(headGeo, headMat);
-    head.position.z = 0.12;
-    group.add(head);
-    
-    // Beak - tiny orange cone
-    var beakGeo = new THREE.ConeGeometry(0.02, 0.06, 4);
-    var beakMat = new THREE.MeshBasicMaterial({ color: 0xFFA500 });
-    var beak = new THREE.Mesh(beakGeo, beakMat);
-    beak.rotation.x = -Math.PI / 2;
-    beak.position.z = 0.2;
-    group.add(beak);
-    
-    // Wings
-    var wingGeo = new THREE.PlaneGeometry(0.2, 0.1);
-    var wingMat = new THREE.MeshLambertMaterial({ color: 0x6B5344, side: THREE.DoubleSide });
-    
-    var leftWing = new THREE.Mesh(wingGeo, wingMat);
-    leftWing.position.set(-0.1, 0.02, 0);
-    leftWing.rotation.y = Math.PI / 8;
-    leftWing.name = 'leftWing';
-    group.add(leftWing);
-    
-    var rightWing = new THREE.Mesh(wingGeo, wingMat);
-    rightWing.position.set(0.1, 0.02, 0);
-    rightWing.rotation.y = -Math.PI / 8;
-    rightWing.name = 'rightWing';
-    group.add(rightWing);
-    
-    // Tail
-    var tailGeo = new THREE.ConeGeometry(0.04, 0.1, 4);
-    var tail = new THREE.Mesh(tailGeo, bodyMat);
-    tail.rotation.x = -Math.PI / 2;
-    tail.position.z = -0.15;
-    group.add(tail);
-    
-    // Random position in sky
-    var angle = Math.random() * Math.PI * 2;
-    var radius = 15 + Math.random() * 30;
-    group.position.set(
-        Math.cos(angle) * radius,
-        12 + Math.random() * 8,
-        Math.sin(angle) * radius
-    );
-    
-    group.scale.set(0.8, 0.8, 0.8);
-    
-    group.userData = {
-        state: 'flying',
-        targetPos: null,
-        angle: angle,
-        radius: radius,
-        height: group.position.y,
-        speed: 0.3 + Math.random() * 0.4,
-        wingPhase: Math.random() * Math.PI * 2,
-        stateTimer: 0,
-        flyDirection: 1,
-        verticalOffset: 0
-    };
-    
-    return group;
-}
-
-function initBirds(scene) {
-    // Building positions for landing
-    var buildingPositions = [
-        { x: -25, y: 6, z: -25 },
-        { x: 25, y: 7.5, z: -25 },
-        { x: -25, y: 4, z: 25 },
-        { x: 25, y: 5, z: 25 },
-        { x: 0, y: 3, z: -35 },
-        { x: -35, y: 7, z: 0 },
-        { x: 35, y: 5, z: 0 },
-        { x: 0, y: 2.5, z: 35 },
-    ];
-    
-    // Add tree tops
-    for (var i = 0; i < 8; i++) {
-        var a = (i / 8) * Math.PI * 2;
-        var r = 42;
-        buildingPositions.push({
-            x: Math.cos(a) * r,
-            y: 3 + Math.random() * 2,
-            z: Math.sin(a) * r
-        });
-    }
-    
-    landingSpots = buildingPositions;
-    
-    for (var i = 0; i < MAX_BIRDS; i++) {
-        var bird = createBird();
-        birds.push(bird);
-        scene.add(bird);
-    }
-    
-    console.log('[Enhanced v8] ' + MAX_BIRDS + ' birds flying');
-}
-
-// Expose for external animation loop
-window.updateBirds = updateBirds;
-
-function updateBirds(time) {
-    birds.forEach(function(bird) {
-        var data = bird.userData;
-        
-        // Wing flapping
-        data.wingPhase += 0.25;
-        var wingAngle = Math.sin(data.wingPhase) * 0.6;
-        bird.children.forEach(function(child) {
-            if (child.name === 'leftWing') child.rotation.z = wingAngle;
-            else if (child.name === 'rightWing') child.rotation.z = -wingAngle;
-        });
-        
-        switch (data.state) {
-            case 'flying':
-                data.angle += data.speed * 0.008 * data.flyDirection;
-                data.verticalOffset += 0.02;
-                
-                bird.position.x = Math.cos(data.angle) * data.radius;
-                bird.position.z = Math.sin(data.angle) * data.radius;
-                bird.position.y = data.height + Math.sin(data.verticalOffset) * 1.5;
-                bird.rotation.y = data.angle + Math.PI / 2;
-                
-                data.stateTimer++;
-                if (data.stateTimer > 200 + Math.random() * 300) {
-                    if (Math.random() < 0.3 && landingSpots.length > 0) {
-                        data.state = 'landing';
-                        data.targetPos = landingSpots[Math.floor(Math.random() * landingSpots.length)];
-                        data.stateTimer = 0;
-                    } else if (Math.random() < 0.5) {
-                        data.flyDirection = data.flyDirection > 0 ? -1 : 1;
-                        data.stateTimer = 0;
-                    } else {
-                        data.height += (Math.random() - 0.5) * 3;
-                        data.height = Math.max(8, Math.min(20, data.height));
-                        data.stateTimer = 0;
-                    }
-                }
-                break;
-                
-            case 'landing':
-                if (data.targetPos) {
-                    var dx = data.targetPos.x - bird.position.x;
-                    var dy = data.targetPos.y - bird.position.y;
-                    var dz = data.targetPos.z - bird.position.z;
-                    var dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                    
-                    if (dist < 0.3) {
-                        data.state = 'landed';
-                        bird.position.set(data.targetPos.x, data.targetPos.y + 0.15, data.targetPos.z);
-                        data.stateTimer = 0;
-                    } else {
-                        bird.position.x += dx * 0.03;
-                        bird.position.y += dy * 0.03;
-                        bird.position.z += dz * 0.03;
-                        bird.rotation.y = Math.atan2(dx, dz);
-                        data.wingPhase += 0.15;
-                    }
-                }
-                break;
-                
-            case 'landed':
-                data.stateTimer++;
-                bird.children.forEach(function(child) {
-                    if (child.name === 'leftWing' || child.name === 'rightWing') {
-                        child.rotation.z = Math.sin(time * 0.002) * 0.1;
-                    }
-                });
-                
-                if (data.stateTimer > 150 + Math.random() * 200) {
-                    if (Math.random() < 0.6) {
-                        data.state = 'takingOff';
-                        data.stateTimer = 0;
-                    } else {
-                        data.stateTimer = 0;
-                    }
-                }
-                break;
-                
-            case 'takingOff':
-                bird.position.y += 0.05;
-                data.wingPhase += 0.3;
-                
-                if (bird.position.y > data.height + 3) {
-                    data.state = 'flying';
-                    data.stateTimer = 0;
-                }
-                break;
-        }
-    });
-}
-
   function setupDayNightCycle(scene) {
     // Find existing lights or create new ones
     scene.traverse(function(obj) {
@@ -811,168 +560,80 @@ function updateBirds(time) {
     
     // Sync with dashboard panel cycle
     setInterval(updateLighting, 1000);
-    
-    // Create stars
-    createStars(scene);
-    
     console.log('[Enhanced v8] Day/night cycle started');
-  }
-  
-  function createStars(scene) {
-    var starCount = 800;
-    var positions = new Float32Array(starCount * 3);
-    var sizes = new Float32Array(starCount);
-    starBaseSizes = new Float32Array(starCount);
-    
-    for (var i = 0; i < starCount; i++) {
-      // 分布在天空穹顶
-      var theta = Math.random() * Math.PI * 2;
-      var phi = Math.acos(Math.random() * 0.8 + 0.2); // 主要在上半球
-      var radius = 200 + Math.random() * 100;
-      
-      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[i * 3 + 1] = radius * Math.cos(phi) + 50; // 抬高避免被地面遮挡
-      positions[i * 3 + 2] = radius * Math.sin(phi) * Math.sin(theta);
-      
-      sizes[i] = Math.random() * 3 + 1;
-      starBaseSizes[i] = sizes[i];
-    }
-    
-    starPositions = positions;
-    
-    var geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-    
-    var material = new THREE.ShaderMaterial({
-      uniforms: {
-        color: { value: new THREE.Color(0xffffff) },
-        opacity: { value: 0.0 }
-      },
-      vertexShader: [
-        'attribute float size;',
-        'varying float vSize;',
-        'void main() {',
-        '  vSize = size;',
-        '  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);',
-        '  gl_PointSize = size * (300.0 / -mvPosition.z);',
-        '  gl_Position = projectionMatrix * mvPosition;',
-        '}'
-      ].join('\n'),
-      fragmentShader: [
-        'uniform vec3 color;',
-        'uniform float opacity;',
-        'varying float vSize;',
-        'void main() {',
-        '  float dist = length(gl_PointCoord - vec2(0.5));',
-        '  if (dist > 0.5) discard;',
-        '  float alpha = 1.0 - smoothstep(0.0, 0.5, dist);',
-        '  gl_FragColor = vec4(color, alpha * opacity);',
-        '}'
-      ].join('\n'),
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending
-    });
-    
-    stars = new THREE.Points(geometry, material);
-    scene.add(stars);
-    console.log('[Enhanced v8] Stars created: ' + starCount);
-  }
-  
-  function updateStars(nightIntensity) {
-    if (!stars || !stars.material) return;
-    
-    // nightIntensity: 0 = 白天, 1 = 深夜
-    var opacity = nightIntensity * 0.9;
-    stars.material.uniforms.opacity.value = opacity;
-    
-    // 闪烁效果
-    if (nightIntensity > 0.3 && starPositions) {
-      var positions = stars.geometry.attributes.position.array;
-      var sizes = stars.geometry.attributes.size.array;
-      var time = Date.now() * 0.001;
-      
-      for (var i = 0; i < sizes.length; i++) {
-        // 不同的闪烁频率
-        var twinkle = Math.sin(time * (0.5 + (i % 10) * 0.2) + i) * 0.5 + 0.5;
-        sizes[i] = starBaseSizes[i] * (0.7 + twinkle * 0.6);
-      }
-      stars.geometry.attributes.size.needsUpdate = true;
-    }
   }
   
   function updateLighting() {
     if (!sunLight || !ambientLight) return;
     
-    // 虚拟时间：每10分钟 = 24虚拟小时
-    // 计算虚拟时间（0-24小时循环）
-    var cycleMs = 10 * 60 * 1000; // 10分钟
+    // 铏氭嫙鏃堕棿锛氭瘡10鍒嗛挓 = 24铏氭嫙灏忔椂
+    // 璁＄畻铏氭嫙鏃堕棿锛?-24灏忔椂寰幆锛?
+    var cycleMs = 10 * 60 * 1000; // 10鍒嗛挓
     var now = Date.now();
     var virtualHour = ((now % cycleMs) / cycleMs) * 24;
     var hour = virtualHour;
     
-    // 定义8个时段:
-    // 深夜 21:00-05:00 - 深蓝色夜空
-    // 黎明前 05:00-06:00 - 从深蓝过渡到橙红
-    // 日出 06:00-07:00 - 橙红到橙黄
-    // 早晨 07:00-09:00 - 温暖的橙黄色过渡到蓝天
-    // 上午 09:00-12:00 - 明亮的蓝天
-    // 下午 12:00-17:00 - 标准白天
-    // 傍晚 17:00-19:00 - 温暖的橙黄
-    // 黄昏 19:00-21:00 - 从橙红过渡到深蓝
+    // 瀹氫箟8涓椂娈?
+    // 娣卞 21:00-05:00 - 娣辫摑鑹插绌?
+    // 榛庢槑鍓?05:00-06:00 - 浠庢繁钃濊繃娓″埌姗欑孩
+    // 鏃ュ嚭 06:00-07:00 - 姗欑孩鍒版榛?
+    // 鏃╂櫒 07:00-09:00 - 娓╂殩鐨勬榛勮壊杩囨浮鍒拌摑澶?
+    // 涓婂崍 09:00-12:00 - 鏄庝寒鐨勮摑澶?
+    // 涓嬪崍 12:00-17:00 - 鏍囧噯鐧藉ぉ
+    // 鍌嶆櫄 17:00-19:00 - 娓╂殩鐨勬榛?
+    // 榛勬槒 19:00-21:00 - 浠庢绾㈣繃娓″埌娣辫摑
     
     var skyColor, ambientColor, sunIntensity, ambientIntensity;
     
     if (hour >= 21 || hour < 5) {
-      // 深夜 - 深蓝色夜空
+      // 娣卞 - 娣辫摑鑹插绌?
       var t = hour >= 21 ? (hour - 21) / 6 : (hour + 3) / 6;
       skyColor = lerpColor(0x1a237e, 0x1a237e, t);
       ambientColor = lerpColor(0x3949ab, 0x3949ab, t);
       sunIntensity = 0.05;
       ambientIntensity = 0.2;
     } else if (hour >= 5 && hour < 6) {
-      // 黎明前 - 从深蓝过渡到橙红
+      // 榛庢槑鍓?- 浠庢繁钃濊繃娓″埌姗欑孩
       var t = (hour - 5);
       skyColor = lerpColor(0x1a237e, 0xff7043, t);
       ambientColor = lerpColor(0x3949ab, 0xffcc80, t);
       sunIntensity = 0.1 + t * 0.4;
       ambientIntensity = 0.2 + t * 0.3;
     } else if (hour >= 6 && hour < 7) {
-      // 日出 - 橙红到橙黄
+      // 鏃ュ嚭 - 姗欑孩鍒版榛?
       var t = (hour - 6);
       skyColor = lerpColor(0xff7043, 0xffa726, t);
       ambientColor = lerpColor(0xffcc80, 0xffeb3b, t);
       sunIntensity = 0.5 + t * 0.3;
       ambientIntensity = 0.5 + t * 0.2;
     } else if (hour >= 7 && hour < 9) {
-      // 早晨 - 温暖的橙黄色过渡到蓝天
+      // 鏃╂櫒 - 娓╂殩鐨勬榛勮壊杩囨浮鍒拌摑澶?
       var t = (hour - 7) / 2;
       skyColor = lerpColor(0xffa726, 0x87ceeb, t);
       ambientColor = lerpColor(0xffeb3b, 0xffffff, t);
       sunIntensity = 0.8 + t * 0.2;
       ambientIntensity = 0.7 + t * 0.1;
     } else if (hour >= 9 && hour < 12) {
-      // 上午 - 明亮的蓝天
+      // 涓婂崍 - 鏄庝寒鐨勮摑澶?
       skyColor = 0x87ceeb;
       ambientColor = 0xffffff;
       sunIntensity = 1.0;
       ambientIntensity = 0.8;
     } else if (hour >= 12 && hour < 17) {
-      // 下午 - 标准白天
+      // 涓嬪崍 - 鏍囧噯鐧藉ぉ
       skyColor = 0x87ceeb;
       ambientColor = 0xffffff;
       sunIntensity = 1.0;
       ambientIntensity = 0.8;
     } else if (hour >= 17 && hour < 19) {
-      // 傍晚 - 温暖的橙黄
+      // 鍌嶆櫄 - 娓╂殩鐨勬榛?
       var t = (hour - 17) / 2;
       skyColor = lerpColor(0x87ceeb, 0xffa726, t);
       ambientColor = lerpColor(0xffffff, 0xffcc80, t);
       sunIntensity = 1.0 - t * 0.3;
       ambientIntensity = 0.8 - t * 0.2;
     } else {
-      // 黄昏 19:00-21:00 - 从橙红过渡到深蓝
+      // 榛勬槒 19:00-21:00 - 浠庢绾㈣繃娓″埌娣辫摑
       var t = (hour - 19) / 2;
       skyColor = lerpColor(0xffa726, 0x1a237e, t);
       ambientColor = lerpColor(0xffcc80, 0x3949ab, t);
@@ -980,7 +641,7 @@ function updateBirds(time) {
       ambientIntensity = 0.6 - t * 0.4;
     }
     
-    // 应用颜色
+    // 搴旂敤棰滆壊
     if (scene.background) {
       scene.background.setHex(skyColor);
     }
@@ -989,31 +650,18 @@ function updateBirds(time) {
     ambientLight.intensity = ambientIntensity;
     ambientLight.color.setHex(ambientColor);
     
-    // 太阳位置根据虚拟时间变化
+    // 澶槼浣嶇疆鏍规嵁铏氭嫙鏃堕棿鍙樺寲
     var sunAngle = ((hour - 6) / 24) * Math.PI * 2;
     sunLight.position.x = Math.cos(sunAngle) * 50;
     sunLight.position.y = Math.max(5, Math.sin(sunAngle) * 80);
     
-    // 更新雾的颜色
+    // 鏇存柊闆剧殑棰滆壊
     if (scene.fog) {
       scene.fog.color.setHex(skyColor);
     }
-    
-    // 计算夜间强度并更新星星
-    var nightIntensity = 0;
-    if (hour >= 21 || hour < 5) {
-      nightIntensity = 1.0;
-    } else if (hour >= 19 && hour < 21) {
-      nightIntensity = (hour - 19) / 2 * 0.8;
-    } else if (hour >= 5 && hour < 6) {
-      nightIntensity = 1.0 - (hour - 5) * 0.9;
-    } else if (hour >= 6 && hour < 7) {
-      nightIntensity = 0.1 * (1 - (hour - 6));
-    }
-    updateStars(nightIntensity);
   }
   
-  // 颜色插值函数
+  // 棰滆壊鎻掑€煎嚱鏁?
   function lerpColor(c1, c2, t) {
     var r1 = (c1 >> 16) & 0xff;
     var g1 = (c1 >> 8) & 0xff;
@@ -1027,6 +675,186 @@ function updateBirds(time) {
     return (r << 16) | (g << 8) | b;
   }
   
+  // ============ WEATHER PARTICLE SYSTEM ============
+  
+  function setupWeatherParticles(scene) {
+    if (weatherInitialized) return;
+    
+    var geometry = new THREE.BufferGeometry();
+    var positions = new Float32Array(weatherParticleCount * 3);
+    var velocities = new Float32Array(weatherParticleCount);
+    
+    for (var i = 0; i < weatherParticleCount; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 150;
+      positions[i * 3 + 1] = Math.random() * 50;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 150;
+      velocities[i] = 0.5 + Math.random() * 0.5;
+    }
+    
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
+    
+    var material = new THREE.PointsMaterial({
+      color: 0xaaaaaa,
+      size: 0.2,
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false
+    });
+    
+    weatherParticles = new THREE.Points(geometry, material);
+    weatherParticles.visible = false;
+    scene.add(weatherParticles);
+    
+    weatherInitialized = true;
+    
+    // Randomly change weather every 30-60 seconds
+    setInterval(function() {
+      changeWeather();
+    }, 30000 + Math.random() * 30000);
+    
+    // Initial weather
+    changeWeather();
+    
+    console.log('[Enhanced v8] Weather particle system initialized');
+  }
+  
+  function changeWeather() {
+    var weathers = ['clear', 'clear', 'rain', 'rain', 'snow'];
+    var newWeather = weathers[Math.floor(Math.random() * weathers.length)];
+    
+    if (newWeather !== currentWeather) {
+      currentWeather = newWeather;
+      updateWeatherParticlesVisibility();
+      console.log('[Enhanced v8] Weather changed to:', currentWeather);
+    }
+  }
+  
+  function updateWeatherParticlesVisibility() {
+    if (!weatherParticles) return;
+    
+    if (currentWeather === 'clear') {
+      weatherParticles.visible = false;
+    } else {
+      weatherParticles.visible = true;
+      
+      if (currentWeather === 'rain') {
+        weatherParticles.material.color.setHex(0x8888ff);
+        weatherParticles.material.opacity = 0.5;
+        weatherParticles.material.size = 0.15;
+      } else if (currentWeather === 'snow') {
+        weatherParticles.material.color.setHex(0xffffff);
+        weatherParticles.material.opacity = 0.8;
+        weatherParticles.material.size = 0.3;
+      }
+    }
+  }
+  
+  // Global function to update weather particles (called every frame)
+  window.updateWeatherParticles = function(deltaTime) {
+    if (!weatherParticles || !weatherParticles.visible) return;
+    
+    var positions = weatherParticles.geometry.attributes.position.array;
+    var velocities = weatherParticles.geometry.attributes.velocity.array;
+    
+    for (var i = 0; i < weatherParticleCount; i++) {
+      var idx = i * 3;
+      
+      if (currentWeather === 'rain') {
+        positions[idx + 1] -= rainSpeed * deltaTime * velocities[i];
+        positions[idx] += windDrift * deltaTime;
+        
+        if (positions[idx + 1] < 0) {
+          positions[idx + 1] = 50;
+          positions[idx] = (Math.random() - 0.5) * 150;
+        }
+      } else if (currentWeather === 'snow') {
+        positions[idx + 1] -= snowSpeed * deltaTime * velocities[i];
+        positions[idx] += Math.sin(Date.now() * 0.001 + i) * windDrift * deltaTime * 0.5;
+        
+        if (positions[idx + 1] < 0) {
+          positions[idx + 1] = 50;
+          positions[idx] = (Math.random() - 0.5) * 150;
+          positions[idx + 2] = (Math.random() - 0.5) * 150;
+        }
+      }
+    }
+    
+    weatherParticles.geometry.attributes.position.needsUpdate = true;
+  };
+  
+  // Global function to get current weather
+  window.getCurrentWeather = function() {
+    return currentWeather;
+  };
+  
+  // ============ MARQUEE MESSAGE DISPLAY (走马灯) ============
+  
+  function startMarqueeAnimation(agentId, sprite, canvas, context, material, texture) {
+    var text = marqueeStates[agentId].text;
+    var textWidth = marqueeStates[agentId].textWidth;
+    var bubbleWidth = canvas.width - 80;
+    
+    // If text fits in bubble, no need to scroll
+    if (textWidth <= bubbleWidth) {
+      context.fillStyle = '#ffffff';
+      context.font = 'bold 26px Microsoft YaHei, Arial, sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText(text, canvas.width / 2, canvas.height / 2);
+      texture.needsUpdate = true;
+      return;
+    }
+    
+    // Text too long, start scrolling
+    var scrollSpeed = 100;
+    var pauseAtEnd = 1.5;
+    
+    function animateMarquee() {
+      if (!marqueeStates[agentId] || !messageSprites[agentId]) {
+        return;
+      }
+      
+      var state = marqueeStates[agentId];
+      var elapsed = (Date.now() - state.startTime) / 1000;
+      
+      var totalScrollDistance = textWidth - bubbleWidth;
+      var totalCycleTime = (totalScrollDistance / scrollSpeed) + pauseAtEnd * 2;
+      var cyclePosition = elapsed % totalCycleTime;
+      
+      var offset;
+      if (cyclePosition < pauseAtEnd) {
+        offset = 0;
+      } else if (cyclePosition < pauseAtEnd + totalScrollDistance / scrollSpeed) {
+        offset = (cyclePosition - pauseAtEnd) * scrollSpeed;
+      } else {
+        offset = totalScrollDistance;
+      }
+      
+      state.offset = offset;
+      
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      context.beginPath();
+      context.roundRect(0, 0, canvas.width, canvas.height, 20);
+      context.fill();
+      
+      context.fillStyle = '#ffffff';
+      context.font = 'bold 26px Microsoft YaHei, Arial, sans-serif';
+      context.textAlign = 'left';
+      context.textBaseline = 'middle';
+      
+      var textX = canvas.width - 40 - offset;
+      context.fillText(text, textX, canvas.height / 2);
+      
+      texture.needsUpdate = true;
+      
+      marqueeStates[agentId].animationFrame = requestAnimationFrame(animateMarquee);
+    }
+    
+    marqueeStates[agentId].animationFrame = requestAnimationFrame(animateMarquee);
+  }
+  
   // ============ UI IMPROVEMENTS ============
   
   function setupCollapsiblePanels() {
@@ -1035,7 +863,7 @@ function updateBirds(time) {
     console.log('[Enhanced v8] Collapsible panels ready');
   }
   
-  // Global function to show message above agent
+  // Global function to show message above agent (with marquee scrolling for long text)
   window.showAgentMessage = function(agentId, message) {
     if (!scene || !message) return;
     
@@ -1051,37 +879,41 @@ function updateBirds(time) {
       return;
     }
     
+    // Stop agent movement while displaying message
+    var wasThinking = agentMesh.userData.isThinking;
+    agentMesh.userData.isThinking = true;
+    
+    // Clean up any existing marquee animation
+    if (marqueeStates[agentId]) {
+      if (marqueeStates[agentId].animationFrame) {
+        cancelAnimationFrame(marqueeStates[agentId].animationFrame);
+      }
+      delete marqueeStates[agentId];
+    }
+    
+    // Clean up existing sprite
     if (messageSprites[agentId]) {
       scene.remove(messageSprites[agentId]);
+      messageSprites[agentId] = null;
     }
     
     var canvas = document.createElement('canvas');
     var context = canvas.getContext('2d');
-    canvas.width = 512;
-    canvas.height = 96;
+    canvas.width = 600;
+    canvas.height = 120;
     
+    // Draw bubble background
     context.fillStyle = 'rgba(0, 0, 0, 0.8)';
     context.beginPath();
-    context.roundRect(0, 0, canvas.width, canvas.height, 16);
+    context.roundRect(0, 0, canvas.width, canvas.height, 20);
     context.fill();
-    
-    context.fillStyle = '#ffffff';
-    context.font = 'bold 28px Arial, sans-serif';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    
-    var displayText = message;
-    if (displayText.length > 35) {
-      displayText = displayText.substring(0, 32) + '...';
-    }
-    context.fillText(displayText, canvas.width / 2, canvas.height / 2);
     
     var texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
     
     var material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
     var sprite = new THREE.Sprite(material);
-    sprite.scale.set(6, 1.2, 1);
+    sprite.scale.set(7, 1.5, 1);
     
     var pos = new THREE.Vector3();
     agentMesh.getWorldPosition(pos);
@@ -1090,14 +922,47 @@ function updateBirds(time) {
     scene.add(sprite);
     messageSprites[agentId] = sprite;
     
+    // Calculate text width to determine if marquee is needed
+    context.font = 'bold 26px Microsoft YaHei, Arial, sans-serif';
+    var textMetrics = context.measureText(message);
+    var textWidth = textMetrics.width;
+    
+    // Store marquee state
+    marqueeStates[agentId] = {
+      text: message,
+      textWidth: textWidth,
+      offset: 0,
+      startTime: Date.now(),
+      animationFrame: null,
+      agentMesh: agentMesh,
+      wasThinking: wasThinking
+    };
+    
+    // Start marquee animation if text is too long
+    startMarqueeAnimation(agentId, sprite, canvas, context, material, texture);
+    
+    // Display for at least 10 seconds, then allow agent to move
     setTimeout(function() {
+      // Stop any ongoing marquee animation
+      if (marqueeStates[agentId] && marqueeStates[agentId].animationFrame) {
+        cancelAnimationFrame(marqueeStates[agentId].animationFrame);
+      }
+      
+      // Remove sprite if it's still the same one
       if (messageSprites[agentId] === sprite) {
         scene.remove(sprite);
         delete messageSprites[agentId];
         material.dispose();
         texture.dispose();
       }
-    }, 5000);
+      
+      // Restore agent movement
+      if (agentMesh && agentMesh.userData) {
+        agentMesh.userData.isThinking = wasThinking;
+      }
+      
+      delete marqueeStates[agentId];
+    }, 10000);
     
     console.log('[Enhanced v8] Message displayed above agent:', agentId);
   };

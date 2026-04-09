@@ -26,6 +26,7 @@ let focusIndicator = null; // 焦点指示器
 // WebSocket 连接
 let ws = null;
 let wsConnected = false;
+let lastWeatherSent = null; // 上次发送的天气，用于检测变化
 
 // 配置
 const CONFIG = {
@@ -1593,20 +1594,20 @@ function agentAutonomousDecision(agentId) {
     const rand = Math.random();
     let cumulative = 0;
     
-    // 40% 随机漫步, 35% 去建筑, 15% 休息, 10% 保持当前目标
-    cumulative += 0.40;
+    // 取消随机走动逻辑：0% 随机漫步, 30% 去建筑, 40% 休息, 30% 保持当前目标
+    cumulative += 0.00; // 取消随机漫步
     if (rand < cumulative) {
         decision.behavior = BEHAVIORS.WANDER;
         decision.target = null;
     } else {
-        cumulative += 0.35;
+        cumulative += 0.30;
         if (rand < cumulative) {
             // 选择一个建筑
             const building = AUTONOMOUS_BUILDINGS[Math.floor(Math.random() * AUTONOMOUS_BUILDINGS.length)];
             decision.behavior = BEHAVIORS.GOTO_BUILDING;
             decision.target = building;
         } else {
-            cumulative += 0.15;
+            cumulative += 0.40;
             if (rand < cumulative) {
                 decision.behavior = BEHAVIORS.REST;
                 decision.target = null;
@@ -1726,6 +1727,26 @@ function animate() {
     
     if (controls.update) {
         controls.update();
+    }
+    
+    // 更新天气粒子
+    if (typeof window.updateWeatherParticles === 'function') {
+        window.updateWeatherParticles(dt);
+    }
+    
+    // 检测天气变化并通知智能体
+    if (typeof window.getCurrentWeather === 'function') {
+        const newWeather = window.getCurrentWeather();
+        if (newWeather !== lastWeatherSent && ws && wsConnected) {
+            lastWeatherSent = newWeather;
+            ws.send(JSON.stringify({
+                type: 'WEATHER_CHANGE',
+                weather: newWeather,
+                from: 'system',
+                timestamp: Date.now()
+            }));
+            console.log('[City] Weather change sent to agent:', newWeather);
+        }
     }
     
     // 龙虾动画
@@ -2097,7 +2118,15 @@ function handleWSMessage(msg) {
             updateUI();
             break;
             
-        case 'AGENT_MOVE_TO':
+        case 'AGENT_THOUGHT':
+            // 智能体思考 - 显示在头顶，带 💭 标记
+            console.log('💭 智能体思考:', msg.agentId, '-', msg.content);
+            // 显示想法在头顶
+            if (msg.agentId && msg.content && window.showAgentMessage) {
+                window.showAgentMessage(msg.agentId, '💭 ' + msg.content);
+            }
+            // 不在 world window 显示，避免刷屏
+            break;
             // Agent is moving itself to a new position
             console.log('🦐 智能体移动:', msg.agentId, '-> (', msg.x.toFixed(2), ',', msg.z.toFixed(2), ')');
             moveAgentToPosition(msg.agentId, msg.x, msg.z);

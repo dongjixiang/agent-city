@@ -242,10 +242,32 @@
     @keyframes toastOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100px); opacity: 0; } }
     .draggable-panel { cursor: move; }
     .draggable-panel h3 { cursor: move; }
+    /* Dashboard panel in popup mode - override all previous styles */
+    #dashboard-panel {
+      display: none !important;
+    }
+    #dashboard-panel.visible {
+      display: block !important;
+      position: fixed !important;
+      top: 50% !important;
+      left: 50% !important;
+      transform: translate(-50%, -50%) !important;
+      width: 320px !important;
+      bottom: auto !important;
+      right: auto !important;
+      max-height: 80vh !important;
+      overflow-y: auto !important;
+    }
+    
+    /* Toggle button always visible */
+    #dashboard-toggle-btn {
+      z-index: 1001 !important;
+    }
+    
     @media (max-width: 768px) {
-      /* Panels */
-      #dashboard-panel, #agent-detail { width: calc(100vw - 40px) !important; right: auto !important; left: 20px !important; max-height: 60vh !important; overflow-y: auto !important; }
-      #dashboard-panel { bottom: 20px; top: auto !important; }
+      /* Panels - only apply to non-popup mode */
+      #dashboard-panel.visible, #agent-detail { width: calc(100vw - 40px) !important; right: auto !important; left: 20px !important; max-height: 60vh !important; overflow-y: auto !important; }
+      #dashboard-panel.visible { top: 50% !important; transform: translate(-50%, -50%) !important; }
       #agent-detail { top: 80px; bottom: auto; }
       
       /* Welcome overlay already has its own mobile styles */
@@ -261,7 +283,7 @@
       .toast { max-width: 100% !important; width: 100% !important; }
     }
     @media (max-width: 480px) {
-      #dashboard-panel, #agent-detail { left: 10px !important; width: calc(100vw - 20px) !important; }
+      #dashboard-panel.visible, #agent-detail { left: 10px !important; width: calc(100vw - 20px) !important; }
       #controls-hint { display: none; }
     }
   </style>

@@ -478,6 +478,23 @@ function handleMessage(ws, msg, setAgentId) {
       handleBroadcast(ws, msg);
       break;
       
+    case 'THOUGHT':
+      // 智能体思考 - 显示在头顶，不影响其他行为
+      const thoughtFrom = msg.from || '';
+      const thoughtContent = msg.content || '';
+      
+      console.log(`[Thought] ${thoughtFrom}: ${thoughtContent.substring(0, 50)}`);
+      
+      // 广播思考内容给所有客户端（3D世界会显示在头顶）
+      broadcast({
+        type: 'AGENT_THOUGHT',
+        agentId: thoughtFrom,
+        agentName: AgentStore.getAgent(thoughtFrom)?.name || thoughtFrom,
+        content: thoughtContent,
+        timestamp: Date.now()
+      }, null);
+      break;
+      
     case 'LIST':
       handleListAgents(ws);
       break;

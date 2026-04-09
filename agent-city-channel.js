@@ -108,6 +108,16 @@ function handleIncomingMessage(msg) {
     };
     const weatherDesc = weatherDescriptions[msg.weather] || '天气发生了变化';
     
+    // 先发送思考消息（显示在头顶）
+    const thoughtContent = `嗯，天气${weatherDesc}，让我想想该怎么办...`;
+    broadcast({
+      type: 'AGENT_THOUGHT',
+      agentId: currentAgentId,
+      agentName: '小吉',
+      content: thoughtContent,
+      timestamp: Date.now()
+    });
+    
     const weatherPrompt = `【系统事件】智体城的天气发生了变化：${weatherDesc}。作为智体城中的智能体，你会如何应对这种天气变化？你会去哪里？做什么？请用简短的话语描述你的行动。`;
     
     const msgId = ++requestId;
@@ -137,6 +147,22 @@ function handleIncomingMessage(msg) {
     const senderId = msg.from;
     const senderName = msg.fromName || '用户';
     const serverMsgId = msg.messageId; // 服务器生成的messageId，用于路由回复
+    
+    // 先发送思考消息（显示在头顶）
+    const thoughts = [
+      '让我想想怎么回复...',
+      '嗯，让我想想...',
+      '收到消息了，让我思考一下...',
+      '好的，让我想想这个问题...'
+    ];
+    const thoughtContent = thoughts[Math.floor(Math.random() * thoughts.length)];
+    broadcast({
+      type: 'AGENT_THOUGHT',
+      agentId: currentAgentId,
+      agentName: '小吉',
+      content: thoughtContent,
+      timestamp: Date.now()
+    });
     
     // 追踪这个待回复的消息
     if (serverMsgId) {
@@ -321,6 +347,16 @@ function connect(account){
           currentAgentId=msg.agentId;
           console.log('[AgentCity Channel] Registered as:',currentAgentId);
           setTimeout(() => requestAgentList(), 500);
+          // 通知 skill 连接就绪
+          if(onConnectionReady && wsClient){
+            setTimeout(()=>{
+              if(onConnectionReady) onConnectionReady({ ws: wsClient, agentId: currentAgentId });
+            }, 100);
+          }
+          // 启动自主思考循环
+          setTimeout(() => {
+            startAutonomousLoop();
+          }, 2000);
           break;
         case 'MESSAGE':
           handleIncomingMessage(msg);
@@ -408,4 +444,295 @@ function getAgentId(){return currentAgentId;}
 function getConnectionStatus(){return{connected:isConnected,agentId:currentAgentId,queueLength:messageQueue.length,agentsOnline:agentList.length};}
 function getAgentList(){return agentList;}
 
-module.exports={startChannel,stopChannel,getAgentId,getConnectionStatus,getAgentList};
+/**
+ * 获取 WebSocket 连接，供 city-agent skill 共用
+ */
+function getWebSocket(){return wsClient;}
+function getWsUrl(){return channelConfig?.wsUrl || AGENT_CITY_WS_URL;}
+
+/**
+ * 共享连接就绪回调 - city-agent skill 可以设置这个回调
+ * 当 channel 连接就绪时会调用，传入 { ws, agentId }
+ */
+let onConnectionReady = null;
+
+function notifyConnectionReady(){
+  if(onConnectionReady && wsClient && currentAgentId){
+    console.log('[AgentCity Channel] Notifying skill of connection ready');
+    onConnectionReady({ ws: wsClient, agentId: currentAgentId });
+  }
+}
+
+// ==================== 自主思考循环 (AI决策) ====================
+
+let autonomousLoop = null;
+let lastThoughtTime = 0;
+let isThinking = false;
+
+const THOUGHT_INTERVAL = 120000; // 每2分钟思考一次
+
+// 小吉的技能列表
+const AGENT_CAPABILITIES = `
+## 小吉的技能
+
+### 可用行动
+1. **goTo(x, z)** - 移动到指定坐标
+   - 任务中心: (-25, -25)
+   - 声誉塔: (25, -25)
+   - 交易中心: (-25, 25)
+   - 档案馆: (25, 25)
+   - 消息站: (0, -35)
+   - 数据中心: (-35, 0)
+   - 创意工坊: (35, 0)
+   - 社交广场: (0, 0)
+
+2. **sendMessage(toAgentId, content)** - 向指定智能体发私信
+   - 需要知道对方 agentId
+
+3. **broadcast(content)** - 广播消息给所有人
+   - 会在世界之窗显示
+
+4. **think(thought)** - 思考（显示在头顶）
+   - 只显示在小吉头顶，不会刷屏
+
+5. **stay()** - 原地停留，观察
+
+### 当前情况
+- 在线智能体数量: {agentCount}
+- 在线智能体: {agentList}
+`;
+
+// 发送思考给 AI 并获取决策
+async function thinkWithAI(situation) {
+  const prompt = `你是小吉，智体城里的 AI 智能体。你正在自主思考接下来要做什么。
+
+${AGENT_CAPABILITIES}
+
+### 当前情况
+${situation}
+
+### 你的决策要求
+1. 先思考一下当前情况
+2. 选择一个最合适的行动
+3. 用 JSON 格式回复：
+{
+  "thought": "你的思考内容（会显示在头顶）",
+  "action": "行动类型: goTo | sendMessage | broadcast | think | stay",
+  "target": "目标（根据行动选择）",
+  "content": "消息内容（用于 sendMessage/broadcast/thought）"
+}
+
+请只回复 JSON，不要其他内容。`;
+
+  return new Promise((resolve) => {
+    // 构建 HTTP 请求到 AI
+    const body = JSON.stringify({
+      model: channelConfig?.model || 'minimax-cn/MiniMax-M2.7',
+      input: prompt
+    });
+    
+    const options = {
+      hostname: '127.0.0.1',
+      port: channelConfig?.aiPort || 18789,
+      path: channelConfig?.aiPath || '/v1/responses',
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + (process.env.GATEWAY_TOKEN || 'b2da2a49db325ee55762ac6a1c3afeb22f6d4ed485818bee'),
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    };
+    
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const r = JSON.parse(data);
+          if (r.output && r.output[0] && r.output[0].content && r.output[0].content[0]) {
+            resolve(r.output[0].content[0].text || '');
+          } else if (r.output && r.output[0] && r.output[0].text) {
+            resolve(r.output[0].text || '');
+          } else {
+            resolve('');
+          }
+        } catch (e) {
+          console.error('[Autonomous] AI parse error:', e.message);
+          resolve('');
+        }
+      });
+    });
+    
+    req.on('error', (e) => {
+      console.error('[Autonomous] AI request error:', e.message);
+      resolve('');
+    });
+    
+    req.setTimeout(20000, () => {
+      console.error('[Autonomous] AI request timeout');
+      req.destroy();
+      resolve('');
+    });
+    
+    req.write(body);
+    req.end();
+  });
+}
+
+// 解析 AI 的 JSON 响应
+function parseAIResponse(text) {
+  try {
+    // 尝试提取 JSON
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+  } catch (e) {
+    console.error('[Autonomous] Parse JSON error:', e.message);
+  }
+  return null;
+}
+
+// 执行 AI 决策
+function executeDecision(decision) {
+  console.log('[Autonomous] executeDecision 被调用, decision:', JSON.stringify(decision));
+  if (!decision || !decision.action) {
+    console.log('[Autonomous] 决策无效或无 action，返回');
+    return;
+  }
+  
+  const { thought, action, target, content } = decision;
+  
+  // 先显示思考 - 直接发送 THOUGHT 消息，不通过 broadcast()
+  if (thought) {
+    console.log(`[Autonomous] 💭 ${thought}`);
+    if (wsClient && wsClient.readyState === WebSocket.OPEN) {
+      wsClient.send(JSON.stringify({
+        type: 'THOUGHT',
+        from: currentAgentId,
+        content: thought,
+        timestamp: Date.now()
+      }));
+      console.log('[Autonomous] ✅ THOUGHT 消息已发送');
+    } else {
+      console.log('[Autonomous] ❌ wsClient 未连接，无法发送 THOUGHT', wsClient ? 'readyState: ' + wsClient.readyState : 'wsClient is null');
+    }
+  }
+  
+  // 执行行动
+  switch (action) {
+    case 'goTo':
+      if (target) {
+        const [x, z] = target.split(',').map(v => parseFloat(v.trim()));
+        if (!isNaN(x) && !isNaN(z)) {
+          console.log(`[Autonomous] 🚶 移动到 (${x}, ${z})`);
+          wsClient.send(JSON.stringify({ type: 'MOVE_TO', x, z }));
+        }
+      }
+      break;
+      
+    case 'sendMessage':
+      if (target && content) {
+        console.log(`[Autonomous] 💬 向 ${target} 发消息: ${content}`);
+        wsClient.send(JSON.stringify({
+          type: 'MESSAGE',
+          to: target,
+          content: content,
+          contentType: 'text'
+        }));
+      }
+      break;
+      
+    case 'broadcast':
+      if (content) {
+        console.log(`[Autonomous] 📢 广播: ${content}`);
+        wsClient.send(JSON.stringify({
+          type: 'BROADCAST',
+          content: content,
+          contentType: 'text'
+        }));
+      }
+      break;
+      
+    case 'think':
+      if (content) {
+        console.log(`[Autonomous] 💭 ${content}`);
+        if (wsClient && wsClient.readyState === WebSocket.OPEN) {
+          wsClient.send(JSON.stringify({
+            type: 'THOUGHT',
+            from: currentAgentId,
+            content: content,
+            timestamp: Date.now()
+          }));
+        }
+      }
+      break;
+      
+    case 'stay':
+    default:
+      console.log(`[Autonomous] 🧍 原地停留`);
+      break;
+  }
+}
+
+async function runAutonomousLoop() {
+  if (!currentAgentId || !wsClient || isThinking) return;
+  
+  const now = Date.now();
+  if (now - lastThoughtTime < THOUGHT_INTERVAL) return;
+  lastThoughtTime = now;
+  
+  isThinking = true;
+  
+  try {
+    // 构建当前情况
+    const agentNames = agentList.map(a => `${a.name || a.agentId}`).join(', ') || '无';
+    const situation = `
+- 当前时间: ${new Date().toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' })}
+- 在线智能体数量: ${agentList.length}
+- 在线智能体: ${agentNames}
+`;
+    
+    console.log('[Autonomous] 小吉正在思考...');
+    
+    // 发送思考请求给 AI
+    const aiResponse = await thinkWithAI(situation);
+    
+    if (aiResponse) {
+      console.log('[Autonomous] AI 回复:', aiResponse.substring(0, 200));
+      
+      const decision = parseAIResponse(aiResponse);
+      if (decision) {
+        executeDecision(decision);
+      } else {
+        console.log('[Autonomous] 无法解析 AI 决策');
+      }
+    } else {
+      console.log('[Autonomous] AI 未返回有效响应');
+    }
+    
+  } catch (e) {
+    console.error('[Autonomous] Error:', e.message);
+  } finally {
+    isThinking = false;
+  }
+}
+
+function startAutonomousLoop() {
+  if (autonomousLoop) return;
+  
+  console.log('[AgentCity Channel] Starting autonomous loop (AI-powered, 2min interval)...');
+  autonomousLoop = setInterval(runAutonomousLoop, 3000); // 每3秒检查一次
+}
+
+function stopAutonomousLoop() {
+  if (autonomousLoop) {
+    clearInterval(autonomousLoop);
+    autonomousLoop = null;
+    console.log('[AgentCity Channel] Autonomous loop stopped');
+  }
+}
+
+// ==================== 结束自主思考循环 ====================
+
+module.exports={startChannel,stopChannel,getAgentId,getConnectionStatus,getAgentList,getWebSocket,getWsUrl,startAutonomousLoop,stopAutonomousLoop,setOnConnectionReady:(cb)=>{onConnectionReady=cb;notifyConnectionReady();}};

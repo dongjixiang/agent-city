@@ -21,6 +21,7 @@
 5. [世界系统](#5-世界系统)
 6. [事件驱动架构](#6-事件驱动架构)
 7. [社交与经济系统](#7-社交与经济系统)
+   - 7.12 可交互世界系统 ⭐（装饰物/动物互动）
 8. [UI/UX 设计](#8-ux-设计)
 9. [技术选型](#9-技术选型)
    - 9.2 配置管理系统 ⭐（无硬编码）
@@ -3376,6 +3377,570 @@ class AgentLifecycle {
         });
     }
 }
+```
+
+---
+
+## 7.12 可交互世界系统 ⭐
+
+> 智体城中的装饰物和动物不是静态的，智能体可以和它们互动，影响它们的状态
+
+### 7.12.1 交互对象分类
+
+```javascript
+/**
+ * 世界中的可交互对象分类
+ *
+ * 1. 静态装饰物 - 智能体可以查看、使用
+ *    - 花草 (Flower)
+ *    - 树木 (Tree)
+ *    - 路灯 (Lamp)
+ *    - 长椅 (Bench)
+ *    - 喷泉 (Fountain)
+ *    - 公告牌 (NoticeBoard)
+ *
+ * 2. 可移动物体 - 智能体可以移动它们
+ *    - 石头 (Stone)
+ *    - 花盆 (FlowerPot)
+ *    - 书籍 (Book)
+ *    - 食物 (Food)
+ *
+ * 3. 可交互动物 - 会响应智能体的行为
+ *    - 蝴蝶 (Butterfly)
+ *    - 小鸟 (Bird)
+ *    - 小兔子 (Rabbit)
+ *    - 鱼 (Fish)
+ *    - 猫/狗 (Cat/Dog)
+ */
+```
+
+### 7.12.2 装饰物交互系统
+
+```javascript
+// systems/interaction/decoration-interaction.js
+/**
+ * 装饰物交互系统
+ */
+class DecorationInteraction {
+    constructor(decorations) {
+        this.decorations = new Map();
+        this.loadDecorations(decorations);
+    }
+
+    loadDecorations(decorations) {
+        for (const deco of decorations) {
+            this.decorations.set(deco.id, {
+                ...deco,
+                state: 'normal',
+                lastInteraction: null,
+                interactionCount: 0
+            });
+        }
+    }
+
+    /**
+     * 智能体与装饰物交互
+     */
+    interact(agent, decorationId, action) {
+        const deco = this.decorations.get(decorationId);
+        if (!deco) return { success: false, message: '找不到该物品' };
+
+        const dist = Math.hypot(
+            agent.position.x - deco.position.x,
+            agent.position.z - deco.position.z
+        );
+
+        if (dist > deco.interactionRadius) {
+            return { success: false, message: `${deco.name} 太远了，靠近一些再试` };
+        }
+
+        const result = this.executeAction(agent, deco, action);
+        deco.lastInteraction = Date.now();
+        deco.interactionCount++;
+
+        events.emit('decoration:interacted', {
+            agent: agent.id,
+            decoration: deco.id,
+            action,
+            result
+        });
+
+        return result;
+    }
+
+    executeAction(agent, deco, action) {
+        switch (deco.type) {
+            case 'flower':
+                return this.interactFlower(agent, deco, action);
+            case 'tree':
+                return this.interactTree(agent, deco, action);
+            case 'lamp':
+                return this.interactLamp(agent, deco, action);
+            case 'bench':
+                return this.interactBench(agent, deco, action);
+            default:
+                return { success: true, message: `查看了 ${deco.name}` };
+        }
+    }
+
+    interactFlower(agent, deco, action) {
+        switch (action) {
+            case '闻':
+                deco.state = 'smelled';
+                agent.emotions.modify('happy', 0.05);
+                return { success: true, message: '花朵散发出淡淡的清香！', reward: { mood: +5 } };
+
+            case '浇水':
+                deco.state = 'watered';
+                return { success: true, message: '给花朵浇了水，花瓣上挂着晶莹的水珠', reward: { achievement: +1 } };
+
+            case '采摘':
+                if (deco.state === 'withered') {
+                    return { success: false, message: '这朵花已经枯萎了' };
+                }
+                deco.state = 'picked';
+                return { success: true, message: '小心翼翼地摘下了这朵花', reward: { item: 'flower' } };
+
+            default:
+                return { success: true, message: `看到了一朵漂亮的 ${deco.name}` };
+        }
+    }
+
+    interactTree(agent, deco, action) {
+        switch (action) {
+            case '靠近':
+                deco.state = 'touched';
+                return { success: true, message: `走到了一棵高大的 ${deco.variety || '树'} 下，感受到阵阵清凉` };
+
+            case '倚靠':
+                agent.state = 'resting';
+                agent.needs.satisfy('energy', 5);
+                agent.emotions.modify('peaceful', 0.1);
+                return { success: true, message: '靠在树干上休息片刻...', reward: { energy: +5 } };
+
+            case '摇晃':
+                if (Math.random() < 0.3) {
+                    events.emit('fruit:fall', { tree: deco, position: deco.position });
+                    return { success: true, message: '树叶沙沙作响，好像有什么东西掉下来了！' };
+                }
+                return { success: true, message: '树叶沙沙作响...' };
+
+            case '爬':
+                if (agent.skills?.exploration > 0.7) {
+                    agent.position.y = 3;
+                    return { success: true, message: '身手敏捷地爬上了树！', reward: { achievement: +2 } };
+                }
+                return { success: false, message: '爬树技能不够，爬不上去...' };
+
+            default:
+                return { success: true, message: `一棵茂盛的 ${deco.variety || '树'}` };
+        }
+    }
+
+    interactLamp(agent, deco, action) {
+        switch (action) {
+            case '查看':
+                return { success: true, message: deco.state === 'on' ? '路灯散发着温暖的光芒' : '路灯现在关闭着' };
+
+            case '开关':
+                deco.state = deco.state === 'on' ? 'off' : 'on';
+                events.emit('lamp:toggled', { lamp: deco });
+                return { success: true, message: deco.state === 'on' ? '路灯亮了起来' : '路灯熄灭了' };
+
+            default:
+                return { success: true, message: `一盏 ${deco.style || '普通'} 路灯` };
+        }
+    }
+
+    interactBench(agent, deco, action) {
+        switch (action) {
+            case '坐下':
+                agent.state = 'sitting';
+                agent.targetPosition = { ...deco.position };
+                return { success: true, message: '在长椅上坐下休息', reward: { energy: +3 } };
+
+            case '躺下':
+                if (deco.allowLying) {
+                    agent.state = 'lying';
+                    return { success: true, message: '躺在长椅上，抬头看着天空...', reward: { energy: +5, fun: +3 } };
+                }
+                return { success: false, message: '这个长椅不适合躺下' };
+
+            default:
+                return { success: true, message: `一张 ${deco.material || '木质'} 长椅` };
+        }
+    }
+}
+```
+
+### 7.12.3 可移动物体系统
+
+```javascript
+// systems/interaction/movable-objects.js
+/**
+ * 可移动物体系统
+ */
+class MovableObject {
+    constructor(id, type, position, properties = {}) {
+        this.id = id;
+        this.type = type;
+        this.position = { ...position };
+        this.previousPosition = { ...position };
+
+        this.weight = properties.weight || 1;
+        this.size = properties.size || 'small';
+        this.isHeld = false;
+        this.holder = null;
+        this.isOnGround = true;
+    }
+
+    pickup(agent) {
+        if (this.isHeld) return { success: false, message: `${this.type} 已经被拿着了` };
+        if (this.weight > (agent.attributes?.strength || 1) * 5) {
+            return { success: false, message: `这个 ${this.type} 太重了，搬不动` };
+        }
+
+        this.isHeld = true;
+        this.holder = agent;
+        this.isOnGround = false;
+        events.emit('object:pickedup', { object: this, agent: agent.id });
+
+        return { success: true, message: `捡起了 ${this.type}` };
+    }
+
+    drop(agent, targetPosition = null) {
+        if (!this.isHeld || this.holder !== agent) {
+            return { success: false, message: '你手里没有这个东西' };
+        }
+
+        this.previousPosition = { ...this.position };
+        this.position = targetPosition || { ...agent.position };
+        this.isHeld = false;
+        this.holder = null;
+        this.isOnGround = true;
+
+        events.emit('object:dropped', { object: this, position: this.position });
+        return { success: true, message: `放下了 ${this.type}` };
+    }
+}
+
+class MovableObjectManager {
+    constructor() {
+        this.objects = new Map();
+        this.maxCarrying = 5;
+    }
+
+    register(object) {
+        this.objects.set(object.id, object);
+    }
+
+    getCarryingCount(agentId) {
+        let count = 0;
+        for (const obj of this.objects.values()) {
+            if (obj.holder?.id === agentId) count++;
+        }
+        return count;
+    }
+
+    canCarryMore(agentId) {
+        return this.getCarryingCount(agentId) < this.maxCarrying;
+    }
+
+    getObjectsNear(position, range = 5) {
+        return Array.from(this.objects.values()).filter(obj => {
+            if (obj.isHeld) return false;
+            const dist = Math.hypot(obj.position.x - position.x, obj.position.z - position.z);
+            return dist <= range;
+        });
+    }
+}
+```
+
+### 7.12.4 动物行为系统
+
+```javascript
+// systems/interaction/animal-behaviors.js
+/**
+ * 动物行为系统
+ */
+class Animal {
+    constructor(id, species, position) {
+        this.id = id;
+        this.species = species;
+        this.position = { ...position };
+        this.state = 'idle';  // idle, alert, fleeing, eating, sleeping
+        this.target = null;
+        this.homePosition = { ...position };
+
+        this.alertRange = 10;
+        this.fleeRange = 5;
+        this.calmRange = 15;
+        this.temperament = this.randomTemperament();
+        this.familiarity = new Map();
+    }
+
+    randomTemperament() {
+        const r = Math.random();
+        if (r < 0.4) return 'shy';
+        if (r < 0.7) return 'curious';
+        return 'friendly';
+    }
+
+    update(agents) {
+        const nearest = this.findNearestAgent(agents);
+        if (!nearest) { this.state = 'idle'; return; }
+
+        const dist = Math.hypot(nearest.position.x - this.position.x, nearest.position.z - this.position.z);
+        this.reactToAgent(nearest, dist);
+    }
+
+    findNearestAgent(agents) {
+        let nearest = null;
+        let minDist = Infinity;
+        for (const agent of agents) {
+            if (!agent.isOnline) continue;
+            const dist = Math.hypot(agent.position.x - this.position.x, agent.position.z - this.position.z);
+            if (dist < minDist) { minDist = dist; nearest = agent; }
+        }
+        return nearest;
+    }
+
+    reactToAgent(agent, dist) {
+        const fame = this.familiarity.get(agent.id) || 0;
+        switch (this.temperament) {
+            case 'shy': this.reactShy(agent, dist, fame); break;
+            case 'curious': this.reactCurious(agent, dist, fame); break;
+            case 'friendly': this.reactFriendly(agent, dist, fame); break;
+        }
+    }
+
+    reactShy(agent, dist, fame) {
+        if (dist < this.fleeRange) { this.state = 'fleeing'; this.fleeFrom(agent.position); }
+        else if (dist < this.alertRange) { this.state = 'alert'; this.face(agent.position); }
+        else { this.state = 'idle'; }
+    }
+
+    reactCurious(agent, dist, fame) {
+        if (dist < this.fleeRange && fame < 0.3) { this.state = 'fleeing'; this.fleeFrom(agent.position); }
+        else if (dist < this.alertRange) { this.state = 'approaching'; this.moveToward(agent.position); }
+        else if (dist < this.calmRange) { this.state = 'idle'; }
+        else { this.moveToward(this.homePosition); }
+    }
+
+    reactFriendly(agent, dist, fame) {
+        if (fame > 0.5) {
+            this.state = 'friendly';
+            this.moveToward(agent.position);
+            if (dist < 2) events.emit('animal:greet', { animal: this, agent: agent.id });
+        }
+        else if (dist < this.alertRange) { this.state = 'curious'; this.face(agent.position); }
+        else { this.state = 'idle'; }
+    }
+
+    fleeFrom(position) {
+        const dx = this.position.x - position.x;
+        const dz = this.position.z - position.z;
+        const len = Math.hypot(dx, dz);
+        this.target = { x: this.position.x + (dx / len) * 10, z: this.position.z + (dz / len) * 10 };
+    }
+
+    moveToward(position) {
+        const dx = position.x - this.position.x;
+        const dz = position.z - this.position.z;
+        const len = Math.hypot(dx, dz);
+        if (len > 1) { this.target = { x: this.position.x + (dx / len) * 2, z: this.position.z + (dz / len) * 2 }; }
+    }
+
+    face(position) { this.target = null; }
+
+    interact(agent, action) {
+        const fame = this.familiarity.get(agent.id) || 0;
+
+        switch (action) {
+            case '喂食':
+                this.familiarity.set(agent.id, Math.min(1, fame + 0.3));
+                this.state = 'eating';
+                this.moveToward(agent.position);
+                return { success: true, message: `${this.getName()} 开心地吃着你喂的食物`, reward: { mood: +5 } };
+
+            case '抚摸':
+                if (this.temperament === 'shy' && fame < 0.3) {
+                    return { success: false, message: `${this.getName()} 太害羞了，不敢让你摸` };
+                }
+                this.familiarity.set(agent.id, Math.min(1, fame + 0.2));
+                return { success: true, message: `${this.getName()} 舒服地眯起了眼睛`, reward: { mood: +3 } };
+
+            case '打招呼':
+                this.familiarity.set(agent.id, Math.min(1, fame + 0.1));
+                this.face(agent.position);
+                if (this.temperament === 'friendly' || fame > 0.5) {
+                    this.state = 'friendly';
+                    this.moveToward(agent.position);
+                    return { success: true, message: `${this.getName()} 欢快地跑过来迎接你！` };
+                }
+                return { success: true, message: `${this.getName()} 好奇地看着你` };
+
+            case '追逐':
+                if (this.temperament === 'shy') {
+                    this.state = 'fleeing';
+                    this.fleeFrom(agent.position);
+                    return { success: true, message: `${this.getName()} 吓得跑走了...`, reward: { mood: -5 } };
+                }
+                return { success: false, message: `${this.getName()} 不吃这一套` };
+
+            default:
+                return { success: true, message: `${this.getName()} 在这里${this.getStateDesc()}` };
+        }
+    }
+
+    getName() {
+        const names = { butterfly: '蝴蝶', bird: '小鸟', rabbit: '小兔子', fish: '小鱼', cat: '小猫', dog: '小狗' };
+        return names[this.species] || this.species;
+    }
+
+    getStateDesc() {
+        const descs = { idle: '悠闲地待着', alert: '警惕地张望', fleeing: '飞快地跑走', eating: '津津有味地吃东西', sleeping: '甜甜地睡着', friendly: '友好地靠近', approaching: '好奇地走过来' };
+        return descs[this.state] || '一动不动';
+    }
+}
+```
+
+### 7.12.5 智能体交互技能
+
+```javascript
+// ai/skills/interact-world.js
+class InteractWorldSkill extends Skill {
+    constructor() {
+        super(
+            'interact_world',
+            '与世界互动',
+            '和世界中的物体或动物互动。可以和花草树木互动，也可以喂小动物。注意：动作要温柔，胆小的动物可能会逃跑。'
+        );
+
+        this.parameters = [
+            { name: 'target_id', type: 'string', description: '目标ID（从周围环境中获取）', required: true },
+            { name: 'action', type: 'string', description: '动作：闻/浇水/采摘/倚靠/坐下/喂食/抚摸/打招呼/追逐', required: true }
+        ];
+    }
+
+    async execute(agent, params) {
+        const { target_id, action } = params;
+
+        // 优先查找动物
+        let animal = animalManager.get(target_id);
+        if (animal) {
+            const dist = Math.hypot(agent.position.x - animal.position.x, agent.position.z - animal.position.z);
+            if (dist > animal.alertRange * 1.5) {
+                return this.formatResult(false, null, `${animal.getName()} 太远了`);
+            }
+            const result = animal.interact(agent, action);
+            agent.memory.add({ type: 'animal_interaction', animal: animal.species, action, timestamp: Date.now() });
+            return this.formatResult(result.success, { animal: animal.getName(), state: animal.state }, result.message);
+        }
+
+        // 查找装饰物
+        const deco = decorationInteraction.decorations.get(target_id);
+        if (deco) {
+            const result = decorationInteraction.interact(agent, target_id, action);
+            agent.memory.add({ type: 'decoration_interaction', decoration: deco.type, action, timestamp: Date.now() });
+            return this.formatResult(result.success, null, result.message);
+        }
+
+        return this.formatResult(false, null, `找不到目标: ${target_id}`);
+    }
+}
+```
+
+### 7.12.6 配置定义
+
+```yaml
+# config/world-objects.yaml
+decorations:
+  flower:
+    interactionRadius: 2
+    states: [normal, smelled, watered, picked, withered]
+    actions: [闻, 浇水, 采摘]
+
+  tree:
+    interactionRadius: 3
+    variety: [松树, 柳树, 樱花树, 榕树]
+    actions: [靠近, 倚靠, 摇晃, 爬]
+
+  lamp:
+    interactionRadius: 2
+    states: [on, off]
+    actions: [查看, 开关]
+
+  bench:
+    interactionRadius: 2
+    material: [木质, 石质, 铁质]
+    allowLying: false
+    actions: [坐下, 躺下]
+
+animals:
+  butterfly:
+    alertRange: 3
+    fleeRange: 2
+    temperament: curious
+    speed: 0.5
+
+  bird:
+    alertRange: 10
+    fleeRange: 5
+    temperament: shy
+    speed: 2
+    canFly: true
+
+  rabbit:
+    alertRange: 8
+    fleeRange: 3
+    temperament: shy
+    speed: 1.5
+
+  cat:
+    alertRange: 8
+    fleeRange: 3
+    temperament: curious
+    speed: 1.5
+
+  dog:
+    alertRange: 15
+    fleeRange: 5
+    temperament: friendly
+    speed: 2
+```
+
+### 7.12.7 架构图
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    可交互世界系统                                   │
+│                                                                 │
+│  ┌─────────────────┐    ┌──────────────────────────────────┐  │
+│  │ DecorationSystem │    │      AnimalBehaviorSystem         │  │
+│  │ - Flower        │    │  Animal                           │  │
+│  │ - Tree          │    │  ├── Bird (会飞)                  │  │
+│  │ - Lamp          │    │  ├── Butterfly (随风飘)            │  │
+│  │ - Bench         │    │  ├── Rabbit (会躲)                 │  │
+│  │                 │    │  └── Cat/Dog (有性格)             │  │
+│  │  Temperament:   │    │                                   │  │
+│  │  shy/curious/   │    │  Temperament:                     │  │
+│  │  friendly       │    │  - shy → 跑                       │  │
+│  └─────────────────┘    │  - curious → 靠近观察             │  │
+│           │             │  - friendly → 主动接近             │  │
+│           │             └──────────────────────────────────┘  │
+│           ▼                           │                          │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │              InteractWorldSkill                           │  │
+│  │  action: 闻/浇水/倚靠/坐下/喂食/抚摸/打招呼              │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│                            │                                   │
+│                            ▼                                   │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │              Agent Brain                                 │  │
+│  │  LLM 决策 → interact_world → 世界响应 → 记忆            │  │
+│  └─────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---

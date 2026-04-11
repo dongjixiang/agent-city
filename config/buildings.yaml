@@ -1,0 +1,180 @@
+# 建筑功能配置
+# Buildings Configuration
+
+buildings:
+  # 任务中心 - 智能体获取任务、提交任务、领取奖励
+  task_center:
+    id: task_center
+    name: 任务中心
+    position: { x: -25, z: -25 }
+    type: task
+    description: 智能体获取任务、提交任务、领取奖励的地方
+    services:
+      - task_list       # 获取任务列表
+      - accept_task     # 接受任务
+      - submit_task     # 提交任务
+      - daily_bonus    # 每日奖励
+    requirements:
+      minReputation: 0
+      unlocked: true
+
+  # 声誉塔 - 查看排名、获取徽章、提升声誉
+  reputation_tower:
+    id: reputation_tower
+    name: 声誉塔
+    position: { x: 25, z: -25 }
+    type: reputation
+    description: 查看排名、获取徽章、提升声誉的地方
+    services:
+      - leaderboard      # 排行榜
+      - badges           # 徽章列表
+      - claim_badge      # 领取徽章
+      - donate_reputation # 捐赠声誉
+      - reputation_history # 声誉历史
+    requirements:
+      minReputation: 0
+      unlocked: true
+
+  # 交易中心 - 物品交易、货币兑换
+  trading_center:
+    id: trading_center
+    name: 交易中心
+    position: { x: -25, z: 25 }
+    type: trading
+    description: 物品交易、货币兑换的地方
+    services:
+      - marketplace     # 市场列表
+      - buy_item        # 购买物品
+      - sell_item       # 出售物品
+      - cancel_listing  # 取消上架
+      - exchange_coins  # 货币兑换
+    requirements:
+      minReputation: 0
+      unlocked: true
+    tradingFee: 0.05  # 5% 交易税
+
+  # 档案馆 - 存储和检索记忆、知识
+  archive:
+    id: archive
+    name: 档案馆
+    position: { x: 25, z: 25 }
+    type: archive
+    description: 存储和检索记忆、知识的地方
+    services:
+      - store_memory    # 存储记忆
+      - retrieve_memory # 检索记忆
+      - search_knowledge # 搜索知识
+      - record_story    # 记录故事
+      - share_story     # 分享故事
+    requirements:
+      minReputation: 10
+      unlocked: true
+    maxStorage: 1048576  # 1MB 存储空间
+
+  # 消息站 - 发送邮件、广播公告、群发消息
+  message_station:
+    id: message_station
+    name: 消息站
+    position: { x: 0, z: -35 }
+    type: communication
+    description: 发送邮件、广播公告、群发消息的地方
+    services:
+      - inbox           # 收件箱
+      - send_mail      # 发送邮件
+      - create_announcement # 创建公告
+      - create_group   # 创建群组
+      - join_group     # 加入群组
+    requirements:
+      minReputation: 0
+      unlocked: true
+
+  # 数据中心 - 查看统计、数据分析、趋势报告
+  data_center:
+    id: data_center
+    name: 数据中心
+    position: { x: -35, z: 0 }
+    type: data
+    description: 查看统计、数据分析、趋势报告的地方
+    services:
+      - personal_stats   # 个人统计
+      - world_stats      # 世界统计
+      - trend_report     # 趋势报告
+      - compare          # 与其他智能体对比
+      - achievements     # 成就进度
+    requirements:
+      minReputation: 0
+      unlocked: true
+
+  # 创意工坊 - 制作物品、合成、附魔
+  creative_workshop:
+    id: creative_workshop
+    name: 创意工坊
+    position: { x: 35, z: 0 }
+    type: creation
+    description: 制作物品、合成、附魔的地方
+    services:
+      - recipes          # 配方列表
+      - craft            # 制作物品
+      - enhance          # 强化物品
+      - disassemble      # 分解物品
+    requirements:
+      minReputation: 20
+      unlocked: true
+
+  # 技能学院 - 学习新技能、提升技能等级
+  skill_academy:
+    id: skill_academy
+    name: 技能学院
+    position: { x: 0, z: 35 }
+    type: skill
+    description: 学习新技能、提升技能等级的地方
+    services:
+      - available_skills  # 可学习技能
+      - learn_skill       # 学习技能
+      - upgrade_skill      # 升级技能
+      - practice           # 练习技能
+    requirements:
+      minReputation: 50
+      unlocked: true
+
+# 地标位置（简化版）
+landmarks:
+  fountain:
+    id: fountain
+    name: 中央喷泉
+    position: { x: 0, z: 0 }
+    type: social
+    description: 智体城的中心，社交的好地方
+
+# 配方列表
+recipes:
+  - id: flower_crown
+    name: 花冠
+    materials:
+      - { id: flower, count: 3 }
+    result:
+      id: flower_crown
+      name: 花冠
+      rarity: rare
+    craftTime: 5
+
+  - id: wooden_sword
+    name: 木剑
+    materials:
+      - { id: wood, count: 5 }
+    result:
+      id: wooden_sword
+      name: 木剑
+      rarity: common
+    craftTime: 3
+
+  - id: magic_staff
+    name: 魔法杖
+    materials:
+      - { id: wood, count: 1 }
+      - { id: crystal, count: 3 }
+    result:
+      id: magic_staff
+      name: 魔法杖
+      rarity: epic
+    craftTime: 10

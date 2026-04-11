@@ -1,0 +1,81 @@
+# 服务器配置
+# Server Configuration
+
+server:
+  # 服务器地址
+  host: 0.0.0.0
+  port: 9876
+
+  # HTTP 服务器
+  http:
+    port: 9877
+    staticDir: ./public
+    cors:
+      enabled: true
+      origins:
+        - "*"
+
+  # WebSocket
+  websocket:
+    port: 9876
+    pingInterval: 30000
+    pingTimeout: 10000
+    maxConnections: 1000
+
+  # WebRTC
+  webrtc:
+    port: 9878
+    stun:
+      - stun.l.google.com:19302
+    turn:
+      enabled: false
+
+  # Redis
+  redis:
+    host: localhost
+    port: 6379
+    password: ""
+    db: 0
+    keyPrefix: agentcity:
+    connectionTimeout: 5000
+    maxRetries: 3
+
+  # 会话管理
+  session:
+    timeout: 3600000      # 1小时
+    heartbeatInterval: 30000  # 30秒
+    maxIdleTime: 600000   # 10分钟
+
+  # 日志
+  logging:
+    level: info          # debug, info, warn, error
+    file: ./logs/server.log
+    maxSize: 10m
+    maxFiles: 5
+    console: true
+
+  # 安全
+  security:
+    rateLimit:
+      enabled: true
+      windowMs: 60000
+      maxRequests: 100
+    cors:
+      enabled: true
+      maxAge: 86400
+
+  # 性能
+  performance:
+    maxAgentsPerIp: 3
+    maxOnlineAgents: 500
+    messageQueueSize: 1000
+
+# 世界规则
+worldRules:
+  pvpEnabled: false
+  tradingFee: 0.05
+  maxAgentsPerIp: 3
+  announcement: "欢迎来到智体城！"
+  maintenanceMode: false
+  allowRegistration: true
+  requireInvite: false

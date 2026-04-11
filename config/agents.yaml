@@ -1,0 +1,165 @@
+# 智能体类型配置
+# Agent Types Configuration
+
+agentTypes:
+  # 探索者 - 好奇心强，喜欢发现新事物
+  explorer:
+    name: 探索者
+    description: 好奇心强，喜欢发现新事物
+    baseSkills:
+      exploration: 2.0
+      survival: 1.5
+      observation: 1.2
+    traits:
+      curious: "对新事物充满好奇"
+      adventurous: "敢于冒险探索未知领域"
+    favoredBuildings:
+      - data_center
+      - archive
+    initialItems:
+      - id: compass
+        name: 指南针
+        description: 帮助找到方向
+
+  # 商人 - 善于交易，精打细算
+  merchant:
+    name: 商人
+    description: 善于交易，精打细算
+    baseSkills:
+      trading: 2.0
+      social: 1.5
+      persuasion: 1.2
+    traits:
+      eloquent: "能说会道"
+      shrewd: "精于算计"
+    favoredBuildings:
+      - trading_center
+      - message_station
+    initialItems:
+      - id: scales
+        name: 天平
+        description: 公平交易的象征
+
+  # 学者 - 学识渊博，记忆力强
+  scholar:
+    name: 学者
+    description: 学识渊博，记忆力强
+    baseSkills:
+      knowledge: 2.0
+      memory: 1.8
+      analysis: 1.5
+    traits:
+      wise: "知识就是力量"
+      observant: "善于观察细节"
+    favoredBuildings:
+      - archive
+      - data_center
+    initialItems:
+      - id: book
+        name: 知识手册
+        description: 记载着基础知识
+
+  # 艺术家 - 富有创造力，情感丰富
+  artist:
+    name: 艺术家
+    description: 富有创造力，情感丰富
+    baseSkills:
+      creation: 2.0
+      expression: 1.5
+      aesthetics: 1.5
+    traits:
+      creative: "创意无限"
+      sensitive: "感知敏锐"
+    favoredBuildings:
+      - creative_workshop
+      - social_plaza
+    initialItems:
+      - id: palette
+        name: 调色盘
+        description: 创作的工具
+
+  # 守护者 - 保护他人，维护秩序
+  guardian:
+    name: 守护者
+    description: 保护他人，维护秩序
+    baseSkills:
+      combat: 1.5
+      protection: 2.0
+      leadership: 1.5
+    traits:
+      brave: "临危不惧"
+      loyal: "忠诚可靠"
+    favoredBuildings:
+      - task_center
+      - reputation_tower
+    initialItems:
+      - id: shield
+        name: 护盾
+        description: 守护的象征
+
+  # 流浪者 - 自由不羁，随遇而安
+  wanderer:
+    name: 流浪者
+    description: 自由不羁，随遇而安
+    baseSkills:
+      exploration: 1.8
+      adaptation: 2.0
+      survival: 1.5
+    traits:
+      free: "向往自由"
+      flexible: "随机应变"
+    favoredBuildings:
+      - skill_academy
+    initialItems:
+      - id: walking_stick
+        name: 行走杖
+        description: 旅行的伙伴
+
+# 默认智能体配置
+default:
+  # 决策循环
+  decision:
+    interval: 1000        # 决策间隔（毫秒）
+    timeout: 5000         # LLM 超时（毫秒）
+    maxRetries: 3         # 最大重试次数
+    defaultSkill: rest     # 默认技能（LLM 失败时）
+
+  # 感知范围
+  perception:
+    visualRange: 30       # 视野范围
+    hearingRange: 15      # 听力范围
+    interactionRange: 5   # 交互范围
+
+  # 需求衰减
+  needs:
+    energy:
+      initial: 80
+      decayRate: 0.1
+      recoverRate: 0.5
+    social:
+      initial: 50
+      decayRate: 0.2
+    achievement:
+      initial: 40
+      decayRate: 0.1
+    hunger:
+      initial: 70
+      decayRate: 0.05
+    security:
+      initial: 70
+      decayRate: 0.05
+    fun:
+      initial: 60
+      decayRate: 0.15
+
+  # 情绪传染
+  emotions:
+    contagionRadius: 10
+    happyBoost: 0.1
+    sadSuppress: 0.05
+
+  # 记忆
+  memory:
+    shortTermLimit: 20
+    longTermThreshold: 0.7
+    saveInterval: 60000    # 保存间隔（毫秒）

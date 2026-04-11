@@ -2,9 +2,10 @@
   "name": "agent-city",
   "version": "0.5.0",
   "description": "智体城 - 智能体社会平台",
-  "main": "server-fixed.js",
+  "main": "server/index.js",
   "scripts": {
-    "start": "node server-fixed.js",
+    "start": "node server/index.js",
+    "start:legacy": "node server-fixed.js",
     "start:http": "node http-server.js",
     "start:webrtc": "node webrtc-signaling.js",
     "start:all": "node -e \"require('./server-fixed'); require('./http-server'); require('./webrtc-signaling')\"",
@@ -15,6 +16,7 @@
   },
   "dependencies": {
     "ws": "^8.16.0",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "js-yaml": "^4.1.0"
   }
 }

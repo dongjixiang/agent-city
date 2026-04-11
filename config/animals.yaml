@@ -1,0 +1,175 @@
+# 动物配置
+# Animals Configuration
+
+animals:
+  # 蝴蝶
+  butterfly:
+    name: 蝴蝶
+    size: tiny
+    temperament: curious
+    alertRange: 3
+    fleeRange: 2
+    speed: 0.5
+    canFly: true
+    moodDecay: 0.05
+    colors:
+      - 0xff69b4  # 粉红
+      - 0xff6347  # 红橙
+      - 0xffd700  # 金黄
+      - 0x9370db  # 紫色
+      - 0x00ced1  # 青色
+    actions:
+      - 观察
+      - 追逐
+
+  # 小鸟
+  bird:
+    name: 小鸟
+    size: small
+    temperament: shy
+    alertRange: 10
+    fleeRange: 5
+    speed: 2
+    canFly: true
+    flightHeight: 15
+    moodDecay: 0.08
+    actions:
+      - 观察
+      - 喂食
+      - 追逐
+
+  # 小兔子
+  rabbit:
+    name: 小兔子
+    size: small
+    temperament: shy
+    alertRange: 8
+    fleeRange: 3
+    speed: 1.5
+    canHide: true
+    hidingSpots:
+      - bush
+      - grass
+    moodDecay: 0.1
+    actions:
+      - 观察
+      - 喂食
+      - 抚摸
+      - 追逐
+
+  # 小猫
+  cat:
+    name: 小猫
+    size: medium
+    temperament: curious
+    alertRange: 8
+    fleeRange: 3
+    speed: 1.5
+    canClimb: true
+    moodDecay: 0.06
+    actions:
+      - 观察
+      - 喂食
+      - 抚摸
+      - 打招呼
+
+  # 小狗
+  dog:
+    name: 小狗
+    size: medium
+    temperament: friendly
+    alertRange: 15
+    fleeRange: 5
+    speed: 2
+    loyalty: true
+    moodDecay: 0.07
+    actions:
+      - 观察
+      - 喂食
+      - 抚摸
+      - 打招呼
+      - 训练
+
+  # 小鱼
+  fish:
+    name: 小鱼
+    size: tiny
+    temperament: shy
+    alertRange: 5
+    fleeRange: 2
+    speed: 0.3
+    inWater: true
+    moodDecay: 0.03
+    actions:
+      - 观察
+      - 喂食
+
+# 可领养宠物
+pets:
+  puppy:
+    name: 小狗
+    cost: 500
+    size: medium
+    lifespan: 365
+    moodDecay: 0.07
+    maxMood: 100
+    skills:
+      - 坐下
+      - 握手
+      - 翻滚
+      - 取物
+      - 跟随
+
+  kitten:
+    name: 小猫
+    cost: 400
+    size: small
+    lifespan: 400
+    moodDecay: 0.05
+    maxMood: 100
+    skills:
+      - 坐下
+      - 握手
+      - 蹭腿
+
+  bird_pet:
+    name: 小鸟
+    cost: 200
+    size: tiny
+    lifespan: 200
+    moodDecay: 0.03
+    maxMood: 100
+    canFly: true
+    skills:
+      - 说话
+      - 唱歌
+      - 飞舞
+
+  rabbit_pet:
+    name: 小兔子
+    cost: 300
+    size: small
+    lifespan: 300
+    moodDecay: 0.08
+    maxMood: 100
+    skills:
+      - 跳跃
+      - 钻洞
+
+# 性格类型
+temperaments:
+  shy:
+    name: 害羞
+    description: 容易受到惊吓，会逃跑
+    approachDistance: 2
+    fleeProbability: 0.8
+  curious:
+    name: 好奇
+    description: 对新事物感兴趣，会靠近观察
+    approachDistance: 5
+    investigateTime: 3000
+  friendly:
+    name: 友善
+    description: 喜欢接近智能体
+    approachDistance: 10
+    greetingProbability: 0.5

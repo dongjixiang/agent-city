@@ -1,10 +1,16 @@
 /**
- * @fileoverview 音频系统（语音+音效）
+ * @fileoverview 音频系统（语音+环境音乐）
  * 
  * 职责：
  * - 语音合成（TTS）
  * - 环境音乐（白天/傍晚/夜晚）
- * - 天气音效（雨声、雷声、风声）
+ * - 音量控制
+ * 
+ * 使用方式：
+ *   import { initVoice, initAmbientSounds } from './systems/audio.js';
+ *   initVoice();
+ *   initAmbientSounds();
+ *   speak('Hello', agentId);
  * 
  * 导出：
  * - window.speakText
@@ -14,61 +20,141 @@
  * @module systems/audio
  */
 
-// 音频上下文
+// 状态
 let audioContext = null;
-let isVoiceEnabled = true;
-let isSoundEnabled = true;
+let masterGain = null;
+let speechSynth = null;
+let currentUtterance = null;
+let voiceEnabled = true;
+let selectedVoice = null;
+
+// 音乐节点
+let currentTimePeriod = null;
+let musicNodes = {
+    day: null,
+    evening: null,
+    night: null
+};
 
 /**
- * 初始化音频上下文
+ * 初始化语音合成
  */
-export function initAudioContext() {
-    if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+export function initVoice() {
+    if ('speechSynthesis' in window) {
+        speechSynth = window.speechSynthesis;
+        loadVoices();
+        console.log('[Voice] TTS initialized');
+    } else {
+        console.log('[Voice] TTS not supported');
     }
-    return audioContext;
+}
+
+/**
+ * 加载可用语音
+ */
+function loadVoices() {
+    if (!speechSynth) return;
+
+    const loadAvailableVoices = () => {
+        const voices = speechSynth.getVoices();
+        if (voices.length > 0) {
+            // 优先选中文语音
+            selectedVoice = voices.find(v => v.lang.includes('zh')) 
+                || voices.find(v => v.lang.includes('CN'))
+                || voices[0];
+            console.log('[Voice] Selected voice:', selectedVoice?.name);
+        }
+    };
+
+    // 尝试立即获取
+    loadAvailableVoices();
+
+    // 如果为空，稍后再试
+    if (!selectedVoice) {
+        speechSynth.onvoiceschanged = () => {
+            loadAvailableVoices();
+        };
+    }
 }
 
 /**
  * 语音合成
  * @param {string} text - 要说的文本
- * @param {string} agentId - 说话者ID
+ * @param {string} agentId - 说话者ID（可选）
  */
-export function speakText(text, agentId) {
-    if (!isVoiceEnabled) return;
+export function speak(text, agentId) {
+    if (!voiceEnabled || !speechSynth) return;
+
+    // 停止之前的语音
+    if (currentUtterance) {
+        speechSynth.cancel();
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
     
-    // TODO: 实现 TTS
-    console.log(`[Audio] Speaking: ${text.substring(0, 30)}...`);
+    if (selectedVoice) {
+        utterance.voice = selectedVoice;
+    }
+    
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    currentUtterance = utterance;
+    speechSynth.speak(utterance);
+
+    console.log('[Voice] Speaking:', text.substring(0, 50));
+}
+
+/**
+ * 停止当前语音
+ */
+export function stopSpeech() {
+    if (speechSynth) {
+        speechSynth.cancel();
+        currentUtterance = null;
+    }
 }
 
 /**
  * 切换语音系统
  */
 export function toggleVoiceSystem() {
-    isVoiceEnabled = !isVoiceEnabled;
-    console.log(`[Audio] Voice system: ${isVoiceEnabled ? 'ON' : 'OFF'}`);
+    voiceEnabled = !voiceEnabled;
+    
+    if (!voiceEnabled && speechSynth) {
+        speechSynth.cancel();
+    }
+    
+    console.log('[Voice] Voice system:', voiceEnabled ? 'ON' : 'OFF');
 }
 
 /**
  * 切换音效
  */
 export function toggleSound() {
-    isSoundEnabled = !isSoundEnabled;
-    console.log(`[Audio] Sound: ${isSoundEnabled ? 'ON' : 'OFF'}`);
+    if (!masterGain) return;
+    
+    const currentVolume = masterGain.gain.value;
+    if (currentVolume > 0) {
+        masterGain.gain.value = 0;
+        console.log('[Audio] Sound: OFF');
+    } else {
+        masterGain.gain.value = 0.3;
+        console.log('[Audio] Sound: ON');
+    }
 }
 
-/**
- * 播放环境音乐
- * @param {string} period - day/evening/night
- */
-export function playAmbientMusic(period) {
-    // TODO: 实现环境音乐播放
-}
-
-// 挂载到 window
-window.initAudioContext = initAudioContext;
-window.speakText = speakText;
+// 挂载到 window（兼容旧代码）
+window.speakText = speak;
 window.toggleVoiceSystem = toggleVoiceSystem;
 window.toggleSound = toggleSound;
 
-export default { initAudioContext, speakText, toggleVoiceSystem, toggleSound, playAmbientMusic };
+export default { 
+    initVoice, 
+    initAmbientSounds, 
+    speak, 
+    stopSpeech, 
+    toggleVoiceSystem, 
+    toggleSound 
+};

@@ -1041,3 +1041,862 @@ const BuildingType = {
 ---
 
 _最后更新: 2026-04-11_
+
+---
+
+## 12. 架构优化（v1.1）
+
+### 12.1 客户端架构问题
+
+#### P0 - 关键问题
+
+##### 1. 缺少持久化层
+
+**问题**：Memory 在智能体内部，进程重启后丢失
+
+**解决**：引入 MemoryStore 服务端存储
+
+```javascript
+// server/stores/memory-store.js
+class MemoryStore {
+    constructor(options = {}) {
+        this.redis = options.redis;
+        this.ttl = options.ttl || 7 * 24 * 60 * 60; // 7天
+    }
+
+    async save(agentId, memory) {
+        const key = `memory:${agentId}`;
+        await this.redis.setex(key, this.ttl, JSON.stringify(memory));
+    }
+
+    async load(agentId) {
+        const key = `memory:${agentId}`;
+        const data = await this.redis.get(key);
+        return data ? JSON.parse(data) : this.createEmpty(agentId);
+    }
+
+    async append(agentId, event) {
+        const memory = await this.load(agentId);
+        memory.shortTerm.push({ ...event, timestamp: Date.now() });
+        await this.save(agentId, memory);
+    }
+}
+```
+
+##### 2. AI 决策在浏览器端（不可信）
+
+**问题**：客户端可以篡改 AI 决策逻辑
+
+**解决**：AI 决策权威在服务端
+
+```
+┌─────────────┐         ┌─────────────┐
+│   Client    │         │   Server    │
+│             │         │             │
+│  渲染智能体  │         │  AI 决策引擎 │
+│  播放动画   │   ←──   │  发送指令   │
+│  显示消息   │         │  验证操作   │
+└─────────────┘         └─────────────┘
+```
+
+```javascript
+// server/ai/ai-engine.js
+class AIEngine {
+    constructor(agent) {
+        this.agent = agent;
+    }
+
+    async think() {
+        // 1. 感知周围环境
+        const perception = await this.perceive();
+
+        // 2. 决策（服务端权威）
+        const action = await this.decide(perception);
+
+        // 3. 执行并广播结果
+        await this.execute(action);
+    }
+
+    async decide(perception) {
+        // AI 决策逻辑在服务端
+        // 不信任客户端的任何输入
+    }
+}
+```
+
+##### 3. 缺少空间分区（性能问题）
+
+**问题**：查询"附近智能体"需要遍历所有对象，100+ 智能体时会卡顿
+
+**解决**：使用 Grid 做空间索引
+
+```javascript
+// core/spatial-index.js
+class SpatialIndex {
+    constructor(cellSize = 10) {
+        this.cellSize = cellSize;
+        this.grid = new Map(); // "x,z" -> [entities]
+        this.entityCells = new Map(); // entityId -> cellKey
+    }
+
+    getCellKey(x, z) {
+        const cx = Math.floor(x / this.cellSize);
+        const cz = Math.floor(z / this.cellSize);
+        return `${cx},${cz}`;
+    }
+
+    insert(entity) {
+        const key = this.getCellKey(entity.position.x, entity.position.z);
+        if (!this.grid.has(key)) this.grid.set(key, []);
+        this.grid.get(key).push(entity);
+        this.entityCells.set(entity.id, key);
+    }
+
+    remove(entityId) {
+        const key = this.entityCells.get(entityId);
+        if (key && this.grid.has(key)) {
+            const cell = this.grid.get(key);
+            const idx = cell.findIndex(e => e.id === entityId);
+            if (idx >= 0) cell.splice(idx, 1);
+        }
+        this.entityCells.delete(entityId);
+    }
+
+    queryRadius(x, z, radius) {
+        const results = [];
+        const cellRadius = Math.ceil(radius / this.cellSize);
+        const centerCX = Math.floor(x / this.cellSize);
+        const centerCZ = Math.floor(z / this.cellSize);
+
+        // 检查相关格子
+        for (let dx = -cellRadius; dx <= cellRadius; dx++) {
+            for (let dz = -cellRadius; dz <= cellRadius; dz++) {
+                const key = `${centerCX + dx},${centerCZ + dz}`;
+                const cell = this.grid.get(key);
+                if (cell) {
+                    for (const entity of cell) {
+                        const dist = Math.hypot(
+                            entity.position.x - x,
+                            entity.position.z - z
+                        );
+                        if (dist <= radius) {
+                            results.push({ entity, distance: dist });
+                        }
+                    }
+                }
+            }
+        }
+
+        return results.sort((a, b) => a.distance - b.distance);
+    }
+}
+```
+
+#### P1 - 中等问题
+
+##### 4. EventBus 缺乏消息过滤和优先级
+
+**问题**：所有事件都广播给所有监听者，导致事件风暴
+
+**解决**：引入命名空间、优先级、节流
+
+```javascript
+// core/event-bus.js
+class EventBus {
+    constructor() {
+        this.listeners = new Map();
+        this.wildcardListeners = []; // 通配符监听
+    }
+
+    on(pattern, handler, options = {}) {
+        const priority = options.priority || 0;
+        const throttle = options.throttle || 0;
+
+        if (pattern.includes('*')) {
+            this.wildcardListeners.push({ pattern, handler, priority });
+        } else {
+            if (!this.listeners.has(pattern)) {
+                this.listeners.set(pattern, []);
+            }
+            this.listeners.get(pattern).push({ handler, priority, throttle, lastEmit: 0 });
+        }
+    }
+
+    emit(type, data, options = {}) {
+        const now = Date.now();
+        const handlers = [];
+
+        // 精确匹配
+        const exact = this.listeners.get(type) || [];
+        handlers.push(...exact);
+
+        // 通配符匹配
+        for (const wl of this.wildcardListeners) {
+            if (this.matchPattern(type, wl.pattern)) {
+                handlers.push(wl);
+            }
+        }
+
+        // 按优先级排序
+        handlers.sort((a, b) => b.priority - a.priority);
+
+        // 执行
+        for (const h of handlers) {
+            if (h.throttle && now - h.lastEmit < h.throttle) continue;
+            try {
+                h.handler(data);
+                h.lastEmit = now;
+            } catch (e) {
+                console.error(`Event handler error: ${type}`, e);
+            }
+        }
+    }
+
+    matchPattern(type, pattern) {
+        const regex = new RegExp('^' + pattern.replace('*', '.*') + '$');
+        return regex.test(type);
+    }
+}
+
+// 使用示例
+events.on('agent:move', handler, { throttle: 100 }); // 100ms 内不重复
+events.on('agent:*', handler, { priority: 10 });    // 高优先级
+```
+
+##### 5. 缺少配置管理
+
+**问题**：大量硬编码值分散在代码中，难以调整
+
+**解决**：外部配置文件
+
+```yaml
+# config/agents.yaml
+agents:
+  assistant:
+    name: 助手
+    skills:
+      communication: 3
+      task_execution: 2
+      exploration: 1
+    personality:
+      openness: 0.7
+      extraversion: 0.6
+      agreeableness: 0.8
+
+# config/buildings.yaml
+buildings:
+  task_center:
+    position: { x: -25, z: -25 }
+    color: 0x3f51b5
+    tasks:
+      - id: gather_wood
+        description: 收集10个木材
+        reward: 50
+        xp: 100
+      - id: build_shelter
+        description: 建造一个庇护所
+        reward: 200
+        xp: 300
+        requires: gather_wood
+
+# config/world.yaml
+world:
+  size: 200
+  grid:
+    cell_size: 10
+  weather:
+    default: sunny
+    change_interval: 60000
+  daynight:
+    day_duration: 120  # 秒
+```
+
+```javascript
+// core/config.js
+class Config {
+    constructor() {
+        this.data = {};
+    }
+
+    async load(path) {
+        const yaml = require('js-yaml');
+        const fs = require('fs');
+        this.data = yaml.load(fs.readFileSync(path, 'utf8'));
+    }
+
+    get(path, defaultValue) {
+        const keys = path.split('.');
+        let value = this.data;
+        for (const key of keys) {
+            if (value && typeof value === 'object') {
+                value = value[key];
+            } else {
+                return defaultValue;
+            }
+        }
+        return value !== undefined ? value : defaultValue;
+    }
+}
+
+const config = new Config();
+config.load('./config/world.yaml');
+const cellSize = config.get('world.grid.cell_size', 10);
+```
+
+##### 6. 缺少错误处理和恢复机制
+
+**问题**：智能体崩溃没有自动恢复
+
+**解决**：看门狗 + 状态快照
+
+```javascript
+// core/agent-supervisor.js
+class AgentSupervisor {
+    constructor(agent, options = {}) {
+        this.agent = agent;
+        this.checkInterval = options.checkInterval || 5000;
+        this.store = options.stateStore;
+        this.timer = null;
+    }
+
+    start() {
+        this.timer = setInterval(() => {
+            this.check();
+        }, this.checkInterval);
+    }
+
+    stop() {
+        if (this.timer) clearInterval(this.timer);
+    }
+
+    async check() {
+        if (!this.agent.isAlive()) {
+            console.warn(`Agent ${this.agent.id} unresponsive, recovering...`);
+            await this.recover();
+        }
+    }
+
+    async recover() {
+        // 1. 保存崩溃状态
+        const crashSnapshot = this.agent.getSnapshot();
+
+        // 2. 从最新快照恢复
+        const snapshot = await this.store.load(this.agent.id);
+        if (snapshot) {
+            this.agent.restore(snapshot);
+            console.log(`Agent ${this.agent.id} restored from snapshot`);
+        } else {
+            // 3. 没有快照，重置到初始状态
+            this.agent.reset();
+            console.log(`Agent ${this.agent.id} reset to initial state`);
+        }
+
+        // 4. 记录崩溃日志
+        await this.logCrash(crashSnapshot);
+    }
+}
+
+// 智能体快照
+class Agent {
+    getSnapshot() {
+        return {
+            agentId: this.agentId,
+            position: this.position,
+            state: this.state,
+            goals: this.goals.currentGoal,
+            memory: this.memory.shortTerm,
+            timestamp: Date.now()
+        };
+    }
+
+    restore(snapshot) {
+        this.position = snapshot.position;
+        this.state = snapshot.state;
+        this.goals.restore(snapshot.goals);
+        this.memory.restore(snapshot.memory);
+    }
+}
+```
+
+---
+
+## 13. 服务器端架构优化
+
+### 13.1 当前问题
+
+```
+server.js (2500+ 行)
+├── WebSocket 处理
+├── 消息路由
+├── 智能体管理
+├── 任务系统
+├── 声誉系统
+├── 天气系统
+├── 记忆系统
+├── HTTP 服务器
+└── WebRTC 信令
+```
+
+**问题**：
+1. 所有逻辑混在一个文件
+2. 消息处理逻辑分散
+3. 缺少分层（Handler/Service/Store）
+4. 缺少请求验证
+5. 缺少限流/熔断
+6. 日志不完善
+7. 错误处理不一致
+
+### 13.2 分层架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Entry Points                          │
+│   (server.js, http-server.js, webrtc-signaling.js)        │
+└──────────────────────────┬────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Routes / Router                       │
+│   (将请求分发到对应的 Handler)                               │
+└──────────────────────────┬────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Middlewares                            │
+│   (Auth, RateLimit, Validation, Logging)                    │
+└──────────────────────────┬────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       Handlers                              │
+│   (MessageHandler, AgentHandler, TaskHandler)               │
+│   - 接收请求                                                │
+│   - 调用 Service                                             │
+│   - 返回响应                                                │
+└──────────────────────────┬────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       Services                             │
+│   (AgentService, TaskService, MemoryService)               │
+│   - 业务逻辑                                                │
+│   - 状态管理                                                │
+└──────────────────────────┬────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                        Stores                             │
+│   (AgentStore, TaskStore, MemoryStore)                     │
+│   - 数据持久化                                             │
+│   - 缓存                                                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 13.3 目录结构
+
+```
+server/
+├── index.js              # 入口
+├── router.js             # 路由
+│
+├── handlers/             # 请求处理器
+│   ├── base-handler.js    # 基类
+│   ├── ws-handler.js     # WebSocket 消息处理
+│   ├── agent-handler.js  # 智能体相关
+│   ├── task-handler.js   # 任务相关
+│   ├── message-handler.js # 消息相关
+│   └── http-handler.js   # HTTP 请求处理
+│
+├── services/             # 业务逻辑
+│   ├── agent-service.js  # 智能体业务
+│   ├── task-service.js   # 任务业务
+│   ├── ai-service.js    # AI 引擎
+│   ├── memory-service.js # 记忆业务
+│   ├── relation-service.js # 社交关系
+│   ├── reputation-service.js # 声誉
+│   └── weather-service.js # 天气
+│
+├── stores/               # 数据层
+│   ├── base-store.js     # 基类
+│   ├── agent-store.js   # 智能体存储
+│   ├── task-store.js    # 任务存储
+│   ├── memory-store.js  # 记忆存储
+│   ├── relation-store.js # 关系存储
+│   └── cache.js          # 缓存
+│
+├── middleware/            # 中间件
+│   ├── auth.js           # 认证
+│   ├── rate-limit.js     # 限流
+│   ├── validator.js     # 验证
+│   ├── logger.js         # 日志
+│   └── error-handler.js  # 错误处理
+│
+├── ai/                   # AI 引擎
+│   ├── ai-engine.js     # AI 主引擎
+│   ├── decision-tree.js # 决策树
+│   └── behavior.js       # 行为引擎
+│
+├── config/
+│   ├── agents.yaml
+│   ├── buildings.yaml
+│   └── world.yaml
+│
+└── utils/
+    ├── crypto.js         # 加密
+    ├── time.js           # 时间工具
+    └── validation.js     # 验证工具
+```
+
+### 13.4 中间件实现
+
+#### 认证中间件
+
+```javascript
+// middleware/auth.js
+async function auth(ctx, next) {
+    const token = ctx.query.token || ctx.headers.authorization;
+
+    if (!token) {
+        ctx.status = 401;
+        ctx.body = { error: 'Unauthorized' };
+        return;
+    }
+
+    try {
+        const payload = jwt.verify(token, process.env.JWT_SECRET);
+        ctx.agent = await agentStore.findById(payload.agentId);
+        if (!ctx.agent) {
+            ctx.status = 401;
+            ctx.body = { error: 'Agent not found' };
+            return;
+        }
+        await next();
+    } catch (e) {
+        ctx.status = 403;
+        ctx.body = { error: 'Invalid token' };
+    }
+}
+```
+
+#### 限流中间件
+
+```javascript
+// middleware/rate-limit.js
+class RateLimiter {
+    constructor(options = {}) {
+        this.window = options.window || 60000; // 1分钟
+        this.max = options.max || 100;
+        this.requests = new Map();
+    }
+
+    middleware() {
+        return async (ctx, next) => {
+            const key = ctx.agent?.id || ctx.ip;
+            const now = Date.now();
+
+            if (!this.requests.has(key)) {
+                this.requests.set(key, []);
+            }
+
+            const times = this.requests.get(key).filter(t => now - t < this.window);
+            this.requests.set(key, times);
+
+            if (times.length >= this.max) {
+                ctx.status = 429;
+                ctx.body = { error: 'Too many requests' };
+                return;
+            }
+
+            times.push(now);
+            await next();
+        };
+    }
+}
+```
+
+#### 验证中间件
+
+```javascript
+// middleware/validator.js
+const messageSchema = {
+    type: 'object',
+    required: ['type', 'content'],
+    properties: {
+        type: { type: 'string', enum: ['MESSAGE', 'BROADCAST', 'TASK'] },
+        content: { type: 'string', minLength: 1, maxLength: 1000 },
+        to: { type: 'string' },
+        replyTo: { type: 'string' }
+    }
+};
+
+function validate(schema) {
+    return async (ctx, next) => {
+        const errors = validator.validate(ctx.request.body, schema);
+        if (errors) {
+            ctx.status = 400;
+            ctx.body = { error: 'Validation failed', details: errors };
+            return;
+        }
+        await next();
+    };
+}
+```
+
+### 13.5 Handler 示例
+
+```javascript
+// handlers/message-handler.js
+class MessageHandler extends BaseHandler {
+    constructor(options) {
+        super(options);
+        this.aiService = options.aiService;
+    }
+
+    async handle(ws, msg) {
+        switch (msg.type) {
+            case 'MESSAGE':
+                return this.handleMessage(ws, msg);
+            case 'BROADCAST':
+                return this.handleBroadcast(ws, msg);
+            case 'REGISTER':
+                return this.handleRegister(ws, msg);
+            default:
+                return this.sendError(ws, 'Unknown message type');
+        }
+    }
+
+    async handleMessage(ws, msg) {
+        // 1. 验证
+        const errors = validator.validate(msg, messageSchema);
+        if (errors) return this.sendError(ws, errors);
+
+        // 2. 限流检查
+        if (this.rateLimiter.isLimited(msg.from)) {
+            return this.sendError(ws, 'Rate limited');
+        }
+
+        // 3. 业务处理
+        const { from, to, content, replyTo } = msg;
+
+        // 存储消息
+        await this.store.saveMessage({ from, to, content, timestamp: Date.now() });
+
+        // 4. 如果是 AI 消息，触发 AI 响应
+        if (this.isAI(from)) {
+            const response = await this.aiService.process(from, content);
+            await this.sendToUser(from, response);
+        }
+
+        // 5. 转发给目标
+        if (to) {
+            await this.sendToAgent(to, msg);
+        }
+    }
+}
+```
+
+### 13.6 Service 示例
+
+```javascript
+// services/ai-service.js
+class AIService {
+    constructor(options) {
+        this.cache = options.cache;
+        this.aiEngine = options.aiEngine;
+    }
+
+    async process(agentId, input) {
+        // 1. 获取智能体上下文
+        const context = await this.buildContext(agentId);
+
+        // 2. AI 决策（服务端权威）
+        const decision = await this.aiEngine.decide({
+            agent: context.agent,
+            input,
+            memory: context.memory,
+            world: context.world
+        });
+
+        // 3. 执行动作
+        if (decision.action === 'move') {
+            await this.moveAgent(agentId, decision.target);
+        } else if (decision.action === 'speak') {
+            await this.broadcastMessage(agentId, decision.content);
+        }
+
+        // 4. 记录到记忆
+        await this.memoryService.add(agentId, {
+            type: 'interaction',
+            input,
+            output: decision.content,
+            timestamp: Date.now()
+        });
+
+        return decision;
+    }
+
+    async buildContext(agentId) {
+        const [agent, memory, world] = await Promise.all([
+            this.agentStore.findById(agentId),
+            this.memoryStore.load(agentId),
+            this.worldService.getState()
+        ]);
+
+        return { agent, memory, world };
+    }
+}
+```
+
+### 13.7 Store 基类
+
+```javascript
+// stores/base-store.js
+class BaseStore {
+    constructor(options = {}) {
+        this.redis = options.redis;
+        this.ttl = options.ttl;
+    }
+
+    key(id) {
+        return `${this.prefix}:${id}`;
+    }
+
+    async get(id) {
+        const data = await this.redis.get(this.key(id));
+        return data ? JSON.parse(data) : null;
+    }
+
+    async set(id, data, ttl = this.ttl) {
+        await this.redis.setex(this.key(id), ttl, JSON.stringify(data));
+    }
+
+    async delete(id) {
+        await this.redis.del(this.key(id));
+    }
+
+    async exists(id) {
+        return await this.redis.exists(this.key(id));
+    }
+}
+```
+
+### 13.8 错误处理
+
+```javascript
+// middleware/error-handler.js
+async function errorHandler(ctx, next) {
+    try {
+        await next();
+    } catch (e) {
+        console.error('Request error:', {
+            path: ctx.path,
+            method: ctx.method,
+            agent: ctx.agent?.id,
+            error: e.message,
+            stack: e.stack
+        });
+
+        if (e instanceof ValidationError) {
+            ctx.status = 400;
+            ctx.body = { error: e.message };
+        } else if (e instanceof NotFoundError) {
+            ctx.status = 404;
+            ctx.body = { error: e.message };
+        } else if (e instanceof UnauthorizedError) {
+            ctx.status = 401;
+            ctx.body = { error: e.message };
+        } else {
+            ctx.status = 500;
+            ctx.body = { error: 'Internal server error' };
+        }
+    }
+}
+
+// 自定义错误
+class ValidationError extends Error {
+    constructor(message, details) {
+        super(message);
+        this.name = 'ValidationError';
+        this.details = details;
+    }
+}
+```
+
+### 13.9 日志系统
+
+```javascript
+// middleware/logger.js
+class Logger {
+    constructor(options = {}) {
+        this.level = options.level || 'info';
+        this.streams = options.streams || [console];
+    }
+
+    log(level, message, meta = {}) {
+        if (this.levels[level] < this.levels[this.level]) return;
+
+        const entry = {
+            timestamp: new Date().toISOString(),
+            level,
+            message,
+            ...meta
+        };
+
+        for (const stream of this.streams) {
+            stream.write(JSON.stringify(entry) + '\n');
+        }
+    }
+
+    info(message, meta) { this.log('info', message, meta); }
+    warn(message, meta) { this.log('warn', message, meta); }
+    error(message, meta) { this.log('error', message, meta); }
+    debug(message, meta) { this.log('debug', message, meta); }
+}
+
+// 使用
+const logger = new Logger({
+    level: process.env.LOG_LEVEL || 'info',
+    streams: [
+        console,
+        require('fs').createWriteStream('./logs/server.log')
+    ]
+});
+
+logger.info('Server started', { port: 9876, pid: process.pid });
+logger.info('Agent connected', { agentId: 'xiaoji', ip: '127.0.0.1' });
+```
+
+---
+
+## 14. 实施计划（更新）
+
+### Phase 1: 基础设施 (1-2周)
+- [ ] 重构服务器分层架构
+- [ ] 实现中间件系统
+- [ ] 引入配置管理
+- [ ] 完善日志系统
+
+### Phase 2: 数据层 (1周)
+- [ ] 实现 SpatialIndex
+- [ ] 实现 MemoryStore (持久化)
+- [ ] 实现状态快照
+- [ ] AgentSupervisor 看门狗
+
+### Phase 3: 事件系统 (1周)
+- [ ] 增强 EventBus (命名空间/限流)
+- [ ] 消息版本管理
+- [ ] 错误恢复机制
+
+### Phase 4: AI 系统 (2-3周)
+- [ ] 服务端 AI Engine
+- [ ] AI 决策权威迁移
+- [ ] 记忆系统完善
+
+### Phase 5: 前端模块化 (2周)
+- [ ] WorldObject 类层次
+- [ ] Component 模式
+- [ ] Command Pattern
+
+---
+
+_最后更新: 2026-04-11 v1.1_

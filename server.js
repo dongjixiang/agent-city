@@ -707,7 +707,7 @@ function handleRegister(ws, msg, setAgentId) {
   const profile = AgentStore.upsertAgent(id, {
     name: name || `Agent#${id.slice(0, 6)}`,
     tags: tags || [], visual: visual || { color: '#FF6B6B', size: 1.0, emoji: '🦐', modelType: 'crayfish' },
-    description: description || ''
+    description: description || '',
     isAI: isAI
   });
 

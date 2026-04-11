@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏙️ 智体城 3D 世界 (模块化)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Microsoft YaHei', sans-serif; overflow: hidden; background: #1a1a2e; }
+    #canvas { width: 100vw; height: 100vh; display: block; }
+    
+    #status-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 50px;
+      background: rgba(26, 26, 46, 0.9);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; color: #fff; z-index: 100;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    #status-bar .logo { font-size: 20px; font-weight: bold; color: #ff6b6b; }
+    #status-bar .stats { display: flex; gap: 20px; align-items: center; }
+    #status-bar .stat { display: flex; align-items: center; gap: 5px; color: #aaa; }
+    #status-bar .stat-value { color: #4ecdc4; font-weight: bold; }
+    
+    #controls {
+      position: fixed; bottom: 20px; right: 20px;
+      display: flex; gap: 8px; z-index: 100;
+    }
+    #controls button {
+      background: rgba(26, 26, 46, 0.9);
+      border: 1px solid #666; color: #888;
+      padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
+    }
+    #controls button:hover { border-color: #4ecdc4; color: #4ecdc4; }
+    #controls button.active {
+      background: rgba(78, 205, 196, 0.2);
+      border-color: #4ecdc4; color: #4ecdc4;
+    }
+    
+    #info {
+      position: fixed; bottom: 70px; left: 20px;
+      background: rgba(26, 26, 46, 0.9);
+      padding: 15px; border-radius: 8px; color: #fff;
+      font-size: 12px; z-index: 100;
+      min-width: 200px;
+    }
+    #info h4 { color: #4ecdc4; margin-bottom: 10px; }
+    #info p { margin: 5px 0; color: #aaa; }
+    #info .value { color: #4ecdc4; font-weight: bold; }
+    
+    #loading {
+      position: fixed; inset: 0;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 9999; transition: opacity 0.8s;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    #loading .city-icon { font-size: 64px; animation: bounce 1s ease-in-out infinite; }
+    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+    #loading .loading-text { font-size: 28px; color: #fff; margin: 20px 0; }
+    #loading .loading-bar { width: 200px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+    #loading .loading-progress { height: 100%; background: linear-gradient(90deg, #4ecdc4, #44a08d); border-radius: 2px; transition: width 0.3s; }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div class="city-icon">🏙️</div>
+    <div class="loading-text">智体城 3D 世界</div>
+    <div class="loading-bar"><div class="loading-progress" id="loading-progress" style="width: 0%"></div></div>
+  </div>
+
+  <canvas id="canvas"></canvas>
+  
+  <div id="status-bar">
+    <div class="logo">🏙️ 智体城 3D</div>
+    <div class="stats">
+      <div class="stat"><span>时间:</span><span class="stat-value" id="time">--:--</span></div>
+      <div class="stat"><span>阶段:</span><span class="stat-value" id="phase">--</span></div>
+      <div class="stat"><span>模式:</span><span class="stat-value" id="camera-mode">orbit</span></div>
+    </div>
+  </div>
+  
+  <div id="controls">
+    <button id="btn-orbit" class="active" onclick="setCameraMode('orbit')">🔭 俯瞰</button>
+    <button id="btn-follow" onclick="setCameraMode('follow')">👁️ 跟随</button>
+    <button id="btn-first" onclick="setCameraMode('firstPerson')">🦐 主观</button>
+  </div>
+  
+  <div id="info">
+    <h4>🌍 世界状态</h4>
+    <p>实体: <span class="value" id="entity-count">0</span></p>
+    <p>初始化: <span class="value" id="init-status">否</span></p>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import './src/main.js';
+    
+    // 模拟加载进度
+    let progress = 0;
+    const progressEl = document.getElementById('loading-progress');
+    const interval = setInterval(() => {
+      progress = Math.min(progress + 10, 90);
+      progressEl.style.width = progress + '%';
+      if (progress >= 90) clearInterval(interval);
+    }, 100);
+    
+    // 更新状态
+    function updateStatus() {
+      if (window.app) {
+        const status = window.app.getStatus();
+        document.getElementById('time').textContent = status.time;
+        document.getElementById('phase').textContent = status.phase;
+        document.getElementById('camera-mode').textContent = status.mode;
+        document.getElementById('entity-count').textContent = 
+          status.entities.agents + status.entities.buildings + status.entities.decorations;
+        document.getElementById('init-status').textContent = status.initialized ? '是' : '否';
+      }
+    }
+    
+    // 相机模式切换
+    window.setCameraMode = function(mode) {
+      if (window.cameraManager) {
+        window.cameraManager.setMode(mode);
+        
+        // 更新按钮状态
+        document.querySelectorAll('#controls button').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+      }
+    };
+    
+    // 监听事件
+    window.eventBus?.on('frame:update', () => {
+      updateStatus();
+    });
+    
+    // 隐藏加载
+    setTimeout(() => {
+      document.getElementById('loading').classList.add('hidden');
+      clearInterval(interval);
+      document.getElementById('loading-progress').style.width = '100%';
+    }, 1500);
+    
+    // 定期更新
+    setInterval(updateStatus, 1000);
+  </script>
+</body>
+</html>

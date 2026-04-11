@@ -1,180 +1,301 @@
 /**
- * @fileoverview 相机控制
+ * CameraManager - 相机管理器
  * 
- * 职责：
- * - 创建各类型相机
- * - 支持多种相机模式（orbit/follow/firstPerson）
- * - 相机跟随和切换动画
- * 
- * 使用方式：
- *   import { initCamera, setCameraMode } from './core/camera.js';
- *   const camera = initCamera(container);
- *   setCameraMode('follow');
- * 
- * @module core/camera
+ * 负责相机控制，包括 OrbitControls 和视角切换
  */
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-// 相机模式
-export const CameraMode = {
-    ORBIT: 'orbit',
-    TOP: 'top',
-    FIRST_PERSON: 'firstPerson',
-    FOLLOW: 'follow'
-};
+class CameraManager {
+    constructor() {
+        this.camera = null;
+        this.controls = null;
+        this.initialized = false;
 
-// 状态
-let camera = null;
-let controls = null;
-let currentMode = CameraMode.ORBIT;
-let selectedAgentId = null;
-let agentMesh = null;
+        // 相机模式
+        this.mode = 'orbit'; // 'orbit' | 'firstPerson' | 'follow'
+        this.modeSettings = {
+            orbit: {
+                fov: 60,
+                near: 0.1,
+                far: 1000,
+                position: new THREE.Vector3(0, 50, 50)
+            },
+            firstPerson: {
+                fov: 75,
+                near: 0.1,
+                far: 1000,
+                height: 1.5 // 第一人称视角高度
+            },
+            follow: {
+                fov: 60,
+                near: 0.1,
+                far: 1000,
+                distance: 8,
+                height: 4
+            }
+        };
 
-// 相机配置
-const followDistance = 8;
-const followHeight = 5;
-const firstPersonHeight = 1.2;
-
-/**
- * 初始化相机
- * @param {HTMLElement} container - 渲染容器
- * @param {number} width - 宽度
- * @param {number} height - 高度
- * @returns {THREE.PerspectiveCamera}
- */
-export function initCamera(container, width, height) {
-    const aspect = width / height;
-    camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 2000);
-    camera.position.set(0, 50, 50);
-    camera.lookAt(0, 0, 0);
-
-    // 创建轨道控制器
-    controls = new OrbitControls(camera, container);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2;
-    controls.minDistance = 5;
-    controls.maxDistance = 200;
-
-    // 监听窗口大小变化
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-    });
-
-    console.log('[Camera] Initialized');
-    return camera;
-}
-
-/**
- * 获取相机
- */
-export function getCamera() {
-    return camera;
-}
-
-/**
- * 获取控制器
- */
-export function getControls() {
-    return controls;
-}
-
-/**
- * 设置相机模式
- * @param {string} mode
- */
-export function setCameraMode(mode) {
-    currentMode = mode;
-
-    if (controls) {
-        controls.enabled = (mode === CameraMode.ORBIT);
+        // 跟随目标
+        this.followTarget = null;
     }
 
-    window.dispatchEvent(new CustomEvent('cameraModeChanged', { detail: { mode } }));
-    console.log('[Camera] Mode:', mode);
-}
+    /**
+     * 初始化相机
+     */
+    init(canvas, settings = {}) {
+        if (this.initialized) {
+            console.warn('[Camera] Already initialized');
+            return this.camera;
+        }
 
-/**
- * 获取当前模式
- */
-export function getCameraMode() {
-    return currentMode;
-}
+        // 获取画布尺寸
+        let width = canvas?.clientWidth || window.innerWidth;
+        let height = canvas?.clientHeight || window.innerHeight;
 
-/**
- * 设置选中的智能体（用于跟随/第一人称）
- * @param {string} agentId
- * @param {THREE.Group} mesh
- */
-export function setFollowTarget(agentId, mesh) {
-    selectedAgentId = agentId;
-    agentMesh = mesh;
-}
+        // 创建相机
+        const orbitSettings = this.modeSettings.orbit;
+        this.camera = new THREE.PerspectiveCamera(
+            orbitSettings.fov,
+            width / height,
+            orbitSettings.near,
+            orbitSettings.far
+        );
+        this.camera.position.copy(orbitSettings.position);
 
-/**
- * 更新相机（每帧调用）
- */
-export function updateCamera() {
-    if (!camera || !agentMesh) return;
+        // 创建控制器
+        this.controls = new OrbitControls(this.camera, canvas);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.05;
+        this.controls.maxPolarAngle = Math.PI / 2; // 限制俯视角度
+        this.controls.minDistance = 5;
+        this.controls.maxDistance = 200;
 
-    if (currentMode === CameraMode.FOLLOW) {
-        // 跟随模式
-        const angle = Math.atan2(agentMesh.position.x, agentMesh.position.z);
-        const offsetX = Math.sin(angle) * followDistance;
-        const offsetZ = Math.cos(angle) * followDistance;
+        this.initialized = true;
+        console.log('[Camera] Initialized');
 
-        camera.position.x += (agentMesh.position.x + offsetX - camera.position.x) * 0.05;
-        camera.position.y += (agentMesh.position.y + followHeight - camera.position.y) * 0.05;
-        camera.position.z += (agentMesh.position.z + offsetZ - camera.position.z) * 0.05;
-        camera.lookAt(agentMesh.position.x, agentMesh.position.y + 1, agentMesh.position.z);
+        return this.camera;
+    }
 
-    } else if (currentMode === CameraMode.FIRST_PERSON) {
-        // 第一人称模式
-        camera.position.x = agentMesh.position.x;
-        camera.position.y = agentMesh.position.y + firstPersonHeight;
-        camera.position.z = agentMesh.position.z;
+    /**
+     * 获取相机
+     */
+    getCamera() {
+        if (!this.initialized) {
+            console.warn('[Camera] Not initialized');
+        }
+        return this.camera;
+    }
 
-        // 面向移动方向
-        const targetX = agentMesh.userData.targetX;
-        const targetZ = agentMesh.userData.targetZ;
-        if (targetX !== undefined && targetZ !== undefined) {
-            const lookX = targetX - agentMesh.position.x;
-            const lookZ = targetZ - agentMesh.position.z;
-            if (Math.abs(lookX) > 0.1 || Math.abs(lookZ) > 0.1) {
-                camera.lookAt(
-                    agentMesh.position.x + lookX,
-                    agentMesh.position.y + firstPersonHeight,
-                    agentMesh.position.z + lookZ
-                );
-            }
+    /**
+     * 获取控制器
+     */
+    getControls() {
+        return this.controls;
+    }
+
+    /**
+     * 更新控制器
+     */
+    update() {
+        if (this.controls) {
+            this.controls.update();
         }
     }
-}
 
-/**
- * 聚焦到指定位置
- * @param {number} x
- * @param {number} y
- * @param {number} z
- */
-export function focusOn(x, y, z) {
-    if (controls) {
-        controls.target.set(x, y, z);
-        controls.update();
+    /**
+     * 切换相机模式
+     */
+    setMode(mode, target = null) {
+        if (!this.camera) return;
+
+        const oldMode = this.mode;
+        this.mode = mode;
+
+        switch (mode) {
+            case 'orbit':
+                this.setOrbitMode();
+                break;
+            case 'firstPerson':
+                this.setFirstPersonMode(target);
+                break;
+            case 'follow':
+                this.setFollowMode(target);
+                break;
+            default:
+                console.warn(`[Camera] Unknown mode: ${mode}`);
+                this.mode = oldMode;
+        }
+
+        console.log(`[Camera] Mode changed: ${oldMode} -> ${mode}`);
+    }
+
+    /**
+     * 轨道模式
+     */
+    setOrbitMode() {
+        if (!this.controls) return;
+
+        const settings = this.modeSettings.orbit;
+        
+        this.camera.fov = settings.fov;
+        this.camera.updateProjectionMatrix();
+        this.camera.position.copy(settings.position);
+
+        this.controls.enabled = true;
+        this.controls.enableRotate = true;
+        this.controls.enableZoom = true;
+        this.controls.enablePan = true;
+
+        this.followTarget = null;
+    }
+
+    /**
+     * 第一人称模式
+     */
+    setFirstPersonMode(target = null) {
+        if (!this.camera) return;
+
+        const settings = this.modeSettings.firstPerson;
+
+        this.camera.fov = settings.fov;
+        this.camera.updateProjectionMatrix();
+
+        // 设置位置到目标
+        if (target) {
+            this.camera.position.set(
+                target.position.x,
+                settings.height,
+                target.position.z
+            );
+        }
+
+        // 第一人称只能水平旋转
+        if (this.controls) {
+            this.controls.enabled = true;
+            this.controls.enableRotate = true;
+            this.controls.enableZoom = false;
+            this.controls.enablePan = false;
+            this.controls.minPolarAngle = Math.PI / 2 - 0.1;
+            this.controls.maxPolarAngle = Math.PI / 2 + 0.1;
+        }
+
+        this.followTarget = target;
+    }
+
+    /**
+     * 跟随模式
+     */
+    setFollowMode(target = null) {
+        if (!this.camera) return;
+
+        const settings = this.modeSettings.follow;
+
+        this.camera.fov = settings.fov;
+        this.camera.updateProjectionMatrix();
+
+        if (this.controls) {
+            this.controls.enabled = true;
+            this.controls.enableRotate = false;
+            this.controls.enableZoom = true;
+            this.controls.enablePan = false;
+        }
+
+        this.followTarget = target;
+    }
+
+    /**
+     * 更新跟随
+     */
+    updateFollow() {
+        if (this.mode !== 'follow' || !this.followTarget) return;
+
+        const settings = this.modeSettings.follow;
+        
+        // 计算跟随位置
+        const targetPos = this.followTarget.position;
+        
+        // 相机在目标后上方
+        this.camera.position.set(
+            targetPos.x + settings.distance,
+            targetPos.y + settings.height,
+            targetPos.z + settings.distance
+        );
+
+        // 朝向目标
+        this.camera.lookAt(targetPos);
+    }
+
+    /**
+     * 看向指定点
+     */
+    lookAt(point) {
+        if (!this.camera) return;
+        this.camera.lookAt(point);
+    }
+
+    /**
+     * 设置位置
+     */
+    setPosition(x, y, z) {
+        if (!this.camera) return;
+        this.camera.position.set(x, y, z);
+    }
+
+    /**
+     * 获取位置
+     */
+    getPosition() {
+        return this.camera?.position.clone() || new THREE.Vector3();
+    }
+
+    /**
+     * 缩放到指定目标
+     */
+    zoomTo(target, distance = 10) {
+        if (!this.camera || !target) return;
+
+        // 计算相机位置（在目标后上方）
+        const offset = new THREE.Vector3(distance, distance * 0.5, distance);
+        this.camera.position.copy(target.position).add(offset);
+        
+        if (this.controls) {
+            this.controls.target.copy(target.position);
+        }
+    }
+
+    /**
+     * 获取当前模式
+     */
+    getMode() {
+        return this.mode;
+    }
+
+    /**
+     * 是否启用控制
+     */
+    setEnabled(enabled) {
+        if (this.controls) {
+            this.controls.enabled = enabled;
+        }
+    }
+
+    /**
+     * 销毁
+     */
+    dispose() {
+        if (this.controls) {
+            this.controls.dispose();
+            this.controls = null;
+        }
+        this.camera = null;
+        this.initialized = false;
     }
 }
 
-export default {
-    CameraMode,
-    initCamera,
-    getCamera,
-    getControls,
-    setCameraMode,
-    getCameraMode,
-    setFollowTarget,
-    updateCamera,
-    focusOn
-};
+// 导出单例
+const cameraManager = new CameraManager();
+
+export default cameraManager;
+export { CameraManager };

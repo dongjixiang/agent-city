@@ -1,340 +1,362 @@
 # 智体城 3D 世界 - 分阶段实施计划
 
-> 基于 DESIGN.md 和现有架构分析
+> 基于 `DESIGN.md` 架构设计
+> 版本: 1.0
 > 创建时间：2026-04-11
 
 ---
 
-## 一、现状分析
+## 一、设计依据 (DESIGN.md)
 
-### 现有文件结构
+### 核心架构 (Section 2.1)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Web Client                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
+│  │  3D World   │  │ World Window │  │ Dashboard/Panels │  │
+│  │  (Three.js) │  │   智能体对话  │  │    信息面板      │  │
+│  └─────────────┘  └─────────────┘  └─────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 类层次结构 (Section 3.1)
+
+```
+WorldObject (抽象基类)
+├── TerrainObject (地形)
+├── DecorationObject (装饰物)
+├── FacilityObject (设施)
+└── BuildingObject (建筑 - 8大建筑)
+
+Agent (智能体基类)
+├── AIAgent (AI 智能体)
+└── ObserverAgent
+
+System (系统基类)
+├── TerrainSystem
+├── DecorationSystem
+├── BuildingSystem
+├── AgentSystem
+├── WeatherSystem
+├── DayNightSystem
+└── ... (更多)
+```
+
+---
+
+## 二、现有实现分析
+
+### city-world/ 目录结构
+
 ```
 city-world/
-├── city-world-full.js   (5751行) - 主渲染引擎，64个函数
-├── enhanced-city.js     (4755行) - 功能扩展，72个函数
+├── city-world-full.js  (5751行) - 主渲染引擎，64个函数 ⚠️ 单体文件
+├── enhanced-city.js    (4755行) - 功能扩展，72个函数  ⚠️ 单体文件
 ├── index.html
 └── src/
     ├── main.js
-    ├── core/           # 场景/相机/灯光/地面
-    ├── world/          # 建筑/装饰/地形
-    ├── agents/         # 模型工厂/管理
-    ├── systems/        # 天气/鸟群/昼夜/音频
-    ├── ui/            # 面板组件
-    └── websocket/     # WebSocket连接
+    ├── core/           # 已创建：scene, camera, renderer, clock, lighting
+    ├── world/          # 已创建：terrain
+    ├── agents/
+    ├── systems/
+    ├── ui/
+    ├── network/
+    ├── input/
+    └── utils/
 ```
 
-### 核心问题
-1. **单体文件** - city-world-full.js 5751行，enhanced-city.js 4755行
-2. **全局状态混乱** - 大量 window.xxx 共享状态
-3. **耦合严重** - UI/渲染/逻辑混杂
-4. **UI 不完善** - 世界之窗、仪表盘需要重构
+### 已创建的模块 (Phase 3D-1 进行中)
 
----
-
-## 二、目标架构
-
-```
-city-world/
-├── index.html                    # 入口页面
-├── main.js                      # 主入口
-├── build/                       # 构建输出
-│
-├── src/
-│   ├── core/                    # 核心模块 ⭐
-│   │   ├── scene.js           # 场景管理 (window.scene)
-│   │   ├── camera.js          # 相机控制
-│   │   ├── lighting.js        # 灯光系统
-│   │   ├── renderer.js        # 渲染器
-│   │   └── clock.js          # 时钟/deltaTime
-│   │
-│   ├── world/                  # 世界模块 ⭐
-│   │   ├── terrain.js         # 地形 (地面、水域，道路)
-│   │   ├── buildings.js      # 建筑 (8大建筑)
-│   │   ├── decorations.js    # 装饰物 (花草树木路灯)
-│   │   ├── landmarks.js     # 地标 (喷泉、广场)
-│   │   └── spatial-grid.js  # 空间网格 (性能优化)
-│   │
-│   ├── agents/                 # 智能体模块
-│   │   ├── factory.js        # 模型工厂
-│   │   ├── lobster-model.js  # 龙虾模型
-│   │   ├── human-model.js   # 人形模型
-│   │   ├── manager.js        # 智能体管理
-│   │   └── animations.js     # 动画系统
-│   │
-│   ├── systems/                # 子系统
-│   │   ├── weather.js        # 天气 + 粒子
-│   │   ├── day-night.js     # 昼夜循环
-│   │   ├── birds.js         # 鸟群 (Boids)
-│   │   ├── audio.js         # 音频管理
-│   │   ├── autonomous.js    # 自主行为
-│   │   └── ecology.js       # 生态系统
-│   │
-│   ├── ui/                     # UI 组件 ⭐
-│   │   ├── world-window.js   # 世界之窗 (对话框)
-│   │   ├── dashboard.js      # 仪表盘 (右下角)
-│   │   ├── agent-detail.js   # 智能体详情面板
-│   │   ├── notifications.js  # 通知系统
-│   │   ├── task-panel.js    # 任务面板
-│   │   ├── inventory-panel.js # 背包面板
-│   │   ├── map-panel.js     # 小地图
-│   │   └── components/       # 小组件
-│   │       ├── tooltip.js   # 提示框
-│   │       ├── modal.js     # 模态框
-│   │       └── button.js    # 按钮
-│   │
-│   ├── network/                # 网络通信 ⭐
-│   │   ├── websocket.js      # WebSocket连接
-│   │   ├── http-api.js      # HTTP API
-│   │   └── message-queue.js # 消息队列
-│   │
-│   ├── input/                  # 输入处理
-│   │   ├── keyboard.js       # 键盘控制
-│   │   ├── mouse.js          # 鼠标控制
-│   │   └── touch.js          # 触摸控制
-│   │
-│   ├── utils/                  # 工具函数
-│   │   ├── vector3.js        # 向量工具
-│   │   ├── math.js           # 数学工具
-│   │   └── debug.js          # 调试工具
-│   │
-│   └── config/                 # 配置
-│       └── settings.js        # 设置
-│
-├── public/
-│   ├── models/                # 3D模型 (.glb)
-│   ├── textures/             # 纹理
-│   └── audio/                # 音频
-│
-└── docs/
-    └── ARCHITECTURE.md        # 架构文档
-```
-
----
-
-## 三、阶段计划
-
-### Phase 3D-1: 核心重构 ⭐⭐⭐
-**周期**: 2周
-**目标**: 提取 core 和 world 模块，实现渲染和世界基础
-
-| 任务 | 文件 | 描述 |
+| 文件 | 状态 | 功能 |
 |------|------|------|
-| 场景管理器 | core/scene.js | Three.js 场景创建 |
-| 相机控制 | core/camera.js | OrbitControls + 第一人称 |
-| 灯光系统 | core/lighting.js | 白天/夜晚灯光切换 |
-| 渲染器 | core/renderer.js | WebGLRenderer 配置 |
-| 时钟 | core/clock.js | deltaTime 管理 |
-| 地形 | world/terrain.js | 地面、水域，道路 |
-| 空间网格 | world/spatial-grid.js | 碰撞检测优化 |
-| 主入口 | main.js | 模块初始化 |
+| core/scene.js | ✅ | 场景管理器 |
+| core/renderer.js | ✅ | 渲染器管理 |
+| core/camera.js | ✅ | 相机控制 + OrbitControls |
+| core/clock.js | ✅ | 游戏时钟 + 日夜 |
+| core/lighting.js | ✅ | 灯光系统 + 日夜切换 |
+| world/terrain.js | ✅ | 地面 + 网格 |
 
-**交付物**: 可运行的 3D 场景，地面+光照+相机控制
+---
+
+## 三、目标架构 (DESIGN.md 映射)
+
+### 3.1 核心模块 (对应 WorldObject 基类)
+
+```
+src/
+├── core/                    # ✅ 已完成
+│   ├── scene.js           # 场景管理
+│   ├── renderer.js         # WebGL 渲染器
+│   ├── camera.js           # 相机控制 (OrbitControls)
+│   ├── clock.js           # 游戏时钟
+│   └── lighting.js         # 日夜灯光
+│
+├── world/                  # ⏳ 进行中
+│   ├── terrain.js         # ✅ 地面/水域
+│   ├── buildings.js       # 📋 8大建筑 (DESIGN 5.1)
+│   ├── decorations.js     # 📋 装饰物 (DESIGN 7.12)
+│   ├── landmarks.js       # 📋 地标 (喷泉等)
+│   └── spatial-grid.js    # 📋 空间分区 (性能)
+```
+
+### 3.2 智能体模块 (对应 Agent 基类)
+
+```
+src/
+├── agents/
+│   ├── factory.js         # 模型工厂
+│   ├── lobster-model.js   # 龙虾模型
+│   ├── human-model.js     # 人形模型
+│   ├── manager.js         # 智能体管理
+│   ├── animations.js      # 动画系统
+│   └── head-display.js    # 头顶消息 (DESIGN 8.2)
+```
+
+### 3.3 子系统 (对应 System 基类)
+
+```
+src/
+├── systems/
+│   ├── weather.js         # 天气 + 粒子 (DESIGN 7.12)
+│   ├── day-night.js       # 昼夜循环 (DESIGN 5)
+│   ├── birds.js           # 鸟群 Boids (DESIGN 7.12)
+│   ├── autonomous.js      # 自主行为
+│   └── ecology.js         # 生态系统
+```
+
+### 3.4 UI 组件 (DESIGN Section 8)
+
+```
+src/
+├── ui/
+│   ├── world-window.js    # ⭐ 智能体对话 (DESIGN 8.2)
+│   ├── dashboard.js       # ⭐ 信息面板 (DESIGN 8.3)
+│   ├── agent-detail.js    # 智能体详情
+│   ├── notifications.js   # 通知
+│   ├── task-panel.js     # 任务面板
+│   ├── inventory-panel.js # 背包面板
+│   ├── map-panel.js      # 小地图
+│   └── components/
+│       ├── tooltip.js
+│       ├── modal.js
+│       └── button.js
+```
+
+### 3.5 网络通信 (DESIGN Section 2)
+
+```
+src/
+├── network/
+│   ├── websocket.js       # WebSocket 连接
+│   ├── http-api.js       # HTTP API
+│   └── message-queue.js  # 消息队列
+```
+
+---
+
+## 四、分阶段计划
+
+### Phase 3D-1: 核心渲染 ⭐ (已完成基础)
+
+**目标**: 建立 Three.js 渲染管线
+
+| 任务 | 文件 | 描述 | 状态 |
+|------|------|------|------|
+| 场景管理 | core/scene.js | Three.js Scene | ✅ |
+| 渲染器 | core/renderer.js | WebGLRenderer | ✅ |
+| 相机控制 | core/camera.js | OrbitControls | ✅ |
+| 时钟 | core/clock.js | deltaTime/日夜 | ✅ |
+| 灯光 | core/lighting.js | 日夜灯光切换 | ✅ |
+| 地形 | world/terrain.js | 地面/水域 | ✅ |
+| 主入口 | main.js | ES Module 入口 | 📋 |
+
+**交付物**: 可运行的 3D 场景，地面 + 光照 + 相机控制
 
 ---
 
 ### Phase 3D-2: 世界构建 ⭐⭐
-**周期**: 1周
-**目标**: 实现建筑、装饰物、地标
 
-| 任务 | 文件 | 描述 |
+**目标**: 实现 Design.md 中的建筑系统和装饰物
+
+#### 建筑 (DESIGN 5.1)
+
+| 建筑 | 位置 | 功能 |
 |------|------|------|
-| 8大建筑 | world/buildings.js | 任务中心/声誉塔等 |
-| 装饰物 | world/decorations.js | 树/花/路灯/长椅 |
-| 地标 | world/landmarks.js | 喷泉/广场 |
-| 建筑悬停 | ui/components/tooltip.js | 建筑信息提示 |
-| 建筑点击 | input/mouse.js | 建筑交互 |
+| TaskCenter | (-25, -25) | 任务列表/接受/提交 |
+| ReputationTower | (25, -25) | 排行榜/徽章/捐赠 |
+| TradingCenter | (-25, 25) | 市场/购买/出售 |
+| Archive | (25, 25) | 记忆存储/检索 |
+| MessageStation | (0, -35) | 邮件/公告/群组 |
+| DataCenter | (-35, 0) | 统计/对比 |
+| CreativeWorkshop | (35, 0) | 制作/强化/分解 |
+| SkillAcademy | (0, 35) | 技能学习/升级 |
 
-**交付物**: 完整的城市外观，可点击交互
+#### 装饰物 (DESIGN 7.12)
+
+| 类型 | 交互 |
+|------|------|
+| 花草 | 闻/浇水/采摘 |
+| 树木 | 靠近/倚靠/摇晃/爬 |
+| 路灯 | 开关 |
+| 长椅 | 坐下/躺下 |
+| 喷泉 | 查看 |
+
+| 任务 | 文件 |
+|------|------|
+| 8大建筑 | world/buildings.js |
+| 装饰物 | world/decorations.js |
+| 地标 | world/landmarks.js |
+| 空间分区 | world/spatial-grid.js |
 
 ---
 
 ### Phase 3D-3: 智能体系统 ⭐⭐⭐
-**周期**: 2周
-**目标**: 实现智能体模型、动画，管理
+
+**目标**: 实现 Design.md 中的 Agent 基类和模型
 
 | 任务 | 文件 | 描述 |
 |------|------|------|
-| 模型工厂 | agents/factory.js | 创建智能体 |
+| 模型工厂 | agents/factory.js | 创建智能体网格 |
 | 龙虾模型 | agents/lobster-model.js | 龙虾 3D 模型 |
-| 人形模型 | agents/human-model.js | 人形模型 |
-| 动画系统 | agents/animations.js | 移动/待机动画 |
+| 动画系统 | agents/animations.js | 移动/待机 |
 | 智能体管理 | agents/manager.js | 添加/移除/更新 |
-| 头顶消息 | ui/world-window.js | 消息气泡 |
-
-**交付物**: 智能体显示在世界中，头顶显示消息
+| 头顶消息 | agents/head-display.js | 对话气泡 |
 
 ---
 
-### Phase 3D-4: 子系统 ⭐⭐
-**周期**: 1-2周
-**目标**: 天气、昼夜、鸟群、音频
+### Phase 3D-4: UI 组件 ⭐⭐⭐
 
-| 任务 | 文件 | 描述 |
-|------|------|------|
-| 天气系统 | systems/weather.js | 粒子效果 |
-| 昼夜循环 | systems/day-night.js | 天空颜色/灯光 |
-| 鸟群系统 | systems/birds.js | Boids 算法 |
-| 音频系统 | systems/audio.js | BGM/音效 |
+**目标**: 实现 Design.md Section 8 的 UI
 
-**交付物**: 动态天气、昼夜变化、鸟群飞翔
+#### 世界之窗 (8.2)
+
+```javascript
+class WorldWindow {
+    addMessage(agentName, content) {
+        // 显示智能体消息流
+    }
+}
+```
+
+#### 仪表盘 (8.3)
+
+```javascript
+class Dashboard {
+    showAgent(agent) {
+        this.name.textContent = agent.name;
+        this.level.textContent = `等级 ${agent.skills.getLevel()}`;
+        this.reputation.textContent = `声誉 ${reputationSystem.getReputation()}`;
+    }
+}
+```
+
+| 任务 | 文件 |
+|------|------|
+| 世界之窗 | ui/world-window.js |
+| 仪表盘 | ui/dashboard.js |
+| 通知系统 | ui/notifications.js |
+| 任务面板 | ui/task-panel.js |
+| 背包面板 | ui/inventory-panel.js |
 
 ---
 
-### Phase 3D-5: UI 组件 ⭐⭐⭐
-**周期**: 2周
-**目标**: 完善所有 UI 面板
+### Phase 3D-5: 子系统
+
+**目标**: 天气/昼夜/动物
 
 | 任务 | 文件 | 描述 |
 |------|------|------|
-| 世界之窗 | ui/world-window.js | 智能体对话 |
-| 仪表盘 | ui/dashboard.js | 右下角状态栏 |
-| 智能体详情 | ui/agent-detail.js | 点击查看详情 |
-| 通知系统 | ui/notifications.js | 成就/升级通知 |
-| 任务面板 | ui/task-panel.js | 任务列表 |
-| 背包面板 | ui/inventory-panel.js | 物品查看 |
-| 小地图 | ui/map-panel.js | 右上角小地图 |
-
-**交付物**: 完整的 UI 系统
+| 天气 | systems/weather.js | 粒子效果 |
+| 昼夜 | systems/day-night.js | 天空颜色 |
+| 鸟群 | systems/birds.js | Boids 算法 |
+| 动物行为 | systems/animals.js | 蝴蝶/兔子 |
 
 ---
 
 ### Phase 3D-6: 网络通信 ⭐⭐⭐
-**周期**: 1-2周
-**目标**: WebSocket + HTTP API 集成
+
+**目标**: 与服务端 (Phase 1-8) 对接
 
 | 任务 | 文件 | 描述 |
 |------|------|------|
-| WebSocket | network/websocket.js | 服务端连接 |
+| WebSocket | network/websocket.js | 实时通信 |
 | HTTP API | network/http-api.js | REST API |
-| 消息队列 | network/message-queue.js | 离线消息缓存 |
-| 智能体同步 | agents/manager.js | 位置/状态同步 |
-
-**交付物**: 实时与服务端通信
+| 消息同步 | network/sync.js | 智能体位置同步 |
 
 ---
 
-### Phase 3D-7: 交互系统 ⭐⭐
-**周期**: 1周
-**目标**: 键盘/鼠标/触摸输入
+### Phase 3D-7: 交互系统
+
+**目标**: 键盘/鼠标/触摸
 
 | 任务 | 文件 | 描述 |
 |------|------|------|
-| 键盘控制 | input/keyboard.js | WASD移动 |
-| 鼠标控制 | input/mouse.js | 点击/悬浮 |
-| 触摸控制 | input/touch.js | 移动端支持 |
-| 第一人称 | core/camera.js | 视角切换 |
-
-**交付物**: 流畅的操控体验
+| 键盘 | input/keyboard.js | WASD 移动 |
+| 鼠标 | input/mouse.js | 点击/悬浮 |
+| 触摸 | input/touch.js | 移动端 |
 
 ---
 
-### Phase 3D-8: 性能优化 ⭐⭐
-**周期**: 1周
-**目标**: LOD/实例化/裁剪
+### Phase 3D-8: 性能优化
+
+**目标**: 100+ 智能体流畅
 
 | 任务 | 文件 | 描述 |
 |------|------|------|
-| LOD系统 | world/buildings.js | 细节层次 |
+| LOD | world/buildings.js | 细节层次 |
 | 实例化 | world/decorations.js | 大量树木 |
-| 视锥裁剪 | core/camera.js | 可见性检测 |
-| 空间分区 | world/spatial-grid.js | 查询优化 |
-
-**交付物**: 100+智能体流畅运行
+| 裁剪 | core/camera.js | 视锥裁剪 |
 
 ---
 
-## 四、里程碑
+## 五、里程碑
 
-| 里程碑 | Phase | 验收标准 |
-|---------|-------|----------|
-| M3D-1 | 1 | 地面+相机+光照可运行 |
-| M3D-2 | 2 | 8大建筑+装饰物显示 |
-| M3D-3 | 3 | 智能体显示+动画+头顶消息 |
-| M3D-4 | 4 | 天气+昼夜+鸟群效果 |
-| M3D-5 | 5 | 完整UI面板 |
-| M3D-6 | 6 | 服务端实时同步 |
-| M3D-7 | 7 | WASD移动+第一人称 |
-| M3D-8 | 8 | 100+智能体流畅 |
+| M3D-1 | ✅ | 地面 + 相机 + 光照可运行 |
+|--------|---|--------------------------|
+| M3D-2 | ⏳ | 8 大建筑 + 装饰物显示 |
+| M3D-3 | ⏳ | 智能体 + 头顶消息 |
+| M3D-4 | ⏳ | 世界之窗 + 仪表盘 |
+| M3D-5 | ⏳ | 天气 + 昼夜 + 动物 |
+| M3D-6 | ⏳ | WebSocket 服务端同步 |
+| M3D-7 | ⏳ | WASD 移动 |
+| M3D-8 | ⏳ | 100+ 智能体流畅 |
 
 ---
 
-## 五、技术要点
+## 六、与服务端对应
 
-### 1. Three.js ES Modules 方式
+| 服务端 Phase | 3D 世界 Phase | 关联 |
+|-------------|---------------|------|
+| Phase 1 (Handler) | Phase 6 (网络) | WebSocket |
+| Phase 2 (Services) | Phase 3 (智能体) | 数据同步 |
+| Phase 4 (建筑) | Phase 2 (建筑) | 建筑模型 |
+| Phase 5 (生态) | Phase 5 (子系统) | 天气/动物 |
+
+---
+
+## 七、技术要点
+
+### Three.js ES Modules
+
 ```javascript
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 ```
 
-### 2. 模块通信 (EventBus)
+### 模块通信 (EventBus)
+
 ```javascript
-// 事件总线解耦
-class EventBus {
-    on(event, callback) { ... }
-    emit(event, data) { ... }
-}
-const bus = new EventBus();
-
-// 发布/订阅
-bus.on('agent:click', (agent) => showDetail(agent));
-bus.emit('agent:move', { id: 'xiaoji', position: {x: 10, z: 20} });
+events.on('agent:move', ({ agentId, position }) => {
+    // 更新 3D 位置
+});
+events.emit('building:clicked', { buildingId });
 ```
 
-### 3. 空间分区 (100+智能体)
+### 空间分区 (100+ 智能体)
+
 ```javascript
 class SpatialGrid {
-    insert(object) { ... }
     query(position, radius) { ... }
-    remove(objectId) { ... }
 }
 ```
-
-### 4. LOD 系统
-```javascript
-const lod = new THREE.LOD();
-lod.addLevel(highDetailMesh, 0);
-lod.addLevel(mediumDetailMesh, 50);
-lod.addLevel(lowDetailMesh, 100);
-scene.add(lod);
-```
-
----
-
-## 六、优先级排序
-
-```
-P0 (核心): Phase 1 - 核心渲染
-P1 (关键): Phase 3 - 智能体 + Phase 6 - 网络
-P2 (重要): Phase 2 - 世界 + Phase 5 - UI
-P3 (丰富): Phase 4 - 子系统
-P4 (优化): Phase 7 - 交互 + Phase 8 - 性能
-```
-
----
-
-## 七、与服务端的对应
-
-| 服务端 Phase | 3D世界 Phase | 关联 |
-|-------------|-------------|------|
-| Phase 1 (Handler) | Phase 6 (网络) | WebSocket 消息处理 |
-| Phase 2 (Services) | Phase 3 (智能体) | 智能体数据显示 |
-| Phase 4 (建筑) | Phase 2 (世界) | 建筑模型和交互 |
-| Phase 5 (生态) | Phase 4 (子系统) | 天气/日夜/动物 |
-
----
-
-## 八、立即行动
-
-**第一步**: 创建 `city-world/src/core/scene.js`
-- 从 city-world-full.js 提取 Scene 初始化
-- 创建 window.scene
-- 验证 Three.js 加载
-
-**第二步**: 创建 `city-world/src/core/camera.js`
-- 实现 OrbitControls
-- 俯视/第一人称切换
-
-**第三步**: 创建 `city-world/src/main.js`
-- ES Module 入口
-- 按顺序初始化模块

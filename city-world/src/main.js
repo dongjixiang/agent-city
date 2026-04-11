@@ -1,159 +1,259 @@
 /**
- * @fileoverview 智体城3D世界 - 主入口
+ * Agent City 3D World - Main Entry
  * 
- * 职责：
- * - 初始化场景、相机、灯光
- * - 协调各子系统启动
- * - 管理全局状态
+ * 智体城 3D 世界主入口
  * 
- * 依赖初始化顺序：
- * 1. scene (core)
- * 2. lighting (core)
- * 3. ground (core)
- * 4. buildings (world)
- * 5. agents (agents)
- * 6. systems (weather, birds, day-night, audio)
- * 7. ui (panels)
- * 
- * @module main
+ * 模块化架构 (基于 DESIGN.md)
  */
 
-import * as THREE from 'three';
+// ============= Core Modules =============
+import sceneManager from './core/scene.js';
+import rendererManager from './core/renderer.js';
+import cameraManager from './core/camera.js';
+import clockManager from './core/clock.js';
+import lightingManager from './core/lighting.js';
 
-// 全局状态
-const state = {
-    scene: null,
-    camera: null,
-    renderer: null,
-    clock: null,
-    isInitialized: false
-};
+// ============= World Modules =============
+import terrainManager from './world/terrain.js';
 
-/**
- * 主初始化函数
- * @param {HTMLCanvasElement} canvas - 渲染用的 canvas
- */
-export function init(canvas) {
-    if (state.isInitialized) {
-        console.warn('[Main] Already initialized');
-        return;
+// ============= Systems (待创建) =============
+// import weatherSystem from './systems/weather.js';
+// import dayNightSystem from './systems/day-night.js';
+// import birdsSystem from './systems/birds.js';
+
+// ============= Agents (待创建) =============
+// import agentManager from './agents/manager.js';
+
+// ============= UI (待创建) =============
+// import worldWindow from './ui/world-window.js';
+// import dashboard from './ui/dashboard.js';
+
+// ============= Network (待创建) =============
+// import networkManager from './network/websocket.js';
+
+// ============= Event Bus =============
+class EventBus {
+    constructor() {
+        this.listeners = new Map();
     }
 
-    console.log('[Main] Initializing Agent City 3D World...');
+    on(event, callback) {
+        if (!this.listeners.has(event)) {
+            this.listeners.set(event, []);
+        }
+        this.listeners.get(event).push(callback);
+    }
 
-    // 1. 初始化场景
-    initScene(canvas);
+    off(event, callback) {
+        if (!this.listeners.has(event)) return;
+        const callbacks = this.listeners.get(event);
+        const index = callbacks.indexOf(callback);
+        if (index > -1) callbacks.splice(index, 1);
+    }
 
-    // 2. 初始化相机
-    initCamera();
-
-    // 3. 初始化灯光
-    initLighting();
-
-    // 4. 初始化地面
-    initGround();
-
-    // 5. 初始化建筑
-    initBuildings();
-
-    // 6. 初始化智能体系统
-    initAgents();
-
-    // 7. 初始化子系统
-    initSystems();
-
-    // 8. 初始化UI
-    initUI();
-
-    // 9. 启动动画循环
-    startAnimationLoop();
-
-    state.isInitialized = true;
-    console.log('[Main] Initialization complete');
+    emit(event, data) {
+        if (!this.listeners.has(event)) return;
+        this.listeners.get(event).forEach(callback => callback(data));
+    }
 }
 
-/**
- * 初始化 Three.js 场景
- */
-function initScene(canvas) {
-    state.scene = new THREE.Scene();
-    state.scene.background = new THREE.Color(0x1a1a2e);
-    window.scene = state.scene; // 共享给其他模块
+const eventBus = new EventBus();
 
-    state.clock = new THREE.Clock();
+// ============= Main Application =============
+class AgentCityApp {
+    constructor() {
+        this.initialized = false;
+        this.running = false;
+        this.canvas = null;
+    }
+
+    /**
+     * 初始化应用
+     */
+    async init(canvasId = 'canvas') {
+        if (this.initialized) {
+            console.warn('[App] Already initialized');
+            return;
+        }
+
+        console.log('[App] Initializing...');
+
+        // 获取画布
+        this.canvas = document.getElementById(canvasId);
+        if (!this.canvas) {
+            console.error('[App] Canvas not found:', canvasId);
+            return;
+        }
+
+        // 1. 初始化核心模块
+        console.log('[App] Initializing core modules...');
+
+        // 场景
+        const scene = sceneManager.init();
+
+        // 渲染器
+        rendererManager.init(this.canvas);
+        const renderer = rendererManager.getRenderer();
+
+        // 相机
+        cameraManager.init(this.canvas);
+        const camera = cameraManager.getCamera();
+
+        // 时钟
+        clockManager.init();
+
+        // 灯光
+        lightingManager.init(scene);
+
+        // 2. 初始化世界模块
+        console.log('[App] Initializing world modules...');
+        terrainManager.init(scene);
+
+        // 3. 连接日夜系统和灯光
+        clockManager.setOnPhaseChange((phase) => {
+            lightingManager.setPhase(phase);
+            eventBus.emit('phase:change', phase);
+        });
+
+        // 4. 窗口大小调整
+        window.addEventListener('resize', () => this.onResize());
+
+        this.initialized = true;
+        console.log('[App] Initialization complete');
+
+        return true;
+    }
+
+    /**
+     * 启动渲染循环
+     */
+    start() {
+        if (!this.initialized) {
+            console.error('[App] Not initialized');
+            return;
+        }
+
+        if (this.running) {
+            console.warn('[App] Already running');
+            return;
+        }
+
+        this.running = true;
+        console.log('[App] Starting render loop...');
+
+        this.animate();
+
+        return true;
+    }
+
+    /**
+     * 停止
+     */
+    stop() {
+        this.running = false;
+        console.log('[App] Stopped');
+    }
+
+    /**
+     * 渲染循环
+     */
+    animate() {
+        if (!this.running) return;
+
+        requestAnimationFrame(() => this.animate());
+
+        // 获取 deltaTime
+        const delta = clockManager.getDelta();
+
+        // 更新游戏时间
+        clockManager.update(delta);
+
+        // 更新相机控制器
+        cameraManager.update();
+
+        // 更新跟随模式
+        cameraManager.updateFollow();
+
+        // 触发帧更新事件
+        eventBus.emit('frame:update', {
+            delta,
+            elapsed: clockManager.getElapsed(),
+            time: clockManager.getFormattedTime()
+        });
+
+        // 渲染
+        const scene = sceneManager.getScene();
+        const camera = cameraManager.getCamera();
+        if (scene && camera) {
+            rendererManager.render(scene, camera);
+        }
+    }
+
+    /**
+     * 窗口大小变化
+     */
+    onResize() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        rendererManager.resize(width, height);
+
+        const camera = cameraManager.getCamera();
+        if (camera) {
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+        }
+    }
+
+    /**
+     * 获取状态
+     */
+    getStatus() {
+        return {
+            initialized: this.initialized,
+            running: this.running,
+            time: clockManager?.getFormattedTime() || '--:--',
+            phase: clockManager?.getCurrentPhase() || 'unknown',
+            mode: cameraManager?.getMode() || 'unknown',
+            entities: {
+                agents: sceneManager?.getAgents()?.length || 0,
+                buildings: sceneManager?.getBuildings()?.length || 0,
+                decorations: sceneManager?.getDecorations()?.length || 0
+            }
+        };
+    }
 }
 
-/**
- * 初始化相机
- */
-function initCamera() {
-    const aspect = window.innerWidth / window.innerHeight;
-    state.camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000);
-    state.camera.position.set(0, 50, 50);
-    state.camera.lookAt(0, 0, 0);
+// ============= Global Instance =============
+const app = new AgentCityApp();
+
+// 暴露到全局
+window.AgentCityApp = app;
+window.eventBus = eventBus;
+
+// 暴露管理器到全局（便于调试）
+window.sceneManager = sceneManager;
+window.rendererManager = rendererManager;
+window.cameraManager = cameraManager;
+window.clockManager = clockManager;
+window.lightingManager = lightingManager;
+window.terrainManager = terrainManager;
+
+// ============= 初始化 =============
+// 当 DOM 加载完成后初始化
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => app.init());
+} else {
+    app.init();
 }
 
-/**
- * 初始化灯光
- */
-function initLighting() {
-    // 环境光
-    const ambient = new THREE.AmbientLight(0x404040, 0.5);
-    state.scene.add(ambient);
-
-    // 平行光（太阳）
-    const sun = new THREE.DirectionalLight(0xffffff, 1);
-    sun.position.set(50, 100, 50);
-    state.scene.add(sun);
-}
-
-/**
- * 初始化地面
- */
-function initGround() {
-    // TODO: 从 ground.js 导入
-}
-
-/**
- * 初始化建筑
- */
-function initBuildings() {
-    // TODO: 从 buildings.js 导入
-}
-
-/**
- * 初始化智能体系统
- */
-function initAgents() {
-    // TODO: 从 agents/manager.js 导入
-}
-
-/**
- * 初始化子系统
- */
-function initSystems() {
-    // TODO: 从 systems/*.js 导入
-}
-
-/**
- * 初始化UI组件
- */
-function initUI() {
-    // TODO: 从 ui/*.js 导入
-}
-
-/**
- * 启动动画循环
- */
-function startAnimationLoop() {
-    // TODO: 实现动画循环
-}
-
-/**
- * 获取全局状态
- */
-export function getState() {
-    return state;
-}
-
-export default { init, getState };
+export {
+    app,
+    eventBus,
+    sceneManager,
+    rendererManager,
+    cameraManager,
+    clockManager,
+    lightingManager,
+    terrainManager
+};

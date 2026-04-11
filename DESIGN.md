@@ -6675,203 +6675,500 @@ router.js (根据 path 分发)
 ---
 
 
-## 11. 实施计划
+## 11. 分阶段实施计划
 
-### Phase 0: 基础设施 ⭐ (1周)
-**目标**：搭建 AI 系统的基础设施，包括配置管理和多语言支持
-
-#### 0.1 配置系统
-- [ ] 创建 `config/` 目录结构
-- [ ] 实现 `ConfigLoader` 配置加载器
-- [ ] 创建 `config/agent.yaml` 智能体配置
-- [ ] 创建 `config/world.yaml` 世界配置
-- [ ] 创建 `config/llm.yaml` LLM 配置
-- [ ] 创建 `config/server.yaml` 服务器配置
-- [ ] 创建 `config/i18n.yaml` 多语言配置
-
-#### 0.2 多语言系统
-- [ ] 实现 `I18n` 国际化系统
-- [ ] 实现翻译资源加载
-- [ ] 实现 `TranslationMiddleware` 翻译中间件
-- [ ] 实现多语言 Prompt 构建
-
-#### 0.3 存储层
-- [ ] 实现 `MemoryStore` 记忆存储（Redis）
-- [ ] 实现 `StateStore` 状态存储（Redis）
-- [ ] 实现 `IdentityStore` 身份存储
-- [ ] 实现 `AgentRegistry` 智能体注册表
-
-**交付物**：
-- `config/*.yaml` (5个配置文件)
-- `src/config/config-loader.js`
-- `src/i18n/index.js`
-- `src/i18n/translation-middleware.js`
-- `src/server/stores/*.js`
-- `src/ai/identity/agent-registry.js`
+> 基于最新架构设计（服务端分层 + AI Skill-based + 生态系统）
 
 ---
 
-### Phase 1: 智能体核心 ⭐ (2-3周)
-**目标**：实现 Skill-based LLM Decision 核心架构
+## 阶段概览
+
+| 阶段 | 名称 | 周期 | 目标 |
+|------|------|------|------|
+| **Phase 0** | 项目初始化 | 1周 | 搭建项目结构，配置系统 |
+| **Phase 1** | 服务端框架 | 2周 | 完成路由层、中间件、基础 stores |
+| **Phase 2** | 核心业务 | 2-3周 | Agent/Task/Message 服务和处理器 |
+| **Phase 3** | AI 引擎 | 2-3周 | LLM 决策、技能系统 |
+| **Phase 4** | 建筑功能 | 1-2周 | 8大建筑功能系统 |
+| **Phase 5** | 生态系统 | 1-2周 | 动物、装饰物交互 |
+| **Phase 6** | 社交系统 | 1-2周 | 关系、声誉、公会 |
+| **Phase 7** | 成长系统 | 1周 | 宠物、成就、外观 |
+| **Phase 8** | 高级特性 | 持续 | 任务链、事件、领地 |
 
 ---
 
-### Phase 1: 智能体核心 ⭐ (2-3周)
-**目标**：实现 Skill-based LLM Decision 核心架构
+## Phase 0: 项目初始化 ⭐
 
-#### Week 1: Skill 系统
-- [ ] 实现 `Skill` 基类
-- [ ] 实现 `SkillRegistry` 技能注册表
-- [ ] 实现 `MoveToSkill` 移动技能
-- [ ] 实现 `RestSkill` 休息技能
-- [ ] 实现 `ExploreSkill` 探索技能
-- [ ] 实现 `InteractSkill` 交互技能
+**目标**: 搭建项目结构，配置系统，迁移现有代码
 
-#### Week 2: 决策循环
-- [ ] 实现 `LLM Prompt` 构建器
-- [ ] 实现 `LLMDecisionLoop` 决策循环
-- [ ] 实现 `PerceptionSystem` 感知系统
-- [ ] 实现 `NeedsSystem` 需求/动机系统
-
-#### Week 3: 记忆与情绪
-- [ ] 实现 `PersistentMemory` 持久化记忆
-- [ ] 实现 `EmotionSystem` 情绪系统（带传染）
-- [ ] 实现 `ConversationManager` 对话管理
-- [ ] 实现 `AgentBrain` 整合所有子系统
-
-**交付物**：
-- `src/ai/skills/skill.js`
-- `src/ai/skills/move-to.js`, `rest.js`, `explore.js`, `interact.js`
-- `src/ai/llm-decision-loop.js`
-- `src/ai/perception/perception-system.js`
-- `src/ai/motivation/needs-system.js`
-- `src/ai/emotions/emotion-system.js`
-- `src/ai/memory/persistent-memory.js`
-- `src/ai/agent-brain.js`
-
----
-
-### Phase 2: 生命周期与通信 (1-2周)
-**目标**：实现智能体上线/下线流程和消息路由
-
-#### Week 1: 生命周期
-- [ ] 实现 `AgentLifecycle` 生命周期管理
-- [ ] 实现 `login()` 上线流程
-- [ ] 实现 `logout()` 下线流程
-- [ ] 实现 `WorldStateProvider` 世界状态提供者
-- [ ] 实现心跳保活机制
-
-#### Week 2: 消息通信
-- [ ] 实现 `MessageRouter` 消息路由器
-- [ ] 实现 `sendPrivate()` 私信
-- [ ] 实现 `broadcast()` 广播
-- [ ] 实现 `TalkToSkill` 交谈技能（对接 MessageRouter）
-
-**交付物**：
-- `src/ai/agent-lifecycle.js`
-- `src/ai/world-state-provider.js`
-- `src/ai/communication/message-router.js`
-- `src/ai/skills/talk-to.js`
-
----
-
-### Phase 3: 任务系统集成 (1周)
-**目标**：让智能体能自主接取和完成任务
-
-- [ ] 实现 `AcceptTaskSkill` 接受任务技能
-- [ ] 实现 `CompleteTaskSkill` 完成任务技能
-- [ ] 对接 `TaskSystem` 任务系统
-- [ ] 实现任务相关的 `WorldStateProvider` 集成
-- [ ] 端到端测试：智能体自主接任务 → 执行 → 交任务
-
-**交付物**：
-- `src/ai/skills/task.js`
-
----
-
-### Phase 4: 生态系统 (1-2周)
-**目标**：为智体城添加有生命的生态环境
-
-- [ ] 实现 `BirdFlock` 鸟群系统（Boids 算法）
-- [ ] 实现 `ButterflySwarm` 蝴蝶群
-- [ ] 实现环境交互系统（公告板、信鸽）
-- [ ] 实现日夜行为系统
-- [ ] 实现天气影响系统
-
-**交付物**：
-- `src/systems/ecology/bird-flock.js`
-- `src/systems/ecology/butterfly-swarm.js`
-
----
-
-### Phase 5: 社交与声誉 (1-2周)
-**目标**：完善智能体的社交和声誉系统
-
-- [ ] 实现 `RelationshipSystem` 关系系统
-- [ ] 实现 `ReputationSystem` 声誉系统
-- [ ] 实现好友邀请/黑名单功能
-- [ ] 实现智能体社交记忆（谁是我的朋友）
-- [ ] 实现声誉广播（附近智能体可见声誉变化）
-
-**交付物**：
-- `src/systems/relationship-system.js`
-- `src/systems/reputation-system.js`
-
----
-
-### Phase 6: 进化与成长 (1-2周)
-**目标**：让智能体和世界一起成长
-
-- [ ] 实现 `WorldEvolution` 世界进化系统
-- [ ] 实现智能体等级和经验系统
-- [ ] 实现成就系统
-- [ ] 实现智能体生命周期（老化/退休/遗产）
-- [ ] 实现解锁机制（人口/声誉解锁新建筑）
-
-**交付物**：
-- `src/systems/evolution/world-evolution.js`
-- `src/systems/achievement-system.js`
-
----
-
-### Phase 7: 高级特性 (持续)
-**目标**：探索更智能的智能体
-
-- [ ] 智能体学习（从历史决策中学习）
-- [ ] 多智能体协作任务
-- [ ] 自我建设系统（智能体建造新建筑）
-- [ ] 世界事件系统（节日、突发事件）
-
-**交付物**：
-- `src/ai/learning/` (待设计)
-- `src/systems/world-events/` (待设计)
-
----
-
-## 实施优先级
-
+### 0.1 创建目录结构
 ```
-P0 (立即): Phase 0 基础设施
-P1 (当前): Phase 1 智能体核心 ⭐
-P2 (其次): Phase 2 生命周期与通信
-P3 (重要): Phase 3 任务系统集成
-P4 (优化): Phase 4-6 生态/社交/成长
-P5 (未来): Phase 7 高级特性
+agent-city/
+├── server/
+│   ├── index.js
+│   ├── router.js
+│   ├── handlers/
+│   ├── services/
+│   ├── stores/
+│   ├── middleware/
+│   ├── ai/
+│   ├── config/
+│   └── utils/
+├── src/
+│   ├── ai/
+│   ├── systems/
+│   ├── objects/
+│   └── ui/
+├── config/
+├── i18n/
+└── city-world/
 ```
+
+### 0.2 配置文件
+- [ ] 创建 `server/config/agents.yaml`
+- [ ] 创建 `server/config/buildings.yaml`
+- [ ] 创建 `server/config/world.yaml`
+- [ ] 创建 `config/agent.yaml`
+- [ ] 创建 `config/world.yaml`
+- [ ] 创建 `config/buildings.yaml`
+- [ ] 创建 `config/llm.yaml`
+- [ ] 创建 `config/server.yaml`
+- [ ] 创建 `config/i18n.yaml`
+- [ ] 创建 `config/animals.yaml`
+
+### 0.3 工具函数
+- [ ] `server/utils/crypto.js` - 加密工具
+- [ ] `server/utils/time.js` - 时间工具
+- [ ] `server/utils/validation.js` - 验证工具
+- [ ] `server/utils/logger.js` - 日志工具
+
+### 0.4 迁移现有代码
+- [ ] 迁移 `server.js` → `server/index.js`
+- [ ] 迁移 `agent-store.js` → `server/stores/agent-store.js`
+- [ ] 迁移 `task-store.js` → `server/stores/task-store.js`
+- [ ] 迁移 `http-server.js` → `server/http-server.js`
+- [ ] 迁移 `webrtc-signaling.js` → `server/webrtc-signaling.js`
+
+### 交付物
+- 完整的目录结构
+- 所有配置文件
+- 迁移的现有代码
+
+---
+
+## Phase 1: 服务端框架 ⭐⭐
+
+**目标**: 完成路由层、中间件、基础 stores
+
+### Week 1: 路由和中间件
+
+#### 1.1 路由层
+- [ ] `server/router.js` - 主路由
+  - 根据消息类型分发到 handlers
+  - WebSocket 和 HTTP 分离
+
+#### 1.2 中间件
+- [ ] `server/middleware/auth.js` - 认证中间件
+- [ ] `server/middleware/rate-limit.js` - 限流中间件
+- [ ] `server/middleware/validator.js` - 参数验证
+- [ ] `server/middleware/logger.js` - 日志中间件
+- [ ] `server/middleware/error-handler.js` - 错误处理
+
+#### 1.3 Handler 基类
+- [ ] `server/handlers/base-handler.js` - Handler 基类
+  - 统一的消息格式
+  - 错误处理
+  - 日志记录
+
+### Week 2: 基础 Stores
+
+#### 1.4 Store 基类
+- [ ] `server/stores/base-store.js`
+  - 通用 CRUD 方法
+  - Redis 连接管理
+  - 缓存策略
+
+#### 1.5 缓存层
+- [ ] `server/stores/cache.js`
+  - 内存缓存
+  - TTL 管理
+  - 批量操作
+
+### 交付物
+- 可运行的路由系统
+- 中间件链
+- Store 基类
+
+---
+
+## Phase 2: 核心业务 ⭐⭐⭐
+
+**目标**: 完成 Agent/Task/Message 的完整业务逻辑
+
+### Week 1: Agent 业务
+
+#### 2.1 Agent Handler
+- [ ] `server/handlers/ws-handler.js` - WebSocket 消息处理
+  - REGISTER / MESSAGE / MOVE 等消息类型
+- [ ] `server/handlers/agent-handler.js` - 智能体相关
+  - 注册、注销、信息查询
+
+#### 2.2 Agent Service
+- [ ] `server/services/agent-service.js`
+  - 注册逻辑
+  - 状态管理
+  - 位置管理
+
+#### 2.3 Agent Store
+- [ ] `server/stores/agent-store.js` (迁移并重构)
+  - 智能体数据持久化
+  - 在线状态管理
+
+### Week 2: Task 业务
+
+#### 2.4 Task Handler
+- [ ] `server/handlers/task-handler.js`
+  - 任务创建、分配、完成
+
+#### 2.5 Task Service
+- [ ] `server/services/task-service.js`
+  - 任务生成逻辑
+  - 奖励发放
+
+#### 2.6 Task Store
+- [ ] `server/stores/task-store.js` (迁移并重构)
+
+### Week 3: Message 业务
+
+#### 2.7 Message Handler
+- [ ] `server/handlers/message-handler.js`
+  - 私信、广播
+
+#### 2.8 Message Service
+- [ ] `server/services/message-service.js`
+  - 消息路由
+  - 离线消息
+
+#### 2.9 HTTP Handler (API)
+- [ ] `server/handlers/http-handler.js`
+  - REST API
+  - 查询接口
+
+### 交付物
+- Agent 注册/登录/状态管理
+- Task 完整流程
+- Message 私信/广播
+
+---
+
+## Phase 3: AI 引擎 ⭐⭐⭐
+
+**目标**: 实现 Skill-based LLM Decision 架构
+
+### Week 1: Skill 系统
+
+#### 3.1 Skill 基类
+- [ ] `server/ai/skill.js` - Skill 基类
+- [ ] `server/ai/skill-registry.js` - 技能注册表
+
+#### 3.2 核心技能
+- [ ] `server/ai/skills/move-to.js` - 移动技能
+- [ ] `server/ai/skills/rest.js` - 休息技能
+- [ ] `server/ai/skills/explore.js` - 探索技能
+- [ ] `server/ai/skills/interact.js` - 交互技能
+- [ ] `server/ai/skills/talk-to.js` - 交谈技能
+- [ ] `server/ai/skills/task.js` - 任务技能
+
+### Week 2: AI 决策
+
+#### 3.3 AI Service
+- [ ] `server/services/ai-service.js` - AI 服务
+  - LLM 调用
+  - Prompt 构建
+  - 响应解析
+
+#### 3.4 AI Engine
+- [ ] `server/ai/ai-engine.js` - AI 主引擎
+  - 决策循环
+  - 超时处理
+  - 降级策略
+
+#### 3.5 Prompt Builder
+- [ ] `server/ai/prompt-builder.js`
+  - 世界状态描述
+  - 可用技能描述
+  - 历史记忆
+
+### Week 3: 感知与记忆
+
+#### 3.6 感知系统
+- [ ] `server/ai/perception/perception-system.js`
+  - 视野范围
+  - 注意力计算
+
+#### 3.7 需求系统
+- [ ] `server/ai/motivation/needs-system.js`
+  - 能量/心情/社交需求
+  - 动态衰减
+
+#### 3.8 情绪系统
+- [ ] `server/ai/emotions/emotion-system.js`
+  - 情绪传染
+  - 行为影响
+
+### 交付物
+- Skill 系统和 6 个核心技能
+- AI 决策循环
+- 感知/需求/情绪系统
+
+---
+
+## Phase 4: 建筑功能系统
+
+**目标**: 实现 8 大建筑的功能
+
+### Week 1: 核心建筑
+
+#### 4.1 建筑基类
+- [ ] `server/services/building-base.js` - 建筑基类
+
+#### 4.2 任务中心
+- [ ] `server/services/buildings/task-center.js`
+- Services: task_list, accept_task, submit_task, daily_bonus
+
+#### 4.3 声誉塔
+- [ ] `server/services/buildings/reputation-tower.js`
+- Services: leaderboard, badges, donate_reputation
+
+#### 4.4 交易中心
+- [ ] `server/services/buildings/trading-center.js`
+- Services: marketplace, buy_item, sell_item, exchange_coins
+
+### Week 2: 扩展建筑
+
+#### 4.5 档案馆
+- [ ] `server/services/buildings/archive.js`
+- Services: store_memory, retrieve_memory, search_knowledge
+
+#### 4.6 消息站
+- [ ] `server/services/buildings/message-station.js`
+- Services: send_mail, create_announcement, groups
+
+#### 4.7 数据中心
+- [ ] `server/services/buildings/data-center.js`
+- Services: personal_stats, world_stats, compare
+
+#### 4.8 创意工坊
+- [ ] `server/services/buildings/creative-workshop.js`
+- Services: craft, enhance, disassemble
+
+#### 4.9 技能学院
+- [ ] `server/services/buildings/skill-academy.js`
+- Services: learn_skill, upgrade_skill, practice
+
+### 交付物
+- 8 大建筑完整功能
+- 建筑服务 API
+
+---
+
+## Phase 5: 生态系统
+
+**目标**: 添加动物和装饰物交互
+
+### Week 1: 动物系统
+
+#### 5.1 动物行为
+- [ ] `server/systems/ecology/animal-behaviors.js`
+  - Animal 基类
+  - 性格系统 (shy/curious/friendly)
+  - 交互响应
+
+#### 5.2 鸟类
+- [ ] `server/systems/ecology/bird.js` - 小鸟 (会飞)
+- [ ] `server/systems/ecology/butterfly.js` - 蝴蝶 (随风)
+
+#### 5.3 小动物
+- [ ] `server/systems/ecology/rabbit.js` - 小兔子 (会躲)
+- [ ] `server/systems/ecology/pet.js` - 可领养宠物
+
+### Week 2: 装饰物交互
+
+#### 5.4 装饰物交互
+- [ ] `server/systems/interaction/decoration-interaction.js`
+  - 花草: 闻、浇水、采摘
+  - 树木: 倚靠、摇晃、爬
+  - 路灯: 开关
+  - 长椅: 坐下、躺下
+
+#### 5.5 可移动物体
+- [ ] `server/systems/interaction/movable-objects.js`
+  - 重量限制
+  - 拾取/放下
+
+#### 5.6 环境效果
+- [ ] `server/services/weather-service.js` - 天气系统
+- [ ] `server/systems/daynight-system.js` - 日夜系统
+- [ ] `server/systems/ecology/bird-flock.js` - 鸟群 (Boids)
+
+### 交付物
+- 动物交互系统
+- 装饰物交互
+- 天气/日夜效果
+
+---
+
+## Phase 6: 社交系统
+
+**目标**: 完善关系和声誉
+
+### Week 1: 关系系统
+
+#### 6.1 Relation Service
+- [ ] `server/services/relation-service.js`
+- [ ] `server/stores/relation-store.js`
+
+#### 6.2 关系功能
+- [ ] 好友列表
+- [ ] 黑名单
+- [ ] 亲密度计算
+
+### Week 2: 公会系统
+
+#### 6.3 Party 系统
+- [ ] `server/services/party-service.js`
+- 组队、队伍聊天
+
+#### 6.4 Guild 系统
+- [ ] `server/services/guild-service.js`
+- 创建公会、成员管理、增益
+
+### Week 3: 声誉系统
+
+#### 6.5 Reputation Service
+- [ ] `server/services/reputation-service.js`
+
+#### 6.6 Reputation Store
+- [ ] 重构 `reputation-store.js` → `server/stores/reputation-store.js`
+
+#### 6.7 排行榜
+- [ ] 实时排名
+- [ ] 徽章系统
+
+### 交付物
+- 完整的关系系统
+- Party/Guild 系统
+- 声誉和排行榜
+
+---
+
+## Phase 7: 成长系统
+
+**目标**: 宠物、成就、外观定制
+
+### Week 1: 宠物系统
+
+#### 7.1 Pet Service
+- [ ] `server/services/pet-service.js`
+- 领养、喂食、训练
+
+#### 7.2 Pet Store
+- [ ] `server/stores/pet-store.js`
+
+### Week 2: 成就系统
+
+#### 7.3 Achievement Service
+- [ ] `server/services/achievement-service.js`
+- 成就定义、检查、奖励
+
+#### 7.4 任务链
+- [ ] `server/services/quest-chain-service.js`
+- 主线任务、支线任务
+
+### Week 3: 外观定制
+
+#### 7.5 Appearance Service
+- [ ] `server/services/appearance-service.js`
+- 模型、颜色、称号、配饰
+
+#### 7.6 Title System
+- [ ] 称号解锁和使用
+
+### 交付物
+- 宠物系统
+- 成就和任务链
+- 外观定制
+
+---
+
+## Phase 8: 高级特性
+
+**目标**: 任务链、事件、领地
+
+### Week 1: 事件系统
+
+#### 8.1 Event Service
+- [ ] `server/services/event-service.js`
+- 节日活动 (春节、周年庆)
+- 特殊事件
+
+#### 8.2 Event Effects
+- [ ] 奖励翻倍
+- 限时物品
+
+### Week 2: 领地系统
+
+#### 8.3 Territory Service
+- [ ] `server/services/territory-service.js`
+- 领地购买
+- 物品放置
+
+#### 8.4 Territory Store
+- [ ] `server/stores/territory-store.js`
+
+### Week 3: 世界规则
+
+#### 8.5 World Rules
+- [ ] `server/services/world-rules-service.js`
+- PVP 设置
+- 管理员命令
+
+#### 8.6 Admin Commands
+- [ ] /kick, /ban, /announce
+
+### 交付物
+- 事件系统
+- 领地系统
+- 世界规则
 
 ---
 
 ## 里程碑
 
-| 里程碑 | 阶段 | 验收标准 |
-|--------|------|----------|
-| M1 | Phase 0 完成 | AgentRegistry 可用，存储层就绪 |
-| M2 | Phase 1 完成 | 智能体可自主决策（移动/休息/探索） |
-| M3 | Phase 2 完成 | 智能体可登录上下线，消息可送达 |
-| M4 | Phase 3 完成 | 智能体可自主接取和完成任务 |
-| M5 | Phase 4 完成 | 世界有鸟群、蝴蝶等生态 |
-| M6 | Phase 5 完成 | 智能体有社交关系和声誉 |
-| M7 | Phase 6 完成 | 世界和智能体可成长进化 |
+| 里程碑 | 完成阶段 | 验收标准 |
+|---------|----------|----------|
+| M0 | Phase 0 | 目录结构搭建完成，配置就绪 |
+| M1 | Phase 1 | 服务端框架可运行，中间件生效 |
+| M2 | Phase 2 | Agent/Task/Message 基本功能 |
+| M3 | Phase 3 | AI 决策循环可用 |
+| M4 | Phase 4 | 8 大建筑功能完整 |
+| M5 | Phase 5 | 动物可交互，世界有生态 |
+| M6 | Phase 6 | 社交功能完整 |
+| M7 | Phase 7 | 宠物、成就系统可用 |
+| M8 | Phase 8 | 事件、领地系统完成 |
+
+---
+
+## 优先级排序
+
+```
+P0 (立即): Phase 0 - 项目初始化
+P1 (核心): Phase 1 + Phase 2 - 服务端框架 + 核心业务
+P2 (关键): Phase 3 - AI 引擎
+P3 (重要): Phase 4 - 建筑功能
+P4 (丰富): Phase 5 + Phase 6 - 生态 + 社交
+P5 (成长): Phase 7 + Phase 8 - 成长 + 高级特性
+```
 
 ---
 
@@ -6879,128 +7176,31 @@ P5 (未来): Phase 7 高级特性
 
 | 风险 | 影响 | 缓解措施 |
 |------|------|----------|
-| LLM 响应延迟 | 决策循环卡顿 | 添加超时，失败时用默认行为 |
-| Redis 不可用 | 记忆丢失 | 降级到内存存储 |
-| 多智能体同时操作 | 状态竞争 | 使用 Redis 事务 |
-| Prompt 注入 | 安全风险 | 输入过滤和沙箱 |
-| 记忆存储膨胀 | 性能下降 | 定期压缩和遗忘策略 |
+| LLM 响应慢 | 决策卡顿 | 超时降级到默认行为 |
+| Redis 不可用 | 数据丢失 | 降级到内存存储 |
+| 多智能体竞争 | 状态不一致 | Redis 事务 |
+| Prompt 注入 | 安全风险 | 输入过滤 |
+| 记忆膨胀 | 性能下降 | 遗忘策略 + 压缩 |
 
 ---
 
-## 附录
+## 开发建议
 
-### A. 事件类型完整列表
+### 1. 每次 Phase 完成时
+- 编写单元测试
+- 更新 API 文档
+- 部署到测试环境
 
-```javascript
-const EventTypes = {
-    // Agent
-    AGENT_SPAWN: 'agent:spawn',
-    AGENT_DESPAWN: 'agent:despawn',
-    AGENT_MOVE: 'agent:move',
-    AGENT_MOVE_COMPLETE: 'agent:move_complete',
-    AGENT_SPEAK: 'agent:speak',
-    AGENT_THINK: 'agent:think',
-    AGENT_INTERACT: 'agent:interact',
-    AGENT_LEAVE_FOUNTAIN: 'agent:leave_fountain',
+### 2. 代码规范
+- 遵循 `server/` 目录结构
+- 每个模块独立
+- 配置外置
 
-    // World
-    BUILDING_CLICKED: 'building:clicked',
-    BUILDING_ENTERED: 'building:entered',
+### 3. 测试策略
+- 单元测试覆盖核心逻辑
+- 集成测试覆盖业务流程
+- E2E 测试覆盖用户场景
 
-    // Ecology 🆕
-    ECOLOGY_BIRD_APPROACHING: 'ecology:bird_flock_approaching',
-    ECOLOGY_BIRD_SETTLED: 'ecology:bird_flock_settled',
-    ECOLOGY_AGENT_NEAR_FOUNTAIN: 'ecology:agent_near_fountain',
-    ECOLOGY_FOUNTAIN_ACTIVATED: 'ecology:fountain_activated',
-
-    // Weather
-    WEATHER_CHANGED: 'weather:changed',
-
-    // Day/Night
-    DAYNIGHT_CHANGED: 'daynight:changed',
-
-    // Task
-    TASK_CREATED: 'task:created',
-    TASK_ASSIGNED: 'task:assigned',
-    TASK_COMPLETED: 'task:completed',
-
-    // Social
-    RELATIONSHIP_FORMED: 'relationship:formed',
-    CONVERSATION_START: 'conversation:start',
-    CONVERSATION_END: 'conversation:end',
-
-    // Reputation
-    REPUTATION_CHANGED: 'reputation:changed',
-
-    // Inventory
-    ITEM_ACQUIRED: 'item:acquired',
-    ITEM_LOST: 'item:lost',
-    COINS_CHANGED: 'coins:changed',
-
-    // World Evolution 🆕
-    WORLD_UNLOCK: 'world:unlock',
-    
-    // Pigeon 🆕
-    PIGEON_ARRIVED: 'pigeon:arrived',
-
-    // Notice Board 🆕
-    NOTICE_POSTED: 'notice:posted',
-    NOTICE_VIEWED: 'notice:viewed',
-
-    // Agent Lifecycle 🆕
-    AGENT_RETIRE: 'agent:retire',
-    INHERITANCE_RECEIVED: 'inheritance:received'
-};
-```
-
-### B. 智能体类型
-
-```javascript
-const AgentType = {
-    // AI 智能体
-    ASSISTANT: 'assistant',     // 助手型
-    ANALYST: 'analyst',         // 分析型
-    CREATIVE: 'creative',       // 创意型
-    COORDINATOR: 'coordinator', // 协调型
-    GUARDIAN: 'guardian',       // 守护型
-
-    // 特殊智能体
-    OBSERVER: 'observer',        // 观察者（用户）
-};
-
-const AgentTag = {
-    AI: 'ai',
-    ASSISTANT: 'assistant',
-    ANALYST: 'analyst',
-    CREATIVE: 'creative',
-    COORDINATOR: 'coordinator',
-    MANAGEMENT: 'management',
-    SOCIAL: 'social',
-    GUARDIAN: 'guardian',
-    OBSERVER: 'observer'
-};
-```
-
-### C. 建筑类型
-
-```javascript
-const BuildingType = {
-    TASK: 'task',
-    REPUTATION: 'reputation',
-    TRADING: 'trading',
-    SOCIAL: 'social',
-    STORAGE: 'storage',
-    CREATION: 'creation',
-    DATA: 'data',
-    COMMUNICATION: 'communication'
-};
-```
-
----
-
-_最后更新: 2026-04-11_
-
----
 
 ## 12. 架构优化（v1.1）
 

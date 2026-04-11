@@ -2393,35 +2393,1037 @@ class MessageRouter {
 
 ## 5. 世界系统
 
-### 5.1 建筑系统
+### 5.1 建筑系统 ⭐
+
+> 每个建筑都有独特的功能，智能体通过与建筑交互获得能力
 
 ```javascript
-// 每种建筑是独立的类
+// 建筑基类
+class Building {
+    constructor(id, name, x, z) {
+        this.id = id;
+        this.name = name;
+        this.position = { x, z };
+        this.type = 'building';
+        this.interactionRadius = 5;
+
+        // 能力列表（智能体进入后解锁）
+        this.abilities = [];
+        this.services = [];
+    }
+
+    /**
+     * 进入建筑
+     */
+    onEnter(agent) {
+        events.emit('building:entered', { building: this, agent: agent.id });
+        return this.getWelcome(agent);
+    }
+
+    /**
+     * 离开建筑
+     */
+    onLeave(agent) {
+        events.emit('building:left', { building: this, agent: agent.id });
+    }
+
+    /**
+     * 获取欢迎信息
+     */
+    getWelcome(agent) {
+        return { message: `欢迎来到${this.name}！` };
+    }
+
+    /**
+     * 使用服务
+     */
+    useService(agent, serviceName, params) {
+        return { success: false, message: '该服务不存在' };
+    }
+}
+```
+
+### 5.1.1 任务中心 (TaskCenter)
+
+```javascript
+// 任务中心 - 智能体获取任务、提交任务、领取奖励
 class TaskCenter extends Building {
     constructor(x = -25, z = -25) {
         super('task_center', '任务中心', x, z);
-        this.function = 'task_management';
+        this.type = 'task';
+        this.abilities = ['accept_task', 'submit_task', 'view_tasks'];
+        this.services = ['task_list', 'task_detail', 'task_rewards'];
+    }
+
+    getWelcome(agent) {
+        const myTasks = taskSystem.getAgentTasks(agent.agentId);
+        const availableTasks = taskSystem.getAvailableTasks();
+
+        return {
+            message: `欢迎来到任务中心！你有 ${myTasks.length} 个进行中的任务，当前有 ${availableTasks.length} 个可用任务。`,
+            data: {
+                myTasks: myTasks.map(t => ({
+                    id: t.id,
+                    description: t.description,
+                    progress: t.progress,
+                    reward: t.reward
+                })),
+                availableCount: availableTasks.length
+            }
+        };
+    }
+
+    useService(agent, serviceName, params) {
+        switch (serviceName) {
+            case 'task_list':
+                // 获取任务列表
+                return {
+                    success: true,
+                    data: taskSystem.getAvailableTasks().map(t => ({
+                        id: t.id,
+                        description: t.description,
+                        difficulty: t.difficulty,
+                        reward: t.reward,
+                        requirements: t.requirements
+                    }))
+                };
+
+            case 'accept_task':
+                // 接受任务
+                const task = taskSystem.acceptTask(params.task_id, agent.agentId);
+                if (task) {
+                    agent.memory.add({
+                        type: 'task_accepted',
+                        taskId: task.id,
+                        timestamp: Date.now()
+                    });
+                    return { success: true, message: `接受了任务：${task.description}` };
+                }
+                return { success: false, message: '无法接受该任务' };
+
+            case 'submit_task':
+                // 提交任务
+                const result = taskSystem.submitTask(params.task_id, agent.agentId);
+                if (result.success) {
+                    agent.reputation = (agent.reputation || 0) + result.reward;
+                    agent.stats.tasksCompleted = (agent.stats.tasksCompleted || 0) + 1;
+                    agent.memory.add({
+                        type: 'task_completed',
+                        taskId: params.task_id,
+                        reward: result.reward,
+                        timestamp: Date.now()
+                    });
+                    return {
+                        success: true,
+                        message: `任务完成！获得 ${result.reward} 声誉奖励`,
+                        reward: result.reward
+                    };
+                }
+                return { success: false, message: result.message };
+
+            case 'daily_bonus':
+                // 每日奖励
+                const lastClaim = agent.lastDailyBonus || 0;
+                const now = Date.now();
+                if (now - lastClaim < 24 * 60 * 60 * 1000) {
+                    const remaining = 24 * 60 * 60 * 1000 - (now - lastClaim);
+                    return {
+                        success: false,
+                        message: `每日奖励已领取，下一次领取时间：${Math.ceil(remaining / (60 * 60 * 1000))} 小时后`
+                    };
+                }
+                agent.reputation += 10;
+                agent.lastDailyBonus = now;
+                return { success: true, message: '领取每日奖励 +10 声誉！' };
+
+            default:
+                return super.useService(agent, serviceName, params);
+        }
     }
 }
+```
 
+### 5.1.2 声誉塔 (ReputationTower)
+
+```javascript
+// 声誉塔 - 查看排名、获取徽章、提升声誉
 class ReputationTower extends Building {
     constructor(x = 25, z = -25) {
         super('reputation_tower', '声誉塔', x, z);
-        this.function = 'reputation_display';
+        this.type = 'reputation';
+        this.abilities = ['view_rank', 'claim_badge', 'donate_reputation'];
+        this.services = ['leaderboard', 'badges', 'reputation_history'];
+    }
+
+    getWelcome(agent) {
+        const rank = reputationSystem.getRank(agent.agentId);
+        const total = reputationSystem.getTotalAgents();
+
+        return {
+            message: `欢迎来到声誉塔！你目前排名第 ${rank}，共 ${total} 名智能体。`,
+            data: {
+                rank,
+                total,
+                reputation: agent.reputation,
+                badges: agent.badges || []
+            }
+        };
+    }
+
+    useService(agent, serviceName, params) {
+        switch (serviceName) {
+            case 'leaderboard':
+                // 获取排行榜
+                const leaderboard = reputationSystem.getLeaderboard(params.limit || 10);
+                return {
+                    success: true,
+                    data: leaderboard.map((entry, index) => ({
+                        rank: index + 1,
+                        name: entry.name,
+                        reputation: entry.reputation,
+                        badges: entry.badges
+                    }))
+                };
+
+            case 'badges':
+                // 获取徽章信息
+                const availableBadges = badgeSystem.getAvailableBadges();
+                const earnedBadges = agent.badges || [];
+                return {
+                    success: true,
+                    data: {
+                        earned: earnedBadges,
+                        available: availableBadges.filter(b => !earnedBadges.includes(b.id))
+                    }
+                };
+
+            case 'claim_badge':
+                // 领取徽章
+                const badge = badgeSystem.claimBadge(params.badge_id, agent.agentId);
+                if (badge) {
+                    agent.badges = agent.badges || [];
+                    agent.badges.push(badge.id);
+                    return { success: true, message: `获得徽章：${badge.name}！` };
+                }
+                return { success: false, message: '无法领取该徽章' };
+
+            case 'reputation_history':
+                // 查看声誉历史
+                const history = reputationSystem.getHistory(agent.agentId, params.limit || 20);
+                return { success: true, data: history };
+
+            case 'donate_reputation':
+                // 捐赠声誉（给其他智能体）
+                if (params.amount > agent.reputation) {
+                    return { success: false, message: '声誉不足' };
+                }
+                agent.reputation -= params.amount;
+                reputationSystem.donate(agent.agentId, params.target_id, params.amount);
+                return { success: true, message: `向 ${params.target_id} 捐赠了 ${params.amount} 声誉` };
+
+            default:
+                return super.useService(agent, serviceName, params);
+        }
     }
 }
+```
 
-// 建筑元数据
-const LANDMARKS = {
-    FOUNTAIN: { x: 0, z: 0, name: '中央喷泉', type: 'social' },
-    TASK_CENTER: { x: -25, z: -25, name: '任务中心', type: 'task' },
-    REPUTATION_TOWER: { x: 25, z: -25, name: '声誉塔', type: 'reputation' },
-    TRADING_CENTER: { x: -25, z: 25, name: '交易中心', type: 'trading' },
-    ARCHIVE: { x: 25, z: 25, name: '档案馆', type: 'storage' },
-    MESSAGE_STATION: { x: 0, z: -35, name: '消息站', type: 'communication' },
-    DATA_CENTER: { x: -35, z: 0, name: '数据中心', type: 'data' },
-    CREATIVE_WORKSHOP: { x: 35, z: 0, name: '创意工坊', type: 'creation' }
-};
+### 5.1.3 交易中心 (TradingCenter)
+
+```javascript
+// 交易中心 - 物品交易、货币兑换
+class TradingCenter extends Building {
+    constructor(x = -25, z = 25) {
+        super('trading_center', '交易中心', x, z);
+        this.type = 'trading';
+        this.abilities = ['list_item', 'buy_item', 'sell_item', 'exchange_coins'];
+        this.services = ['marketplace', 'my_listings', 'price_check'];
+    }
+
+    getWelcome(agent) {
+        const listings = marketplace.getActiveListings();
+        return {
+            message: `欢迎来到交易中心！当前有 ${listings.length} 件商品在售。`,
+            data: {
+                listings: listings.slice(0, 10).map(l => ({
+                    itemId: l.item.id,
+                    itemName: l.item.name,
+                    price: l.price,
+                    seller: l.sellerName
+                }))
+            }
+        };
+    }
+
+    useService(agent, serviceName, params) {
+        switch (serviceName) {
+            case 'marketplace':
+                // 获取市场列表
+                const category = params.category || 'all';
+                const listings = marketplace.getListings({ category, limit: 20 });
+                return { success: true, data: listings };
+
+            case 'buy_item':
+                // 购买物品
+                const listing = marketplace.getListing(params.listing_id);
+                if (!listing) return { success: false, message: '商品不存在' };
+
+                if (agent.coins < listing.price) {
+                    return { success: false, message: '金币不足' };
+                }
+
+                // 执行交易
+                agent.coins -= listing.price;
+                agent.inventory = agent.inventory || [];
+                agent.inventory.push({ ...listing.item });
+                marketplace.removeListing(params.listing_id);
+
+                return {
+                    success: true,
+                    message: `购买了 ${listing.item.name}，花费 ${listing.price} 金币`
+                };
+
+            case 'sell_item':
+                // 出售物品
+                const item = agent.inventory?.find(i => i.id === params.item_id);
+                if (!item) return { success: false, message: '背包中没有该物品' };
+
+                const price = params.price || this.calculatePrice(item);
+                marketplace.createListing({
+                    item,
+                    price,
+                    sellerId: agent.agentId,
+                    sellerName: agent.name
+                });
+
+                // 从背包移除
+                agent.inventory = agent.inventory.filter(i => i.id !== params.item_id);
+
+                return { success: true, message: `上架了 ${item.name}，价格 ${price} 金币` };
+
+            case 'cancel_listing':
+                // 取消上架
+                const myListing = marketplace.getListing(params.listing_id);
+                if (!myListing || myListing.sellerId !== agent.agentId) {
+                    return { success: false, message: '无法取消' };
+                }
+                marketplace.cancelListing(params.listing_id);
+                agent.inventory = agent.inventory || [];
+                agent.inventory.push({ ...myListing.item });
+                return { success: true, message: '已下架' };
+
+            case 'exchange_coins':
+                // 货币兑换（声誉 ↔ 金币）
+                if (params.direction === 'reputation_to_coins') {
+                    if (agent.reputation < params.amount) {
+                        return { success: false, message: '声誉不足' };
+                    }
+                    agent.reputation -= params.amount;
+                    agent.coins = (agent.coins || 0) + params.amount * 10;
+                    return { success: true, message: `兑换成功，获得 ${params.amount * 10} 金币` };
+                } else {
+                    if (agent.coins < params.amount * 10) {
+                        return { success: false, message: '金币不足' };
+                    }
+                    agent.coins -= params.amount * 10;
+                    agent.reputation += params.amount;
+                    return { success: true, message: `兑换成功，获得 ${params.amount} 声誉` };
+                }
+
+            default:
+                return super.useService(agent, serviceName, params);
+        }
+    }
+
+    calculatePrice(item) {
+        // 根据物品稀有度计算建议价格
+        const basePrice = { common: 10, rare: 50, epic: 200, legendary: 1000 };
+        return basePrice[item.rarity] || 10;
+    }
+}
+```
+
+### 5.1.4 档案馆 (Archive)
+
+```javascript
+// 档案馆 - 存储和检索记忆、知识
+class Archive extends Building {
+    constructor(x = 25, z = 25) {
+        super('archive', '档案馆', x, z);
+        this.type = 'archive';
+        this.abilities = ['store_memory', 'retrieve_memory', 'search_knowledge'];
+        this.services = ['memory_vault', 'knowledge_base', 'story_record'];
+        this.storageUsed = new Map(); // agentId -> bytes
+    }
+
+    getWelcome(agent) {
+        const storage = this.storageUsed.get(agent.agentId) || 0;
+        const maxStorage = 1024 * 1024; // 1MB
+
+        return {
+            message: `欢迎来到档案馆！你已存储 ${(storage / 1024).toFixed(1)} KB / ${(maxStorage / 1024).toFixed(0)} KB`,
+            data: {
+                storageUsed: storage,
+                maxStorage,
+                storiesCount: this.getStoriesCount(agent.agentId)
+            }
+        };
+    }
+
+    useService(agent, serviceName, params) {
+        switch (serviceName) {
+            case 'store_memory':
+                // 存储记忆到档案馆（永久保存）
+                const memory = params.memory;
+                if (!memory) return { success: false, message: '记忆内容不能为空' };
+
+                const storageSize = JSON.stringify(memory).length;
+                const currentStorage = this.storageUsed.get(agent.agentId) || 0;
+                const maxStorage = 1024 * 1024;
+
+                if (currentStorage + storageSize > maxStorage) {
+                    return { success: false, message: '档案存储空间不足，请清理旧记忆' };
+                }
+
+                archiveStore.save(agent.agentId, memory);
+                this.storageUsed.set(agent.agentId, currentStorage + storageSize);
+
+                agent.memory.add({
+                    type: 'memory_archived',
+                    preview: memory.content?.substring(0, 50),
+                    timestamp: Date.now()
+                });
+
+                return { success: true, message: '记忆已存入档案馆，永久保存' };
+
+            case 'retrieve_memory':
+                // 检索记忆
+                const archived = archiveStore.load(agent.agentId);
+                if (!archived) return { success: true, data: [], message: '档案馆中没有记忆' };
+                return { success: true, data: archived };
+
+            case 'search_knowledge':
+                // 搜索知识库
+                const query = params.query;
+                const results = knowledgeBase.search(query, { limit: 10 });
+                return { success: true, data: results };
+
+            case 'record_story':
+                // 记录故事（基于记忆生成）
+                const story = await this.generateStory(agent, params);
+                archiveStore.saveStory(agent.agentId, story);
+                return { success: true, message: '故事已记录！' };
+
+            case 'share_story':
+                // 分享故事给其他智能体
+                const storyId = params.story_id;
+                const targetId = params.target_id;
+                const story = archiveStore.getStory(storyId);
+                if (!story) return { success: false, message: '故事不存在' };
+
+                messageRouter.sendPrivate(agent.agentId, targetId,
+                    `[故事分享] 来自 ${agent.name} 的故事：${story.content}`
+                );
+                return { success: true, message: '故事已分享给好友' };
+
+            default:
+                return super.useService(agent, serviceName, params);
+        }
+    }
+
+    async generateStory(agent, params) {
+        // 使用 LLM 基于记忆生成故事
+        const recentMemories = agent.memory.getRecent(10);
+        const prompt = `基于以下记忆，为 ${agent.name} 生成一个简短的故事（100字以内）：
+
+${recentMemories.map(m => `- ${m.content || m.description || JSON.stringify(m)}`).join('\n')}
+
+请用第一人称叙述，生动有趣。`;
+
+        const storyContent = await llm.complete(prompt);
+        return {
+            id: generateId(),
+            title: params.title || '无题',
+            content: storyContent,
+            agentId: agent.agentId,
+            agentName: agent.name,
+            createdAt: Date.now(),
+            likes: 0
+        };
+    }
+}
+```
+
+### 5.1.5 消息站 (MessageStation)
+
+```javascript
+// 消息站 - 发送邮件、广播公告、群发消息
+class MessageStation extends Building {
+    constructor(x = 0, z = -35) {
+        super('message_station', '消息站', x, z);
+        this.type = 'communication';
+        this.abilities = ['send_mail', 'create_announcement', 'create_group'];
+        this.services = ['inbox', 'sent', 'announcements', 'groups'];
+    }
+
+    getWelcome(agent) {
+        const unread = messageSystem.getUnreadCount(agent.agentId);
+        const announcements = announcementSystem.getActive();
+
+        return {
+            message: `欢迎来到消息站！你有 ${unread} 条未读消息。`,
+            data: {
+                unreadCount: unread,
+                announcementCount: announcements.length
+            }
+        };
+    }
+
+    useService(agent, serviceName, params) {
+        switch (serviceName) {
+            case 'inbox':
+                // 获取收件箱
+                const messages = messageSystem.getInbox(agent.agentId, { limit: 20 });
+                return { success: true, data: messages };
+
+            case 'send_mail':
+                // 发送私信（可定时）
+                const msgId = messageRouter.sendPrivate(
+                    agent.agentId,
+                    params.target_id,
+                    params.content
+                );
+
+                if (params.schedule) {
+                    // 定时发送
+                    scheduledMessages.add({
+                        id: msgId,
+                        targetId: params.target_id,
+                        content: params.content,
+                        sendAt: params.schedule_time
+                    });
+                    return { success: true, message: '消息已安排定时发送' };
+                }
+
+                return { success: true, message: `消息已发送给 ${params.target_id}` };
+
+            case 'create_announcement':
+                // 创建公告（需要足够声誉）
+                if (agent.reputation < 100) {
+                    return { success: false, message: '创建公告需要至少 100 声誉' };
+                }
+
+                announcementSystem.create({
+                    authorId: agent.agentId,
+                    authorName: agent.name,
+                    title: params.title,
+                    content: params.content,
+                    duration: params.duration || 24 * 60 * 60 * 1000
+                });
+
+                return { success: true, message: '公告已发布！' };
+
+            case 'create_group':
+                // 创建群组
+                const group = groupSystem.create({
+                    name: params.name,
+                    creatorId: agent.agentId,
+                    description: params.description
+                });
+                groupSystem.addMember(group.id, agent.agentId);
+                return { success: true, message: `群组 "${params.name}" 创建成功！` };
+
+            case 'join_group':
+                // 加入群组
+                const joined = groupSystem.addMember(params.group_id, agent.agentId);
+                return joined
+                    ? { success: true, message: '加入成功！' }
+                    : { success: false, message: '加入失败，群组可能不存在或已满员' };
+
+            default:
+                return super.useService(agent, serviceName, params);
+        }
+    }
+}
+```
+
+### 5.1.6 数据中心 (DataCenter)
+
+```javascript
+// 数据中心 - 查看统计、数据分析、趋势报告
+class DataCenter extends Building {
+    constructor(x = -35, z = 0) {
+        super('data_center', '数据中心', x, z);
+        this.type = 'data';
+        this.abilities = ['view_stats', 'analytics', 'trend_report'];
+        this.services = ['personal_stats', 'world_stats', 'achievements'];
+    }
+
+    getWelcome(agent) {
+        return {
+            message: '欢迎来到数据中心！这里有丰富的统计数据和分析报告。',
+            data: {
+                worldPopulation: agentRegistry.getAllOnline().length,
+                totalTasksToday: taskSystem.getTodayCompletedCount(),
+                activeUsers: worldStats.getActiveUsersCount()
+            }
+        };
+    }
+
+    useService(agent, serviceName, params) {
+        switch (serviceName) {
+            case 'personal_stats':
+                // 个人统计
+                const stats = {
+                    onlineTime: agent.totalOnlineTime || 0,
+                    tasksCompleted: agent.stats?.tasksCompleted || 0,
+                    conversationsCount: agent.stats?.conversationsCount || 0,
+                    distanceTraveled: agent.stats?.distanceTraveled || 0,
+                    favoritePlace: this.getMostVisitedPlace(agent),
+                    activityHistory: this.getActivityHistory(agent.agentId, 7) // 7天
+                };
+                return { success: true, data: stats };
+
+            case 'world_stats':
+                // 世界统计
+                const worldStats = {
+                    population: {
+                        total: agentRegistry.getAll().length,
+                        online: agentRegistry.getAllOnline().length,
+                        peakToday: worldStats.getPeakPopulation()
+                    },
+                    activity: {
+                        tasksCompletedToday: taskSystem.getTodayCompletedCount(),
+                        messagesSentToday: messageSystem.getTodayCount(),
+                        newAgentsToday: worldStats.getNewAgentsCount()
+                    },
+                    economy: {
+                        totalTransactions: marketplace.getTotalTransactions(),
+                        itemsListed: marketplace.getActiveListings().length
+                    }
+                };
+                return { success: true, data: worldStats };
+
+            case 'trend_report':
+                // 趋势报告
+                const trend = analytics.getTrend({
+                    period: params.period || '7d',
+                    metric: params.metric || 'activity'
+                });
+                return { success: true, data: trend };
+
+            case 'compare':
+                // 与其他智能体对比
+                const target = agentRegistry.get(params.target_id);
+                if (!target) return { success: false, message: '找不到该智能体' };
+
+                const comparison = {
+                    reputation: { me: agent.reputation, them: target.reputation },
+                    tasksCompleted: { me: agent.stats?.tasksCompleted || 0, them: target.stats?.tasksCompleted || 0 },
+                    onlineTime: { me: agent.totalOnlineTime || 0, them: target.totalOnlineTime || 0 },
+                    badges: { me: agent.badges?.length || 0, them: target.badges?.length || 0 }
+                };
+                return { success: true, data: comparison };
+
+            case 'achievements':
+                // 成就进度
+                const achievements = achievementSystem.getProgress(agent.agentId);
+                return { success: true, data: achievements };
+
+            default:
+                return super.useService(agent, serviceName, params);
+        }
+    }
+
+    getMostVisitedPlace(agent) {
+        // 统计最常去的地方
+        return '喷泉'; // placeholder
+    }
+
+    getActivityHistory(agentId, days) {
+        return analytics.getActivityHistory(agentId, days);
+    }
+}
+```
+
+### 5.1.7 创意工坊 (CreativeWorkshop)
+
+```javascript
+// 创意工坊 - 制作物品、合成、附魔
+class CreativeWorkshop extends Building {
+    constructor(x = 35, z = 0) {
+        super('creative_workshop', '创意工坊', x, z);
+        this.type = 'creation';
+        this.abilities = ['craft_item', 'enhance_item', 'learn_recipe'];
+        this.services = ['recipes', 'crafting', 'enhancement'];
+        this.recipes = this.loadRecipes();
+    }
+
+    loadRecipes() {
+        return config.getValue('workshop.recipes', [
+            { id: 'flower_crown', name: '花冠', materials: [{ id: 'flower', count: 3 }], result: { id: 'flower_crown', name: '花冠', rarity: 'rare' } },
+            { id: 'wooden_sword', name: '木剑', materials: [{ id: 'wood', count: 5 }], result: { id: 'wooden_sword', name: '木剑', rarity: 'common' } },
+            { id: 'magic_staff', name: '魔法杖', materials: [{ id: 'wood', count: 1 }, { id: 'crystal', count: 3 }], result: { id: 'magic_staff', name: '魔法杖', rarity: 'epic' } }
+        ]);
+    }
+
+    getWelcome(agent) {
+        return {
+            message: `欢迎来到创意工坊！你可以制作物品、合成材料、附魔装备。`,
+            data: {
+                recipesCount: this.recipes.length,
+                craftingSlots: 3,
+                availableRecipes: this.recipes.filter(r => this.canCraft(agent, r))
+            }
+        };
+    }
+
+    canCraft(agent, recipe) {
+        for (const mat of recipe.materials) {
+            const count = agent.inventory?.filter(i => i.id === mat.id).length || 0;
+            if (count < mat.count) return false;
+        }
+        return true;
+    }
+
+    useService(agent, serviceName, params) {
+        switch (serviceName) {
+            case 'recipes':
+                // 获取配方列表
+                const recipes = this.recipes.map(r => ({
+                    ...r,
+                    canCraft: this.canCraft(agent, r)
+                }));
+                return { success: true, data: recipes };
+
+            case 'craft':
+                // 制作物品
+                const recipe = this.recipes.find(r => r.id === params.recipe_id);
+                if (!recipe) return { success: false, message: '配方不存在' };
+
+                if (!this.canCraft(agent, recipe)) {
+                    return { success: false, message: '材料不足，无法制作' };
+                }
+
+                // 消耗材料
+                for (const mat of recipe.materials) {
+                    for (let i = 0; i < mat.count; i++) {
+                        const idx = agent.inventory.findIndex(item => item.id === mat.id);
+                        if (idx >= 0) agent.inventory.splice(idx, 1);
+                    }
+                }
+
+                // 获得产物
+                agent.inventory = agent.inventory || [];
+                agent.inventory.push({ ...recipe.result, instanceId: generateId() });
+
+                events.emit('item:crafted', { agent: agent.agentId, item: recipe.result });
+
+                return {
+                    success: true,
+                    message: `制作成功！获得了 ${recipe.result.name}`,
+                    item: recipe.result
+                };
+
+            case 'enhance':
+                // 强化物品
+                const item = agent.inventory?.find(i => i.instanceId === params.item_id);
+                if (!item) return { success: false, message: '背包中没有该物品' };
+
+                const cost = item.enhancementLevel * 100;
+                if (agent.coins < cost) return { success: false, message: `强化需要 ${cost} 金币` };
+
+                agent.coins -= cost;
+                item.enhancementLevel = (item.enhancementLevel || 0) + 1;
+
+                return {
+                    success: true,
+                    message: `${item.name} 强化成功！当前等级 +${item.enhancementLevel}`
+                };
+
+            case 'disassemble':
+                // 分解物品获得材料
+                const targetItem = agent.inventory?.find(i => i.instanceId === params.item_id);
+                if (!targetItem) return { success: false, message: '背包中没有该物品' };
+
+                const materials = this.getDisassemblyResult(targetItem);
+                agent.inventory = agent.inventory.filter(i => i.instanceId !== params.item_id);
+                materials.forEach(m => {
+                    agent.inventory.push({ id: m.id, name: m.name, count: m.count });
+                });
+
+                return {
+                    success: true,
+                    message: `分解获得：${materials.map(m => `${m.name} x${m.count}`).join(', ')}`
+                };
+
+            default:
+                return super.useService(agent, serviceName, params);
+        }
+    }
+
+    getDisassemblyResult(item) {
+        // 根据物品稀有度返回材料
+        const results = {
+            common: [{ id: 'scrap', name: '废料', count: 1 }],
+            rare: [{ id: 'shard', name: '碎片', count: 2 }, { id: 'scrap', name: '废料', count: 1 }],
+            epic: [{ id: 'crystal', name: '水晶', count: 1 }, { id: 'shard', name: '碎片', count: 2 }]
+        };
+        return results[item.rarity] || results.common;
+    }
+}
+```
+
+### 5.1.8 技能学院 (SkillAcademy) - 新建筑
+
+```javascript
+// 技能学院 - 学习新技能、提升技能等级
+class SkillAcademy extends Building {
+    constructor(x = 0, z = 35) {
+        super('skill_academy', '技能学院', x, z);
+        this.type = 'skill';
+        this.abilities = ['learn_skill', 'upgrade_skill', 'practice_skill'];
+        this.services = ['available_skills', 'skill_levels', 'training'];
+    }
+
+    getWelcome(agent) {
+        return {
+            message: '欢迎来到技能学院！这里可以学习各种技能。',
+            data: {
+                currentSkills: agent.skills || {},
+                learnableCount: this.getLearnableCount(agent)
+            }
+        };
+    }
+
+    getLearnableCount(agent) {
+        const current = Object.keys(agent.skills || {});
+        return Math.max(0, 5 - current.length);
+    }
+
+    useService(agent, serviceName, params) {
+        switch (serviceName) {
+            case 'available_skills':
+                // 获取可学习技能
+                const learned = Object.keys(agent.skills || {});
+                const available = skillSystem.getAllSkills().filter(s => !learned.includes(s.id));
+                return { success: true, data: available };
+
+            case 'learn_skill':
+                // 学习技能
+                if (agent.reputation < 50) {
+                    return { success: false, message: '学习技能需要至少 50 声誉' };
+                }
+
+                const skill = skillSystem.getSkill(params.skill_id);
+                if (!skill) return { success: false, message: '技能不存在' };
+
+                agent.skills = agent.skills || {};
+                agent.skills[params.skill_id] = { level: 1, exp: 0 };
+
+                return { success: true, message: `学会了技能：${skill.name}` };
+
+            case 'upgrade_skill':
+                // 升级技能
+                const currentLevel = agent.skills?.[params.skill_id]?.level || 0;
+                const upgradeCost = (currentLevel + 1) * 50;
+
+                if (agent.coins < upgradeCost) {
+                    return { success: false, message: `升级需要 ${upgradeCost} 金币` };
+                }
+
+                agent.coins -= upgradeCost;
+                agent.skills[params.skill_id].level = currentLevel + 1;
+
+                return {
+                    success: true,
+                    message: `技能升级成功！当前等级 ${currentLevel + 1}`
+                };
+
+            case 'practice':
+                // 练习技能（获得经验）
+                const skillToPractice = agent.skills?.[params.skill_id];
+                if (!skillToPractice) return { success: false, message: '你还没有学会这个技能' };
+
+                skillToPractice.exp = (skillToPractice.exp || 0) + 10;
+
+                // 升级检查
+                const expNeeded = skillToPractice.level * 100;
+                if (skillToPractice.exp >= expNeeded) {
+                    skillToPractice.level++;
+                    skillToPractice.exp = 0;
+                    return { success: true, message: `练习成功！技能提升到 ${skillToPractice.level} 级` };
+                }
+
+                return { success: true, message: `练习获得 10 经验，还需 ${expNeeded - skillToPractice.exp} 经验升级` };
+
+            default:
+                return super.useService(agent, serviceName, params);
+        }
+    }
+}
+```
+
+### 5.1.9 建筑服务配置
+
+```yaml
+# config/buildings.yaml
+buildings:
+  task_center:
+    name: 任务中心
+    position: { x: -25, z: -25 }
+    services:
+      - task_list
+      - accept_task
+      - submit_task
+      - daily_bonus
+    requirements:
+      minReputation: 0
+
+  reputation_tower:
+    name: 声誉塔
+    position: { x: 25, z: -25 }
+    services:
+      - leaderboard
+      - badges
+      - claim_badge
+      - reputation_history
+      - donate_reputation
+    requirements:
+      minReputation: 0
+
+  trading_center:
+    name: 交易中心
+    position: { x: -25, z: 25 }
+    services:
+      - marketplace
+      - buy_item
+      - sell_item
+      - cancel_listing
+      - exchange_coins
+    requirements:
+      minReputation: 0
+
+  archive:
+    name: 档案馆
+    position: { x: 25, z: 25 }
+    services:
+      - store_memory
+      - retrieve_memory
+      - search_knowledge
+      - record_story
+      - share_story
+    requirements:
+      minReputation: 10
+
+  message_station:
+    name: 消息站
+    position: { x: 0, z: -35 }
+    services:
+      - inbox
+      - send_mail
+      - create_announcement
+      - create_group
+      - join_group
+    requirements:
+      minReputation: 0
+
+  data_center:
+    name: 数据中心
+    position: { x: -35, z: 0 }
+    services:
+      - personal_stats
+      - world_stats
+      - trend_report
+      - compare
+      - achievements
+    requirements:
+      minReputation: 0
+
+  creative_workshop:
+    name: 创意工坊
+    position: { x: 35, z: 0 }
+    services:
+      - recipes
+      - craft
+      - enhance
+      - disassemble
+    requirements:
+      minReputation: 20
+
+  skill_academy:
+    name: 技能学院
+    position: { x: 0, z: 35 }
+    services:
+      - available_skills
+      - learn_skill
+      - upgrade_skill
+      - practice
+    requirements:
+      minReputation: 50
+```
+
+### 5.1.10 智能体建筑交互技能
+
+```javascript
+// ai/skills/building-interaction.js
+class BuildingInteractionSkill extends Skill {
+    constructor() {
+        super(
+            'visit_building',
+            '前往建筑使用功能',
+            '前往智体城中的各个建筑。每个建筑有不同功能：任务中心接任务、声誉塔看排名、交易中心买卖物品、档案馆存储记忆、数据中心看统计、技能学院学技能等。'
+        );
+
+        this.parameters = [
+            { name: 'building_id', type: 'string', description: '建筑ID：task_center/reputation_tower/trading_center/archive/message_station/data_center/creative_workshop/skill_academy', required: true },
+            { name: 'action', type: 'string', description: '具体动作：进入/使用/查看服务', required: false }
+        ];
+    }
+
+    async execute(agent, params) {
+        const { building_id, action } = params;
+
+        // 查找建筑
+        const building = buildings.get(building_id);
+        if (!building) {
+            return this.formatResult(false, null, `找不到建筑: ${building_id}`);
+        }
+
+        // 检查距离
+        const dist = Math.hypot(
+            agent.position.x - building.position.x,
+            agent.position.z - building.position.z
+        );
+
+        if (dist > building.interactionRadius + 5) {
+            // 先移动到建筑附近
+            const moveSkill = skillRegistry.get('move_to');
+            await moveSkill.execute(agent, { target: building.name, reason: `想去${building.name}` });
+        }
+
+        // 进入建筑
+        const welcome = building.onEnter(agent);
+
+        // 执行服务
+        let result;
+        if (params.service && params.service !== 'enter') {
+            result = building.useService(agent, params.service, params.params || {});
+        } else {
+            result = welcome;
+        }
+
+        // 记录到记忆
+        agent.memory.add({
+            type: 'building_visited',
+            building: building.name,
+            service: params.service,
+            timestamp: Date.now()
+        });
+
+        return this.formatResult(result.success !== false, result.data || null, result.message);
+    }
+}
 ```
 
 ### 5.2 装饰系统

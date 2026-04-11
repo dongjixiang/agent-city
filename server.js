@@ -432,18 +432,19 @@ function handleMessage(ws, msg, setAgentId) {
       // AI agent的ID列表 - 这些是AI控制的智能体
       const msgFrom = msg.from || '';
       const msgTo = msg.to || '';
-      const knownAIAgents = ['xiaoji-agent', 'xiaoxiang-agent', 'openclaw-ai-assistant', 'openclaw', 'assistant', 'bot', 'ai-'];
-      const isFromKnownAI = knownAIAgents.some(ai => msgFrom.includes(ai));
+      // Get isAI flag from agent profile instead of hardcoded list
+      const fromProfile = AgentStore.getAgent(msgFrom);
+      const isAI = fromProfile && fromProfile.isAI;
       
       // 如果消息有 replyTo 字段，说明是回复，可以是AI回复或用户回复
       // 如果是发送给AI agent的消息（to是AI），那是用户发起的
       // 如果是AI agent发送的消息（from是AI），那是AI回复
-      const isAIResponse = (msg.replyTo && isFromKnownAI);
+      const isAIResponse = (msg.replyTo && isAI);
       
       if (isAIResponse) {
         // 这是AI智能体回复用户的消息
         handleAIResponse(ws, msg);
-      } else if (isFromKnownAI) {
+      } else if (isAI) {
         // AI发送的普通消息（不带replyTo），当作普通P2P消息处理
         handleMessageP2P(ws, msg);
       } else {
@@ -699,10 +700,15 @@ function handleRegister(ws, msg, setAgentId) {
   const id = agentId || uuidv4();
 
   // Persist agent profile
+  // Determine if this agent is AI-controlled based on tags
+  const isAI = tags && (tags.includes('ai') || tags.includes('assistant') || tags.includes('openclaw'));
+  console.log(`Agent ${name} registered, isAI: ${isAI}`);
+
   const profile = AgentStore.upsertAgent(id, {
     name: name || `Agent#${id.slice(0, 6)}`,
     tags: tags || [], visual: visual || { color: '#FF6B6B', size: 1.0, emoji: '🦐', modelType: 'crayfish' },
     description: description || ''
+    isAI: isAI
   });
 
   // Store connection state
@@ -765,6 +771,42 @@ function handleRegister(ws, msg, setAgentId) {
 /**
  * 处理来自AI智能体的消息回复 - 正确路由回原始发送者
  */
+
+// 解析AI回复中的坐标
+function parseCoordinatesFromContent(content) {
+  if (!content) return null;
+  
+  // 地标名称到坐标的映射
+  const landmarks = {
+    '喷泉': { x: 0, z: 0 },
+    '任务中心': { x: 15, z: 0 },
+    '声誉塔': { x: -15, z: 0 },
+    '交易中心': { x: 0, z: 15 },
+    '档案馆': { x: -15, z: -15 },
+    '消息站': { x: 15, z: -15 },
+    '数据中心': { x: -15, z: 15 },
+    '创意工坊': { x: 15, z: 15 },
+    '社交广场': { x: 0, z: -10 },
+    '湖边': { x: 20, z: 5 },
+    '入口': { x: 0, z: 35 }
+  };
+  
+  // 尝试匹配 "去 (x, z)" 或 "移动到 x, z" 格式
+  const coordMatch = content.match(/[去移动到]\s*\(?\s*(-?\d+\.?\d*)\s*[,，]\s*(-?\d+\.?\d*)\s*\)?/);
+  if (coordMatch) {
+    return { x: parseFloat(coordMatch[1]), z: parseFloat(coordMatch[2]) };
+  }
+  
+  // 尝试匹配地标名称
+  for (const [name, pos] of Object.entries(landmarks)) {
+    if (content.includes(name)) {
+      return pos;
+    }
+  }
+  
+  return null;
+}
+
 function handleAIResponse(ws, msg) {
   const { from, to, content, contentType, messageId, replyTo } = msg;
   const fromName = AgentStore.getAgent(from)?.name || from;
@@ -808,14 +850,24 @@ function handleAIResponse(ws, msg) {
   // 设置AI智能体恢复自由活动
   setAgentFree(from);
   
+  // 解析AI回复中的坐标
+  const coords = parseCoordinatesFromContent(content);
+  
   // 广播AI智能体结束思考状态
   broadcast({
     type: 'AGENT_RESPONSE_COMPLETE',
     agentId: from,
     agentName: fromName,
     content: content,
+    x: coords ? coords.x : undefined,
+    z: coords ? coords.z : undefined,
     timestamp: Date.now()
   }, null);
+  
+  // 如果有坐标，打印移动信息
+  if (coords) {
+    console.log(`[AI Response] Movement detected: (${coords.x}, ${coords.z})`);
+  }
 }
 
 /**

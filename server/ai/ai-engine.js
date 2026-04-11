@@ -7,10 +7,19 @@
 const logger = require('../../utils/logger');
 const config = require('../../utils/config-loader');
 const { skillRegistry } = require('./skill-registry');
+const { llmManager } = require('./llm-manager');
+const PerceptionSystem = require('./perception/perception-system');
+const NeedsSystem = require('./motivation/needs-system');
+const EmotionSystem = require('./emotions/emotion-system');
 
 // Store 依赖
 let agentStore = null;
 let messageService = null;
+
+// AI 子系统
+let perceptionSystem = null;
+let needsSystem = null;
+let emotionSystem = null;
 
 /**
  * 设置依赖
@@ -18,6 +27,11 @@ let messageService = null;
 function setStores(stores) {
     agentStore = stores.agentStore;
     messageService = stores.messageService;
+
+    // 初始化子系统
+    perceptionSystem = new PerceptionSystem();
+    needsSystem = new NeedsSystem();
+    emotionSystem = new EmotionSystem();
 }
 
 class AIEngine {
@@ -202,12 +216,33 @@ class AIEngine {
         // 获取最近记忆
         const memories = await agentStore.getMemories(agent.agentId, 10);
 
+        // 更新需求
+        const lastUpdate = agent.lastNeedsUpdate || agent.lastSeen || Date.now();
+        const deltaMs = Date.now() - lastUpdate;
+        const updatedNeeds = needsSystem.updateNeeds(agent, deltaMs);
+
+        // 获取情绪描述
+        const emotionReport = emotionSystem.generateEmotionReport(agent.emotion);
+
+        // 获取需求描述
+        const needsDescription = needsSystem.generateNeedsDescription(updatedNeeds);
+
+        // 获取最紧急的需求
+        const urgentNeed = needsSystem.getMostUrgentNeed(updatedNeeds);
+
         return {
-            nearbyAgents: nearbyAgents.slice(0, 5), // 最多5个
+            nearbyAgents: nearbyAgents.slice(0, 5),
             availableSkills,
             recentMemories: memories,
             weather: extraContext.weather || 'sunny',
             time: extraContext.time || 'day',
+            needs: updatedNeeds,
+            needsDescription,
+            emotionReport,
+            urgentNeed,
+            perceptionSystem,
+            needsSystem,
+            emotionSystem,
             ...extraContext
         };
     }
@@ -225,14 +260,29 @@ class AIEngine {
         // 获取 LLM 配置
         const llmConfig = this.getLLMConfig(agent);
 
+        // 获取语言设置
+        const locale = agent.settings?.locale || 'zh-CN';
+
         try {
             // 调用 LLM API
-            const response = await this.callLLMAPI(prompt, llmConfig);
+            const response = await llmManager.chatWithLocale(
+                locale,
+                [{ role: 'user', content: prompt }],
+                llmConfig
+            );
 
             // 解析响应
-            return this.parseLLMResponse(response);
+            return this.parseLLMResponse(response.content);
         } catch (err) {
             logger.error(`[AIEngine] LLM call failed for ${agent.agentId}`, { error: err.message });
+
+            // 检查是否有紧急需求，使用需求系统建议
+            if (context.urgentNeed) {
+                const suggestion = needsSystem.suggestAction(context.needs, agent);
+                if (suggestion) {
+                    return suggestion;
+                }
+            }
 
             // 返回默认决策
             return {
@@ -259,6 +309,10 @@ class AIEngine {
             .map(m => `- ${m.content}`)
             .join('\n') || '没有记忆';
 
+        // 需求和情绪
+        const needsStr = context.needsDescription || '';
+        const emotionStr = context.emotionReport || '';
+
         return template
             .replace('{worldName}', '智体城')
             .replace('{agentName}', agent.name)
@@ -273,7 +327,9 @@ class AIEngine {
             .replace('{recentMemories}', memoriesStr)
             .replace('{weather}', context.weather)
             .replace('{time}', context.time)
-            .replace('{personality}', JSON.stringify(agent.traits || {}));
+            .replace('{personality}', JSON.stringify(agent.traits || {}))
+            .replace('{needs}', needsStr)
+            .replace('{emotion}', emotionStr);
     }
 
     /**
@@ -293,27 +349,6 @@ class AIEngine {
     }
 
     /**
-     * 调用 LLM API
-     */
-    async callLLMAPI(prompt, config) {
-        // 这里需要根据 config.provider 调用不同的 LLM API
-        // 暂时返回模拟响应
-
-        logger.debug(`[AIEngine] Calling LLM: ${config.provider}/${config.model}`);
-
-        // 模拟 LLM 调用
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve({
-                    skill: 'rest',
-                    params: { duration: 5 },
-                    reasoning: 'Based on current state'
-                });
-            }, 100);
-        });
-    }
-
-    /**
      * 解析 LLM 响应
      */
     parseLLMResponse(response) {
@@ -322,6 +357,16 @@ class AIEngine {
             try {
                 return JSON.parse(response);
             } catch {
+                // 如果不是 JSON，尝试提取 JSON
+                const jsonMatch = response.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    try {
+                        return JSON.parse(jsonMatch[0]);
+                    } catch {
+                        // 继续
+                    }
+                }
+
                 // 如果不是 JSON，返回默认决策
                 return {
                     skill: 'rest',

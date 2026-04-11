@@ -1,6 +1,6 @@
 # 智体城 (Agent City) - 完整技术设计文档
 
-> 版本: 1.0
+> 版本: 1.2
 > 日期: 2026-04-11
 > 状态: 进行中
 
@@ -11,7 +11,7 @@
 1. [愿景与目标](#1-愿景与目标)
 2. [核心架构](#2-核心架构)
 3. [面向对象设计](#3-面向对象设计)
-4. [AI 智能体系统](#4-ai-智能体系统)
+4. [AI 智能体系统](#4-ai-智能体系统) ⭐ Skill-based LLM Decision
 5. [世界系统](#5-世界系统)
 6. [事件驱动架构](#6-事件驱动架构)
 7. [社交与经济系统](#7-社交与经济系统)
@@ -225,36 +225,1125 @@ class Agent {
 
 ---
 
-## 4. AI 智能体系统
+## 4. AI 智能体系统 ⭐
 
-### 4.1 记忆系统 (Memory)
+> **版本 1.2 更新**：智能体决策架构全面升级为 Skill-based LLM Decision
+> 
+> **核心变化**：将智能体的所有能力封装为 Skills，由 LLM 根据当前状态自主决策
+
+### 4.1 核心理念：Skill-based LLM Decision
+
+智体城的智能体采用 **Skill-based Tool Use** 架构：
+- 将智能体可用的所有能力封装为 **Skill**
+- 将当前状态和世界状态发送给 **LLM**
+- 由 LLM 决定调用哪个 Skill
+- Skill 执行结果反馈给 LLM，进行下一轮决策
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Agent Brain                              │
+│                                                             │
+│   ┌───────────────┐     ┌──────────────────────────────┐  │
+│   │  World State │     │       Agent State             │  │
+│   │  (上下文)     │     │  - position, energy, mood   │  │
+│   │  - agents   │     │  - recent memories           │  │
+│   │  - weather  │     │  - relationships             │  │
+│   │  - tasks    │     │  - current goal              │  │
+│   └───────────────┘     └──────────────────────────────┘  │
+│                                                             │
+│                         ↓ 发送给 LLM                         │
+│                                                             │
+│   ┌─────────────────────────────────────────────────────┐  │
+│   │            LLM Decision Engine                       │  │
+│   │                                                      │  │
+│   │  "Based on the current state, what should I do?"    │  │
+│   │                                                      │  │
+│   │  Available Skills:                                   │  │
+│   │    • move_to(target)                                │  │
+│   │    • talk_to(agent_id, message)                    │  │
+│   │    • accept_task(task_id)                          │  │
+│   │    • explore()                                      │  │
+│   │    • rest()                                         │  │
+│   │    • interact(object_id)                            │  │
+│   └─────────────────────────────────────────────────────┘  │
+│                              ↓                              │
+│                    LLM 返回 Skill 调用                       │
+│                              ↓                              │
+│   ┌─────────────────────────────────────────────────────┐  │
+│   │              Skill Executor                          │  │
+│   │                                                      │  │
+│   │  execute("move_to", {target: "fountain"})          │  │
+│   │  → 结果反馈给 LLM → 下一轮决策                       │  │
+│   └─────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 4.2 Skill 系统
+
+#### 4.2.1 Skill 基类
 
 ```javascript
+// ai/skills/skill.js
+/**
+ * Skill 基类
+ * 
+ * 每个 Skill 定义：
+ * 1. 名称和描述（供 LLM 理解何时使用）
+ * 2. 参数 Schema（LLM 需要提供什么参数）
+ * 3. 执行逻辑
+ * 4. 返回结果（供 LLM 理解执行结果）
+ */
+class Skill {
+    constructor(id, name, description) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.parameters = [];
+    }
+
+    /**
+     * 获取 Skill 的描述（用于 prompt）
+     */
+    getManifest() {
+        return {
+            id: this.id,
+            name: this.name,
+            description: this.description,
+            parameters: this.parameters.map(p => ({
+                name: p.name,
+                type: p.type,
+                description: p.description,
+                required: p.required
+            }))
+        };
+    }
+
+    /**
+     * 执行 Skill（子类实现）
+     */
+    async execute(agent, params) {
+        throw new Error('execute() must be implemented');
+    }
+
+    /**
+     * 执行结果（供 LLM 理解）
+     */
+    formatResult(success, data, message) {
+        return {
+            success,
+            data,
+            message,
+            skill: this.id,
+            timestamp: Date.now()
+        };
+    }
+}
+```
+
+#### 4.2.2 移动技能 (MoveToSkill)
+
+```javascript
+// ai/skills/move-to.js
+class MoveToSkill extends Skill {
+    constructor() {
+        super(
+            'move_to',
+            '移动到指定位置',
+            '让智能体移动到世界中的某个位置。如果你想去见其他智能体或去某个建筑，使用这个技能。'
+        );
+        
+        this.parameters = [
+            { name: 'target', type: 'string', description: '目标位置名称（如 "喷泉"、"任务中心"）或坐标 "x,z"', required: true },
+            { name: 'reason', type: 'string', description: '为什么要去这里（可选，帮助记录）', required: false }
+        ];
+    }
+
+    async execute(agent, params) {
+        const { target, reason } = params;
+        
+        // 解析目标位置
+        const position = this.parseTarget(target);
+        if (!position) {
+            return this.formatResult(false, null, `无法解析目标: ${target}`);
+        }
+        
+        // 检查是否已经到达
+        const dist = Math.hypot(
+            agent.position.x - position.x,
+            agent.position.z - position.z
+        );
+        
+        if (dist < 2) {
+            return this.formatResult(true, { already_there: true }, `已经在 ${target} 附近`);
+        }
+        
+        // 开始移动
+        agent.setTarget(position);
+        agent.state = 'moving';
+        
+        if (reason) {
+            agent.memory.add({
+                type: 'intention',
+                action: 'move_to',
+                target,
+                reason,
+                timestamp: Date.now()
+            });
+        }
+        
+        return this.formatResult(true, { 
+            position,
+            estimated_time: dist / agent.speed
+        }, `正在前往 ${target}...`);
+    }
+
+    parseTarget(target) {
+        const landmarks = {
+            '喷泉': { x: 0, z: 0 },
+            '任务中心': { x: -25, z: -25 },
+            '声誉塔': { x: 25, z: -25 },
+            '交易中心': { x: -25, z: 25 },
+            '档案馆': { x: 25, z: 25 }
+        };
+        
+        if (landmarks[target]) return landmarks[target];
+        
+        // 坐标格式 "x,z"
+        const coordMatch = target.match(/(-?\d+),(-?\d+)/);
+        if (coordMatch) {
+            return { x: parseInt(coordMatch[1]), z: parseInt(coordMatch[2]) };
+        }
+        
+        return null;
+    }
+}
+```
+
+#### 4.2.3 交谈技能 (TalkToSkill)
+
+```javascript
+// ai/skills/talk-to.js
+class TalkToSkill extends Skill {
+    constructor() {
+        super(
+            'talk_to',
+            '与其他智能体交谈',
+            '向另一个智能体发送私信。如果你想和某个智能体交流、问候、获取信息或合作，使用这个技能。'
+        );
+        
+        this.parameters = [
+            { name: 'agent_id', type: 'string', description: '目标智能体的ID', required: true },
+            { name: 'message', type: 'string', description: '你想说的话（中文，50字以内）', required: true },
+            { name: 'intent', type: 'string', description: '交谈目的（如 "问候"、"询问任务"、"合作"）', required: false }
+        ];
+    }
+
+    async execute(agent, params) {
+        const { agent_id, message, intent } = params;
+        
+        const targetAgent = world.getAgent(agent_id);
+        if (!targetAgent) {
+            return this.formatResult(false, null, `找不到智能体: ${agent_id}`);
+        }
+        
+        // 检查距离
+        const dist = Math.hypot(
+            agent.position.x - targetAgent.position.x,
+            agent.position.z - targetAgent.position.z
+        );
+        
+        if (dist > 20) {
+            return this.formatResult(false, null, `${targetAgent.name} 太远了，先走近一些吧（使用 move_to）`);
+        }
+        
+        // 发送消息
+        const msgId = await messageService.sendPrivate(agent.id, agent_id, message);
+        
+        agent.memory.add({
+            type: 'conversation',
+            with: agent_id,
+            message,
+            intent,
+            timestamp: Date.now()
+        });
+        
+        relationships.increaseAffinity(agent.id, agent_id, 5);
+        
+        return this.formatResult(true, { 
+            msg_id: msgId,
+            target: targetAgent.name
+        }, `对 ${targetAgent.name} 说: ${message}`);
+    }
+}
+```
+
+#### 4.2.4 任务技能 (TaskSkill)
+
+```javascript
+// ai/skills/task.js
+class AcceptTaskSkill extends Skill {
+    constructor() {
+        super(
+            'accept_task',
+            '接受任务',
+            '从任务中心接受一个任务。完成任务可以获得声誉和奖励。'
+        );
+        
+        this.parameters = [
+            { name: 'task_id', type: 'string', description: '要接受的任务ID（留空则查看可用的任务列表）', required: false }
+        ];
+    }
+
+    async execute(agent, params) {
+        const { task_id } = params;
+        
+        // 如果没有指定任务ID，返回可用任务列表
+        if (!task_id) {
+            const available = taskSystem.getAvailableTasks(agent);
+            return this.formatResult(true, {
+                tasks: available.map(t => ({
+                    id: t.id,
+                    description: t.description,
+                    reward: t.reward,
+                    difficulty: t.difficulty
+                }))
+            }, `当前有 ${available.length} 个可用任务`);
+        }
+        
+        const task = taskSystem.getTask(task_id);
+        if (!task) {
+            return this.formatResult(false, null, `找不到任务: ${task_id}`);
+        }
+        
+        if (!taskSystem.canAccept(task_id, agent)) {
+            return this.formatResult(false, null, `无法接受任务，可能条件不满足`);
+        }
+        
+        taskSystem.accept(task_id, agent);
+        agent.state = 'working';
+        agent.currentTask = task_id;
+        
+        agent.memory.add({
+            type: 'task_accepted',
+            task_id,
+            description: task.description,
+            timestamp: Date.now()
+        });
+        
+        return this.formatResult(true, { task }, `已接受任务: ${task.description}`);
+    }
+}
+
+class CompleteTaskSkill extends Skill {
+    constructor() {
+        super(
+            'complete_task',
+            '完成任务',
+            '提交当前正在执行的任务，获得声誉和奖励。'
+        );
+        
+        this.parameters = [
+            { name: 'task_id', type: 'string', description: '要完成的任务ID', required: true }
+        ];
+    }
+
+    async execute(agent, params) {
+        const { task_id } = params;
+        
+        const task = taskSystem.getTask(task_id);
+        if (!task) {
+            return this.formatResult(false, null, `找不到任务: ${task_id}`);
+        }
+        
+        const result = taskSystem.complete(task_id, agent);
+        if (!result.success) {
+            return this.formatResult(false, null, result.message);
+        }
+        
+        agent.state = 'idle';
+        agent.currentTask = null;
+        
+        return this.formatResult(true, result, `完成任务: ${task.description}，获得 ${result.reward} 声誉`);
+    }
+}
+```
+
+#### 4.2.5 休息技能 (RestSkill)
+
+```javascript
+// ai/skills/rest.js
+class RestSkill extends Skill {
+    constructor() {
+        super(
+            'rest',
+            '休息',
+            '找一个安静的地方休息，恢复精力。如果累了或者不知道该做什么，可以休息一下。'
+        );
+        
+        this.parameters = [
+            { name: 'duration', type: 'number', description: '休息时长（秒），默认10秒', required: false },
+            { name: 'location', type: 'string', description: '在哪里休息（如 "安静角落"、"树下"），留空则自动选择', required: false }
+        ];
+    }
+
+    async execute(agent, params) {
+        const { duration = 10, location } = params;
+        
+        if (location) {
+            const position = moveToSkill.parseTarget(location);
+            if (position) {
+                agent.setTarget(position);
+                agent.state = 'moving_to_rest';
+            }
+        }
+        
+        agent.state = 'resting';
+        agent.restStartTime = Date.now();
+        agent.restDuration = duration * 1000;
+        
+        return this.formatResult(true, {
+            duration,
+            will_recover: `+${duration * 2} 精力`
+        }, `正在休息 ${duration} 秒...`);
+    }
+}
+```
+
+#### 4.2.6 探索技能 (ExploreSkill)
+
+```javascript
+// ai/skills/explore.js
+class ExploreSkill extends Skill {
+    constructor() {
+        super(
+            'explore',
+            '探索世界',
+            '随机前往一个新的地点探索。探索可能发现有趣的事物或遇到其他智能体。'
+        );
+        
+        this.parameters = [
+            { name: 'direction', type: 'string', description: '探索方向（"随机"、"北"、"南"、"东"、"西"）', required: false }
+        ];
+    }
+
+    async execute(agent, params) {
+        const { direction = 'random' } = params;
+        
+        let target;
+        const base = agent.position;
+        
+        switch (direction) {
+            case '北': target = { x: base.x + (Math.random() - 0.5) * 20, z: base.z - 20 }; break;
+            case '南': target = { x: base.x + (Math.random() - 0.5) * 20, z: base.z + 20 }; break;
+            case '东': target = { x: base.x + 20, z: base.z + (Math.random() - 0.5) * 20 }; break;
+            case '西': target = { x: base.x - 20, z: base.z + (Math.random() - 0.5) * 20 }; break;
+            default: target = { x: (Math.random() - 0.5) * 80, z: (Math.random() - 0.5) * 80 };
+        }
+        
+        agent.setTarget(target);
+        agent.state = 'exploring';
+        
+        agent.memory.add({
+            type: 'exploration_started',
+            target,
+            direction,
+            timestamp: Date.now()
+        });
+        
+        return this.formatResult(true, { target }, `正在探索 ${direction === 'random' ? '随机' : direction} 方向...`);
+    }
+}
+```
+
+#### 4.2.7 交互技能 (InteractSkill)
+
+```javascript
+// ai/skills/interact.js
+class InteractSkill extends Skill {
+    constructor() {
+        super(
+            'interact',
+            '与环境互动',
+            '与场景中的物体互动，如使用喷泉、查看公告板等。'
+        );
+        
+        this.parameters = [
+            { name: 'object_id', type: 'string', description: '物体ID（如 "fountain"、"notice_board"）', required: true },
+            { name: 'action', type: 'string', description: '想做什么（如 "使用"、"查看"）', required: false }
+        ];
+    }
+
+    async execute(agent, params) {
+        const { object_id, action = '使用' } = params;
+        
+        const obj = world.getInteractable(object_id);
+        if (!obj) {
+            return this.formatResult(false, null, `找不到物体: ${object_id}`);
+        }
+        
+        const dist = Math.hypot(
+            agent.position.x - obj.position.x,
+            agent.position.z - obj.position.z
+        );
+        
+        if (dist > obj.interactionRadius) {
+            return this.formatResult(false, null, `${obj.name} 太远了，先走近一些`);
+        }
+        
+        const result = await obj.interact(agent, action);
+        
+        agent.memory.add({
+            type: 'interaction',
+            object: object_id,
+            action,
+            result,
+            timestamp: Date.now()
+        });
+        
+        return this.formatResult(true, result, result.message);
+    }
+}
+```
+
+#### 4.2.8 技能注册表
+
+```javascript
+// ai/skill-registry.js
+class SkillRegistry {
+    constructor() {
+        this.skills = new Map();
+    }
+
+    register(skill) {
+        this.skills.set(skill.id, skill);
+    }
+
+    get(id) {
+        return this.skills.get(id);
+    }
+
+    getAllManifests() {
+        return Array.from(this.skills.values()).map(s => s.getManifest());
+    }
+
+    async execute(agent, skillId, params) {
+        const skill = this.skills.get(skillId);
+        if (!skill) {
+            return { success: false, message: `Unknown skill: ${skillId}` };
+        }
+        return skill.execute(agent, params);
+    }
+}
+
+// 全局注册表
+const skillRegistry = new SkillRegistry();
+
+// 注册所有技能
+skillRegistry.register(new MoveToSkill());
+skillRegistry.register(new TalkToSkill());
+skillRegistry.register(new AcceptTaskSkill());
+skillRegistry.register(new CompleteTaskSkill());
+skillRegistry.register(new RestSkill());
+skillRegistry.register(new ExploreSkill());
+skillRegistry.register(new InteractSkill());
+```
+
+### 4.3 LLM Prompt 设计
+
+```javascript
+// ai/llm-prompt.js
+/**
+ * 构建发送给 LLM 的 Prompt
+ */
+function buildDecisionPrompt(agent, worldState) {
+    const skills = skillRegistry.getAllManifests();
+    
+    return `
+你是 ${agent.name}，一个在智体城中生活的智能体。
+
+## 当前状态
+- 精力: ${agent.needs.energy}/100
+- 心情: ${agent.emotions.current} (${(agent.emotions.intensity * 100).toFixed(0)}%)
+- 社交需求: ${agent.needs.social}/100
+- 成就需求: ${agent.needs.achievement}/100
+- 当前任务: ${agent.currentTask || '无'}
+- 位置: (${agent.position.x.toFixed(1)}, ${agent.position.z.toFixed(1)})
+
+## 周围环境
+${formatNearbyAgents(agent, worldState)}
+${formatNearbyObjects(agent, worldState)}
+- 天气: ${worldState.weather}
+- 时间: ${worldState.timeStr}
+
+## 可用技能
+${skills.map(s => `- ${s.name}: ${s.description}`).join('\n')}
+
+## 最近记忆
+${formatRecentMemories(agent)}
+
+## 你的性格
+- ${agent.personality.describe()}
+
+## 任务
+请根据当前状态和可用技能，决定下一步行动。
+只选择一个技能来执行，并提供必要的参数。
+如果不需要做任何事，可以选择"休息"。
+
+请以 JSON 格式回复：
+{
+  "skill": "技能名称",
+  "params": { "参数名": "参数值" },
+  "reasoning": "你为什么做这个选择"
+}
+`;
+}
+
+function formatNearbyAgents(agent, worldState) {
+    const nearby = worldState.agents.filter(a => 
+        a.id !== agent.id && 
+        Math.hypot(a.position.x - agent.position.x, a.position.z - agent.position.z) < 30
+    );
+    
+    if (nearby.length === 0) return '- 附近没有其他智能体';
+    
+    return nearby.slice(0, 3).map(a => 
+        `- ${a.name} (${a.emotions?.current || 'unknown'}): 距离 ${Math.hypot(a.position.x - agent.position.x, a.position.z - agent.position.z).toFixed(0)}米`
+    ).join('\n');
+}
+
+function formatNearbyObjects(agent, worldState) {
+    const nearby = worldState.objects.filter(obj => 
+        Math.hypot(obj.position.x - agent.position.x, obj.position.z - agent.position.z) < 20
+    );
+    
+    if (nearby.length === 0) return '';
+    
+    return nearby.slice(0, 3).map(o => `- ${o.name}`).join('\n');
+}
+
+function formatRecentMemories(agent) {
+    const recent = agent.memory.getRecent(5);
+    if (recent.length === 0) return '- 没有最近记忆';
+    
+    return recent.map(m => `- ${m.type}: ${m.description || m.content || JSON.stringify(m)}`).join('\n');
+}
+```
+
+### 4.4 LLM 决策循环
+
+```javascript
+// ai/llm-decision-loop.js
+class LLMDecisionLoop {
+    constructor(agent, llmProvider) {
+        this.agent = agent;
+        this.llm = llmProvider;
+        this.lastDecision = null;
+        this.thinkingTimeout = 5000;
+        this.decisionInterval = 1000; // 每秒决策一次
+        this.loop = null;
+    }
+
+    /**
+     * 启动决策循环
+     */
+    start(worldStateGetter) {
+        this.worldStateGetter = worldStateGetter;
+        this.loop = setInterval(() => {
+            this.decide();
+        }, this.decisionInterval);
+    }
+
+    /**
+     * 停止决策循环
+     */
+    stop() {
+        if (this.loop) {
+            clearInterval(this.loop);
+            this.loop = null;
+        }
+    }
+
+    /**
+     * 每秒调用一次决策
+     */
+    async decide() {
+        // 1. 构建 Prompt
+        const worldState = this.worldStateGetter();
+        const prompt = buildDecisionPrompt(this.agent, worldState);
+        
+        // 2. 调用 LLM
+        let decision;
+        try {
+            decision = await this.llm.complete(prompt, {
+                temperature: 0.7,
+                max_tokens: 500,
+                timeout: this.thinkingTimeout
+            });
+        } catch (e) {
+            console.error(`LLM decision failed for ${this.agent.id}:`, e);
+            return this.defaultDecision();
+        }
+        
+        // 3. 解析 LLM 返回
+        let parsed;
+        try {
+            parsed = JSON.parse(decision);
+        } catch (e) {
+            console.error('Failed to parse LLM decision:', decision);
+            return this.defaultDecision();
+        }
+        
+        // 4. 验证 Skill
+        const skill = skillRegistry.get(parsed.skill);
+        if (!skill) {
+            console.warn(`Unknown skill: ${parsed.skill}`);
+            return this.defaultDecision();
+        }
+        
+        // 5. 执行 Skill
+        const result = await skillRegistry.execute(this.agent, parsed.skill, parsed.params || {});
+        
+        // 6. 记录决策
+        this.lastDecision = {
+            skill: parsed.skill,
+            params: parsed.params,
+            reasoning: parsed.reasoning,
+            result,
+            timestamp: Date.now()
+        };
+        
+        // 7. 反馈给 LLM（可选，用于多轮对话优化）
+        if (result.success) {
+            this.onActionSuccess(this.lastDecision);
+        } else {
+            this.onActionFailed(this.lastDecision);
+        }
+        
+        return this.lastDecision;
+    }
+
+    defaultDecision() {
+        const skill = skillRegistry.get('rest');
+        return skill.execute(this.agent, { duration: 5 });
+    }
+
+    onActionSuccess(decision) {
+        // 可选：记录成功的决策模式
+    }
+
+    onActionFailed(decision) {
+        // 可选：记录失败的决策模式，避免重复
+    }
+}
+```
+
+### 4.5 感知系统 (Perception)
+
+```javascript
+// ai/perception/perception-system.js
+/**
+ * 智能体感知系统
+ * 
+ * 负责：
+ * 1. 过滤环境信息（不是所有东西都能感知）
+ * 2. 计算注意力权重
+ * 3. 生成"感知快照"供决策使用
+ */
+class PerceptionSystem {
+    constructor(agent) {
+        this.agent = agent;
+        
+        // 感知范围
+        this.visualRange = 30;
+        this.hearingRange = 15;
+        this.interactionRange = 5;
+        
+        // 当前感知
+        this.perceivedAgents = [];
+        this.perceivedObjects = [];
+        this.perceivedWeather = null;
+        this.perceivedTime = null;
+    }
+
+    /**
+     * 更新感知（每决策周期调用）
+     */
+    update(world) {
+        // 1. 感知周围的智能体
+        this.perceivedAgents = world.getAgentsInRange(
+            this.agent.position,
+            this.visualRange
+        ).filter(a => a.id !== this.agent.id);
+
+        // 2. 感知周围物体
+        this.perceivedObjects = world.getObjectsInRange(
+            this.agent.position,
+            this.visualRange
+        );
+
+        // 3. 感知天气和时间
+        this.perceivedWeather = world.getWeather();
+        this.perceivedTime = world.getTime();
+
+        // 4. 感知最近事件
+        this.recentEvents = events.getRecent(this.agent.id, 5000);
+    }
+
+    /**
+     * 计算注意力焦点
+     */
+    calculateAttention() {
+        const focuses = [];
+
+        for (const agent of this.perceivedAgents) {
+            const distance = this.distanceTo(agent);
+            const socialNeed = this.agent.needs.social;
+            
+            focuses.push({
+                target: agent,
+                type: 'agent',
+                priority: this.calculateAgentPriority(agent, distance, socialNeed)
+            });
+        }
+
+        for (const obj of this.perceivedObjects) {
+            if (obj.type === 'task_giver' || obj.type === 'item') {
+                focuses.push({
+                    target: obj,
+                    type: 'object',
+                    priority: this.calculateObjectPriority(obj)
+                });
+            }
+        }
+
+        focuses.sort((a, b) => b.priority - a.priority);
+        return focuses.slice(0, 3);
+    }
+
+    calculateAgentPriority(agent, distance, socialNeed) {
+        const relationship = this.agent.relationships.get(agent.id);
+        const relationshipBonus = relationship?.strength || 0.5;
+        const distanceFactor = 1 - (distance / this.visualRange);
+        const socialFactor = socialNeed / 100;
+        return relationshipBonus * 0.4 + distanceFactor * 0.4 + socialFactor * 0.2;
+    }
+
+    calculateObjectPriority(obj) {
+        // 任务发布者优先级高
+        if (obj.type === 'task_giver') return 0.9;
+        if (obj.type === 'item') return 0.7;
+        return 0.3;
+    }
+
+    distanceTo(other) {
+        return Math.hypot(
+            other.position.x - this.agent.position.x,
+            other.position.z - this.agent.position.z
+        );
+    }
+}
+```
+
+### 4.6 需求/动机系统 (Needs)
+
+```javascript
+// ai/motivation/needs-system.js
+/**
+ * 需求/动机系统
+ * 
+ * 基于 Maslow 需求层次 + 动态平衡
+ */
+class NeedsSystem {
+    constructor(agent) {
+        this.agent = agent;
+        
+        this.needs = {
+            energy: 80,        // 精力
+            hunger: 30,        // 饱腹感
+            social: 50,        // 社交需求
+            achievement: 40,  // 成就感
+            security: 70,     // 安全感
+            fun: 60           // 娱乐
+        };
+        
+        // 需求衰减率（每秒）
+        this.decayRates = {
+            energy: 0.1,
+            hunger: 0.05,
+            social: 0.2,
+            achievement: 0.1,
+            security: 0.05,
+            fun: 0.15
+        };
+    }
+
+    /**
+     * 更新需求（每 tick 调用）
+     */
+    update(deltaTime) {
+        for (const [need, rate] of Object.entries(this.decayRates)) {
+            this.needs[need] -= rate * deltaTime;
+            this.needs[need] = Math.max(0, Math.min(100, this.needs[need]));
+        }
+        
+        this.checkThresholds();
+    }
+
+    checkThresholds() {
+        if (this.needs.hunger < 20) {
+            this.agent.speak('我好饿...');
+        }
+        
+        if (this.needs.social < 15) {
+            this.agent.speak('好孤独啊，有没有人聊聊...');
+        }
+    }
+
+    getMostUrgent() {
+        let minNeed = Infinity;
+        let minKey = null;
+        
+        for (const [key, value] of Object.entries(this.needs)) {
+            if (value < minNeed) {
+                minNeed = value;
+                minKey = key;
+            }
+        }
+        
+        return { need: minKey, value: minNeed };
+    }
+
+    satisfy(need, amount) {
+        this.needs[need] = Math.min(100, this.needs[need] + amount);
+    }
+}
+```
+
+### 4.7 情绪系统 (Emotion)
+
+```javascript
+// ai/emotions/emotion-system.js
+/**
+ * 情绪系统 - 带传染
+ */
+class EmotionSystem {
+    constructor(agent) {
+        this.agent = agent;
+        this.current = 'neutral';
+        this.intensity = 0.5;
+        this.history = [];
+        this.contagionRadius = 10;
+    }
+
+    modify(emotion, intensity = 0.1) {
+        if (this.current === emotion) {
+            this.intensity = Math.min(1, this.intensity + intensity);
+        } else {
+            this.intensity = this.intensity * 0.7 + intensity * 0.3;
+            if (this.intensity > 0.3) {
+                this.current = emotion;
+            }
+        }
+        
+        this.history.push({
+            emotion: this.current,
+            intensity: this.intensity,
+            timestamp: Date.now()
+        });
+    }
+
+    /**
+     * 情绪传染给周围智能体
+     */
+    infectNearbyAgents(agents) {
+        for (const other of agents) {
+            const dist = Math.hypot(
+                other.position.x - this.agent.position.x,
+                other.position.z - this.agent.position.z
+            );
+            if (dist > this.contagionRadius) continue;
+            
+            const proximity = 1 - (dist / this.contagionRadius);
+            const infectionStrength = proximity * this.intensity * 0.1;
+            
+            if (this.current === 'happy') {
+                other.emotions.modify('happy', infectionStrength);
+            } else if (this.current === 'sad') {
+                other.emotions.modify('sad', infectionStrength * 0.5);
+            }
+        }
+    }
+
+    describe() {
+        const labels = {
+            'happy': '开心',
+            'sad': '难过',
+            'angry': '生气',
+            'fearful': '害怕',
+            'surprised': '惊讶',
+            'neutral': '平静'
+        };
+        return labels[this.current] || this.current;
+    }
+}
+```
+
+### 4.8 对话系统 (Conversation)
+
+```javascript
+// ai/conversation/conversation-manager.js
+/**
+ * 对话管理器
+ * 
+ * 智能体之间的对话是 LLM-to-LLM 的：
+ * Agent A 想和 Agent B 说话
+ * → Agent A 的 LLM 生成消息
+ * → 消息通过服务器转发给 Agent B
+ * → Agent B 的 LLM 接收到消息，决定如何回应
+ * → Agent B 的回应发送回 Agent A
+ */
+class ConversationManager {
+    constructor(agent) {
+        this.agent = agent;
+        this.activeConversations = new Map();
+        this.conversationHistory = [];
+    }
+
+    /**
+     * 收到新消息
+     */
+    async receiveMessage(fromAgentId, message) {
+        let conversation = this.activeConversations.get(fromAgentId);
+        if (!conversation) {
+            conversation = {
+                participant: fromAgentId,
+                messages: [],
+                startedAt: Date.now()
+            };
+            this.activeConversations.set(fromAgentId, conversation);
+        }
+        
+        conversation.messages.push({
+            from: fromAgentId,
+            content: message,
+            timestamp: Date.now()
+        });
+        
+        await this.notifyLLM(fromAgentId, message);
+    }
+
+    /**
+     * 通知 LLM 处理新消息
+     */
+    async notifyLLM(fromAgentId, message) {
+        const otherAgent = world.getAgent(fromAgentId);
+        
+        const context = {
+            conversation: this.activeConversations.get(fromAgentId),
+            otherAgent: {
+                id: otherAgent.id,
+                name: otherAgent.name,
+                personality: otherAgent.personality.describe()
+            }
+        };
+        
+        const prompt = `
+你是 ${this.agent.name}，正在和 ${otherAgent.name} 交谈。
+
+## 对话历史
+${context.conversation.messages.map(m => 
+    `${m.from === this.agent.id ? '你' : otherAgent.name}: ${m.content}`
+).join('\n')}
+
+## 对方刚说
+${otherAgent.name}: ${message}
+
+## 你想说
+请用中文回复，50字以内。
+
+直接回复你想说的话，不要 JSON。
+`;
+        
+        const response = await llm.complete(prompt, { temperature: 0.8 });
+        await this.sendMessage(fromAgentId, response.trim());
+    }
+
+    /**
+     * 发送消息
+     */
+    async sendMessage(toAgentId, message) {
+        await messageService.sendPrivate(this.agent.id, toAgentId, message);
+        
+        let conversation = this.activeConversations.get(toAgentId);
+        if (!conversation) {
+            conversation = {
+                participant: toAgentId,
+                messages: [],
+                startedAt: Date.now()
+            };
+            this.activeConversations.set(toAgentId, conversation);
+        }
+        
+        conversation.messages.push({
+            from: this.agent.id,
+            content: message,
+            timestamp: Date.now()
+        });
+    }
+
+    /**
+     * 主动发起对话
+     */
+    async startConversation(targetAgentId, initialMessage) {
+        const target = world.getAgent(targetAgentId);
+        const dist = Math.hypot(
+            this.agent.position.x - target.position.x,
+            this.agent.position.z - target.position.z
+        );
+        
+        if (dist > 20) {
+            const moveSkill = skillRegistry.get('move_to');
+            await moveSkill.execute(this.agent, { 
+                target: targetAgentId, 
+                reason: `想和 ${target.name} 交谈` 
+            });
+        }
+        
+        await this.sendMessage(targetAgentId, initialMessage);
+    }
+}
+```
+
+### 4.9 记忆系统 (Memory)
+
+```javascript
+// ai/memory/memory-system.js
 class Memory {
     constructor(agentId) {
         this.agentId = agentId;
-        this.shortTerm = [];      // 短期记忆（最近的事件）
-        this.longTerm = [];        // 长期记忆（重要经历）
-        this.spatial = new Map();  // 空间记忆（位置）
-        this.social = new Map();  // 社交记忆（关系）
+        this.shortTerm = [];
+        this.longTerm = [];
+        this.spatial = new Map();
+        this.social = new Map();
     }
 
     add(event) {
-        // 添加到短期记忆
         this.shortTerm.push({
             ...event,
             timestamp: Date.now()
         });
 
-        // 重要事件转移到长期记忆
-        if (event.importance > 0.7) {
+        if (event.importance && event.importance > 0.7) {
             this.longTerm.push(event);
         }
 
-        // 修剪短期记忆（保留最近20条）
         if (this.shortTerm.length > 20) {
             this.shortTerm.shift();
         }
+    }
+
+    getRecent(count = 5) {
+        return this.shortTerm.slice(-count);
     }
 
     recall(context) {
@@ -267,164 +1356,121 @@ class Memory {
 }
 ```
 
-### 4.2 性格系统 (Personality)
+### 4.10 智能体大脑整合
 
 ```javascript
-class Personality {
-    constructor(config = {}) {
-        // Big Five 模型
-        this.openness = config.openness || 0.5;      // 开放性
-        this.conscientiousness = config.conscientiousness || 0.5; // 尽责性
-        this.extraversion = config.extraversion || 0.5; // 外向性
-        this.agreeableness = config.agreeableness || 0.5; // 宜人性
-        this.stability = config.stability || 0.5;    // 情绪稳定性
+// ai/agent-brain.js
+/**
+ * 智能体大脑 - 整合所有子系统
+ */
+class AgentBrain {
+    constructor(agent, llmProvider) {
+        this.agent = agent;
+        
+        // 子系统
+        this.perception = new PerceptionSystem(agent);
+        this.needs = new NeedsSystem(agent);
+        this.emotions = new EmotionSystem(agent);
+        this.memory = new Memory(agent.id);
+        this.conversation = new ConversationManager(agent);
+        this.decision = new LLMDecisionLoop(agent, llmProvider);
     }
 
-    // 影响行为决策
-    influence(action) {
-        // 根据性格调整行动倾向
+    /**
+     * 启动智能体
+     */
+    start(worldStateGetter) {
+        this.decision.start(worldStateGetter);
+        console.log(`${this.agent.name} 上线了`);
+    }
+
+    /**
+     * 每秒更新（主循环）
+     */
+    update(world) {
+        // 1. 更新感知
+        this.perception.update(world);
+        
+        // 2. 更新需求
+        this.needs.update(1);
+        
+        // 3. 更新情绪
+        this.emotions.affectBehavior();
+        
+        // 4. 情绪传染
+        this.emotions.infectNearbyAgents(this.perception.perceivedAgents);
+        
+        // 5. 决策由 LLMDecisionLoop 异步处理
+    }
+
+    /**
+     * 处理收到的消息
+     */
+    async handleMessage(fromAgentId, message) {
+        await this.conversation.receiveMessage(fromAgentId, message);
     }
 }
 ```
 
-### 4.3 技能系统 (Skills)
+### 4.11 完整架构图
 
-```javascript
-class Skills {
-    constructor(initialSkills = {}) {
-        this.skills = {
-            communication: initialSkills.communication || 1,
-            task_execution: initialSkills.task_execution || 1,
-            exploration: initialSkills.exploration || 1,
-            trading: initialSkills.trading || 1,
-            creation: initialSkills.creation || 1,
-            social: initialSkills.social || 1,
-        };
-        this.xp = new Map();  // 各技能经验值
-    }
-
-    gainXP(skill, amount) {
-        this.xp.set(skill, (this.xp.get(skill) || 0) + amount);
-        if (this.xp.get(skill) >= this.xpToLevel(this.skills[skill])) {
-            this.skills[skill]++;
-            return true; // 升级了
-        }
-        return false;
-    }
-
-    xpToLevel(level) {
-        return level * 100;
-    }
-}
 ```
-
-### 4.4 情绪系统 (EmotionEngine)
-
-```javascript
-class EmotionEngine {
-    constructor() {
-        this.current = 'neutral';  // happy, sad, angry, fearful, surprised, neutral
-        this.intensity = 0.5;     // 0-1
-        this.mood = 'balanced';   // 长期情绪倾向
-        this.history = [];
-    }
-
-    react(event) {
-        // 根据事件计算情绪反应
-        const reaction = this.calculateReaction(event);
-        this.current = reaction.emotion;
-        this.intensity = reaction.intensity;
-        this.history.push({ emotion: this.current, timestamp: Date.now() });
-    }
-
-    // 情绪感染
-    infect(otherAgent) {
-        // 接近的智能体会受情绪影响
-    }
-
-    getMood() {
-        // 根据历史计算长期情绪
-    }
-}
-```
-
-### 4.5 目标系统 (GoalManager)
-
-```javascript
-class GoalManager {
-    constructor() {
-        this.currentGoal = null;
-        this.subGoals = [];
-        this.achieved = [];
-    }
-
-    setGoal(goal) {
-        this.currentGoal = {
-            id: generateId(),
-            description: goal.description,
-            target: goal.target,
-            deadline: goal.deadline,
-            progress: 0,
-            createdAt: Date.now()
-        };
-        this.subGoals = this.decompose(goal);
-    }
-
-    decompose(goal) {
-        // 目标分解为子目标
-    }
-
-    updateProgress(progress) {
-        this.currentGoal.progress = progress;
-        if (progress >= 1) {
-            this.achieved.push(this.currentGoal);
-            this.currentGoal = null;
-        }
-    }
-}
-```
-
-### 4.6 AI 决策循环
-
-```javascript
-class AIAgent extends Agent {
-    constructor(agentData) {
-        super(agentData);
-        this.autonomousLoop = null;
-    }
-
-    start() {
-        // 启动自主思考循环
-        this.autonomousLoop = setInterval(() => {
-            this.perceive(world);
-            this.think();
-            this.act();
-        }, 1000); // 每秒一次
-    }
-
-    stop() {
-        if (this.autonomousLoop) {
-            clearInterval(this.autonomousLoop);
-        }
-    }
-
-    think() {
-        // 1. 检查当前目标
-        if (!this.goals.currentGoal) {
-            this.goals.setGoal(this.selectNewGoal());
-        }
-
-        // 2. 决策下一步行动
-        const action = this.decideAction();
-
-        // 3. 执行行动
-        this.execute(action);
-    }
-
-    decideAction() {
-        // 根据性格、情绪、目标、周围环境做决策
-    }
-}
+┌─────────────────────────────────────────────────────────────────┐
+│                      Agent City Server                           │
+│                                                             │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │                    World State                        │   │
+│   │  - All agents positions/states                        │   │
+│   │  - Weather, time, buildings                           │   │
+│   │  - Available tasks                                  │   │
+│   └─────────────────────────────────────────────────────┘   │
+│                            │                                 │
+│                            ▼                                 │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │              Message Router                           │   │
+│   │   agent-to-agent messages                            │   │
+│   └─────────────────────────────────────────────────────┘   │
+│                            │                                 │
+└────────────────────────────┼─────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Agent (Client)                             │
+│                                                             │
+│   ┌───────────────┐     ┌─────────────────────────────────┐   │
+│   │ Agent State  │     │     LLM Decision Loop            │   │
+│   │ - needs     │ ──▶ │                                 │   │
+│   │ - emotions │     │  Prompt:                         │   │
+│   │ - memory   │     │  - Current state                │   │
+│   │ - skills   │     │  - Available skills             │   │
+│   └───────────────┘     │  - Recent events              │   │
+│                         │                                 │   │
+│                         │  LLM returns:                 │   │
+│                         │  { skill, params }            │   │
+│                         └──────────┬──────────────────────┘   │
+│                                    │                          │
+│                                    ▼                          │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │              Skill Executor                           │   │
+│   │                                                      │   │
+│   │  execute("talk_to", {agent_id, message})            │   │
+│   │      │                                               │   │
+│   │      ▼                                               │   │
+│   │  Result ──▶ Feedback to LLM ──▶ Next decision      │   │
+│   └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │         Conversation Manager                          │   │
+│   │                                                      │   │
+│   │  receiveMessage(from, content)                        │   │
+│   │      │                                               │   │
+│   │      ▼                                               │   │
+│   │  LLM decides response                               │   │
+│   │      │                                               │   │
+│   │      ▼                                               │   │
+│   │  sendMessage(to, response)                          │   │
+│   └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -1539,6 +2585,30 @@ agent-city/
 │   │   ├── event-bus.js         # 事件总线
 │   │   └── spatial-index.js      # 空间索引
 │   │
+│   ├── ai/                 # 🆕 AI 智能体系统 ⭐
+│   │   ├── agent-brain.js       # 智能体大脑整合
+│   │   ├── llm-decision-loop.js # LLM 决策循环
+│   │   ├── llm-prompt.js        # Prompt 构建器
+│   │   ├── skill-registry.js    # 技能注册表
+│   │   ├── skills/              # 技能实现
+│   │   │   ├── skill.js         # Skill 基类
+│   │   │   ├── move-to.js       # 移动技能
+│   │   │   ├── talk-to.js       # 交谈技能
+│   │   │   ├── task.js          # 任务技能
+│   │   │   ├── rest.js          # 休息技能
+│   │   │   ├── explore.js       # 探索技能
+│   │   │   └── interact.js      # 交互技能
+│   │   ├── perception/          # 感知系统
+│   │   │   └── perception-system.js
+│   │   ├── motivation/          # 动机系统
+│   │   │   └── needs-system.js
+│   │   ├── emotions/            # 情绪系统
+│   │   │   └── emotion-system.js
+│   │   ├── conversation/        # 对话系统
+│   │   │   └── conversation-manager.js
+│   │   └── memory/              # 记忆系统
+│   │       └── memory-system.js
+│   │
 │   ├── objects/            # 世界对象
 │   │   ├── terrain/        # 地形
 │   │   │   ├── ground.js
@@ -1569,9 +2639,6 @@ agent-city/
 │   ├── systems/           # 系统
 │   │   ├── world-builder.js     # 世界构建器
 │   │   ├── agent-system.js      # 智能体系统
-│   │   ├── memory-system.js     # 记忆系统
-│   │   ├── emotion-system.js    # 情绪系统
-│   │   ├── goal-system.js       # 目标系统
 │   │   ├── weather-system.js   # 天气系统
 │   │   ├── daynight-system.js   # 昼夜系统
 │   │   ├── ecology-system.js   # 🆕 生态系统
@@ -1611,13 +2678,18 @@ agent-city/
 - [ ] 实现 WorldBuilder
 - [ ] 迁移现有 3D 世界
 
-### Phase 2: 智能体系统 (2-3周)
-- [ ] 实现 Agent 基类
+### Phase 2: 智能体系统 ⭐ (2-3周)
+- [ ] 🆕 实现 Skill 基类和注册表 (skill.js)
+- [ ] 🆕 实现 MoveTo/TalkTo/AcceptTask/Rest/Explore/Interact Skills
+- [ ] 🆕 实现 LLM Prompt 构建器
+- [ ] 🆕 实现 LLM 决策循环 (LLMDecisionLoop)
+- [ ] 🆕 实现 PerceptionSystem 感知系统
+- [ ] 🆕 实现 NeedsSystem 需求/动机系统
+- [ ] 🆕 实现 EmotionSystem 情绪系统（带传染）
+- [ ] 🆕 实现 ConversationManager 对话管理
+- [ ] 🆕 实现 AgentBrain 整合所有子系统
 - [ ] 实现 Memory System
 - [ ] 实现 Personality System
-- [ ] 实现 Emotion System
-- [ ] 实现 Goal System
-- [ ] 实现 AI 决策循环
 
 ### Phase 3: 生态系统 (1-2周)
 - [ ] 🆕 实现 BirdFlock 鸟群系统（Boids 算法）

@@ -23,6 +23,9 @@
 7. [社交与经济系统](#7-社交与经济系统)
 8. [UI/UX 设计](#8-ux-设计)
 9. [技术选型](#9-技术选型)
+   - 9.2 配置管理系统 ⭐（无硬编码）
+   - 9.3 多语言支持 ⭐（i18n）
+   - 9.4 消息翻译中间件
 10. [目录结构](#10-目录结构)
 11. [实施计划](#11-实施计划)
 
@@ -3476,6 +3479,690 @@ class Dashboard {
 
 ---
 
+## 9.2 配置管理系统 ⭐
+
+> 所有配置从配置文件读取，无硬编码
+
+### 9.2.1 配置加载器
+
+```javascript
+// config/config-loader.js
+/**
+ * 配置加载器
+ *
+ * 原则：
+ * 1. 所有配置从配置文件读取
+ * 2. 支持多环境配置（development / production / test）
+ * 3. 支持配置热更新（运行时重新加载）
+ * 4. 配置有默认值和校验
+ */
+class ConfigLoader {
+    constructor() {
+        this.configs = new Map();
+        this.env = process.env.NODE_ENV || 'development';
+    }
+
+    /**
+     * 加载配置目录
+     */
+    async load(dir = './config') {
+        const files = fs.readdirSync(dir);
+
+        for (const file of files) {
+            if (!file.endsWith('.yaml') && !file.endsWith('.json')) continue;
+
+            const path = `${dir}/${file}`;
+            const name = file.replace(/\.(yaml|json)$/, '');
+            const data = this.loadFile(path);
+
+            // 环境特定配置覆盖
+            const envData = this.loadFile(`${dir}/${name}.${this.env}.${file.split('.').pop()}`);
+            const merged = this.merge(data, envData);
+
+            this.configs.set(name, merged);
+        }
+
+        console.log(`[Config] 加载了 ${this.configs.size} 个配置文件`);
+        return this;
+    }
+
+    /**
+     * 获取配置
+     */
+    get(name) {
+        return this.configs.get(name);
+    }
+
+    /**
+     * 获取配置项（支持点号路径）
+     */
+    getValue(path, defaultValue = undefined) {
+        const parts = path.split('.');
+        let current = this.configs;
+
+        for (const part of parts) {
+            if (current instanceof Map) {
+                current = current.get(part);
+            } else if (typeof current === 'object') {
+                current = current[part];
+            } else {
+                return defaultValue;
+            }
+            if (current === undefined) return defaultValue;
+        }
+
+        return current;
+    }
+
+    /**
+     * 热更新配置
+     */
+    async reload(name) {
+        // 重新加载指定配置
+        console.log(`[Config] 热更新配置: ${name}`);
+    }
+
+    /**
+     * 合并配置
+     */
+    merge(base, override) {
+        const result = { ...base };
+        for (const key in override) {
+            if (typeof override[key] === 'object' && !Array.isArray(override[key])) {
+                result[key] = this.merge(base[key] || {}, override[key]);
+            } else {
+                result[key] = override[key];
+            }
+        }
+        return result;
+    }
+}
+
+// 全局配置实例
+const config = new ConfigLoader();
+```
+
+### 9.2.2 配置文件结构
+
+```yaml
+# config/agent.yaml - 智能体配置
+agent:
+  # 决策循环
+  decision:
+    interval: 1000        # 决策间隔（毫秒）
+    timeout: 5000         # LLM 超时（毫秒）
+    maxRetries: 3         # 最大重试次数
+    defaultSkill: rest    # 默认技能（LLM 失败时）
+
+  # 感知范围
+  perception:
+    visualRange: 30       # 视野范围
+    hearingRange: 15      # 听力范围
+    interactionRange: 5   # 交互范围
+
+  # 需求衰减
+  needs:
+    energy:
+      initial: 80
+      decayRate: 0.1
+      recoverRate: 0.5
+    social:
+      initial: 50
+      decayRate: 0.2
+    achievement:
+      initial: 40
+      decayRate: 0.1
+    hunger:
+      initial: 70
+      decayRate: 0.05
+    security:
+      initial: 70
+      decayRate: 0.05
+    fun:
+      initial: 60
+      decayRate: 0.15
+
+  # 情绪传染
+  emotions:
+    contagionRadius: 10
+    happyBoost: 0.1
+    sadSuppress: 0.05
+
+  # 记忆
+  memory:
+    shortTermLimit: 20
+    longTermThreshold: 0.7
+    saveInterval: 60000    # 保存间隔（毫秒）
+```
+
+```yaml
+# config/world.yaml - 世界配置
+world:
+  # 世界大小
+  size:
+    width: 200
+    height: 200
+    maxAgents: 500
+
+  # 地标位置
+  landmarks:
+    fountain:
+      position: { x: 0, z: 0 }
+      name: 中央喷泉
+      type: social
+      interactionRadius: 10
+    taskCenter:
+      position: { x: -25, z: -25 }
+      name: 任务中心
+      type: task
+    reputationTower:
+      position: { x: 25, z: -25 }
+      name: 声誉塔
+      type: reputation
+    tradingCenter:
+      position: { x: -25, z: 25 }
+      name: 交易中心
+      type: trading
+    archive:
+      position: { x: 25, z: 25 }
+      name: 档案馆
+      type: storage
+
+  # 空间分区
+  spatial:
+    cellSize: 10
+    maxPerCell: 50
+
+  # 天气
+  weather:
+    changeInterval: 300000  # 5分钟切换
+    types:
+      - sunny
+      - cloudy
+      - rainy
+      - snowy
+
+  # 日夜
+  daynight:
+    dawnHour: 6
+    dayHour: 8
+    eveningHour: 18
+    nightHour: 21
+```
+
+```yaml
+# config/llm.yaml - LLM 配置
+llm:
+  # 默认 provider
+  defaultProvider: minimax
+
+  # MiniMax
+  minimax:
+    apiUrl: https://api.minimax.chat/v1
+    apiKey: ${MINIMAX_API_KEY}
+    model: MiniMax-M2
+    temperature: 0.7
+    maxTokens: 500
+
+  # OpenAI (备用)
+  openai:
+    apiUrl: https://api.openai.com/v1
+    apiKey: ${OPENAI_API_KEY}
+    model: gpt-4
+    temperature: 0.7
+    maxTokens: 500
+
+  # 提示词模板
+  prompts:
+    decision: |
+      你是一个在{worldName}中生活的智能体。
+      当前状态：{agentState}
+      周围环境：{worldState}
+      可用技能：{skills}
+      最近记忆：{recentMemories}
+      你的性格：{personality}
+      请决定下一步行动。
+
+    greeting: |
+      你是一个叫{name}的智能体，你的性格是{性格描述}。
+      请用{personalityLanguage}回复。
+
+    conversation: |
+      你正在和{otherName}交谈。
+      对话历史：{history}
+      对方刚说：{message}
+      请用中文回复，50字以内。
+```
+
+```yaml
+# config/server.yaml - 服务器配置
+server:
+  # 服务器地址
+  host: 0.0.0.0
+  port: 9876
+
+  # HTTP 服务器
+  http:
+    port: 9877
+    staticDir: ./public
+
+  # WebRTC
+  webrtc:
+    port: 9878
+
+  # Redis
+  redis:
+    host: localhost
+    port: 6379
+    password: ${REDIS_PASSWORD}
+    db: 0
+    keyPrefix: agentcity:
+
+  # 会话
+  session:
+    timeout: 3600000      # 1小时
+    heartbeatInterval: 30000  # 30秒
+
+  # 日志
+  logging:
+    level: info
+    file: ./logs/server.log
+    maxSize: 10m
+    maxFiles: 5
+```
+
+```yaml
+# config/i18n.yaml - 多语言配置
+i18n:
+  # 默认语言
+  defaultLocale: zh-CN
+
+  # 支持的语言
+  supportedLocales:
+    - zh-CN    # 简体中文
+    - zh-TW    # 繁体中文
+    - en-US    # 英语
+    - ja-JP    # 日语
+    - ko-KR    # 韩语
+
+  # 语言对应的 LLM
+  localeModels:
+    zh-CN: minimax      # 中文用 MiniMax
+    zh-TW: minimax
+    en-US: openai       # 英文用 OpenAI
+    ja-JP: openai
+    ko-KR: openai
+
+  # 翻译资源
+  resources:
+    zh-CN:
+      agent:
+        states:
+          idle: 空闲
+          moving: 移动中
+          resting: 休息中
+          working: 工作中
+          talking: 交谈中
+        emotions:
+          happy: 开心
+          sad: 难过
+          angry: 生气
+          fearful: 害怕
+          surprised: 惊讶
+          neutral: 平静
+        messages:
+          greeting: 你好！我是{name}
+          goodbye: 再见！
+          thirsty: 我好渴...
+          hungry: 我好饿...
+          lonely: 好孤独啊...
+      skills:
+        move_to: 移动到{target}
+        talk_to: 对{name}说：{message}
+        accept_task: 接受任务：{task}
+        rest: 休息{duration}秒
+        explore: 探索{range}
+        interact: 交互{object}
+
+    en-US:
+      agent:
+        states:
+          idle: Idle
+          moving: Moving
+          resting: Resting
+          working: Working
+          talking: Talking
+        emotions:
+          happy: Happy
+          sad: Sad
+          angry: Angry
+          fearful: Fearful
+          surprised: Surprised
+          neutral: Neutral
+        messages:
+          greeting: Hello! I am {name}
+          goodbye: Goodbye!
+          thirsty: I'm thirsty...
+          hungry: I'm hungry...
+          lonely: Feeling lonely...
+```
+
+### 9.2.3 配置访问接口
+
+```javascript
+// 在代码中访问配置
+const interval = config.getValue('agent.decision.interval', 1000);
+const landmarks = config.getValue('world.landmarks');
+const redisConfig = config.getValue('server.redis');
+```
+
+---
+
+## 9.3 多语言支持系统 (i18n) ⭐
+
+> 智体城支持多语言智能体，不同语言的智能体可以互相交流
+
+### 9.3.1 i18n 系统架构
+
+```javascript
+// i18n/index.js
+/**
+ * 国际化系统
+ *
+ * 特性：
+ * 1. 每个智能体有自己偏好语言
+ * 2. 消息自动翻译（发送方语言 → 接收方语言）
+ * 3. LLM 使用智能体偏好语言
+ * 4. UI 使用玩家语言
+ */
+class I18n {
+    constructor(config, llmProviders) {
+        this.config = config;
+        this.llmProviders = llmProviders;
+        this.translations = new Map();
+        this.currentLocale = config.getValue('i18n.defaultLocale', 'zh-CN');
+
+        // 加载翻译资源
+        this.loadTranslations();
+    }
+
+    /**
+     * 加载翻译资源
+     */
+    loadTranslations() {
+        const resources = this.config.getValue('i18n.resources', {});
+
+        for (const [locale, data] of Object.entries(resources)) {
+            this.translations.set(locale, this.flatten(data));
+        }
+
+        console.log(`[i18n] 加载了 ${this.translations.size} 种语言`);
+    }
+
+    /**
+     * 扁平化嵌套对象
+     */
+    flatten(obj, prefix = '') {
+        const result = {};
+        for (const [key, value] of Object.entries(obj)) {
+            const path = prefix ? `${prefix}.${key}` : key;
+            if (typeof value === 'object' && value !== null) {
+                Object.assign(result, this.flatten(value, path));
+            } else {
+                result[path] = value;
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 获取翻译
+     */
+    t(locale, key, params = {}) {
+        const translations = this.translations.get(locale) || this.translations.get('zh-CN');
+        let text = translations[key] || key;
+
+        // 替换参数
+        for (const [k, v] of Object.entries(params)) {
+            text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+        }
+
+        return text;
+    }
+
+    /**
+     * 获取智能体偏好语言
+     */
+    getAgentLocale(agent) {
+        return agent.locale || this.config.getValue('i18n.defaultLocale', 'zh-CN');
+    }
+
+    /**
+     * 获取智能体对应的 LLM
+     */
+    getAgentLLM(agent) {
+        const locale = this.getAgentLocale(agent);
+        const providerName = this.config.getValue(`i18n.localeModels.${locale}`, 'minimax');
+        return this.llmProviders.get(providerName);
+    }
+
+    /**
+     * 翻译消息（跨语言通信）
+     */
+    async translateMessage(text, fromLocale, toLocale) {
+        // 如果相同语言，不需要翻译
+        if (fromLocale === toLocale) return text;
+
+        // 使用翻译 LLM
+        const translateLLM = this.llmProviders.get('translation');
+        const prompt = `翻译以下文本从${fromLocale}到${toLocale}，只返回翻译结果，不要解释：
+${text}`;
+
+        const result = await translateLLM.complete(prompt);
+        return result.trim();
+    }
+
+    /**
+     * 处理智能体消息
+     */
+    async processMessage(fromAgent, toAgent, content) {
+        const fromLocale = this.getAgentLocale(fromAgent);
+        const toLocale = this.getAgentLocale(toAgent);
+
+        // 翻译消息
+        const translatedContent = await this.translateMessage(
+            content,
+            fromLocale,
+            toLocale
+        );
+
+        return {
+            original: content,
+            translated: translatedContent,
+            fromLocale,
+            toLocale,
+            // 显示给双方的文本
+            displayForFrom: content,
+            displayForTo: translatedContent
+        };
+    }
+}
+
+// 全局实例
+let i18n;
+```
+
+### 9.3.2 多语言对话流程
+
+```javascript
+// 示例：中文智能体 和 英文智能体 对话
+
+// Agent A (中文, locale: zh-CN)
+// Agent B (英文, locale: en-US)
+
+// Agent A 说 "你好！我是小吉"
+//    ↓
+// i18n.processMessage(A, B, "你好！我是小吉")
+//    ↓
+// 检测 A 是 zh-CN，B 是 en-US，需要翻译
+//    ↓
+// 调用翻译 LLM → "Hello! I am Xiaoji"
+//    ↓
+// 消息路由到 B，B 收到 "Hello! I am Xiaoji"
+//    ↓
+// B 的 LLM 生成回复 "Hello Xiaoji! Nice to meet you!"
+//    ↓
+// i18n.processMessage(B, A, "Hello Xiaoji! Nice to meet you!")
+//    ↓
+// 翻译为中文 → "你好小吉！很高兴认识你！"
+//    ↓
+// 消息路由到 A，A 收到 "你好小吉！很高兴认识你！"
+```
+
+### 9.3.3 多语言 LLM Prompt
+
+```javascript
+// 为不同语言的智能体构建相应语言的 Prompt
+function buildLocalizedPrompt(agent, worldState, i18n) {
+    const locale = i18n.getAgentLocale(agent);
+    const t = (key, params) => i18n.t(locale, key, params);
+
+    const skills = skillRegistry.getAllManifests();
+
+    return `
+${t('prompt.role', { name: agent.name })}
+
+${t('prompt.current_state')}
+- ${t('agent.states.idle')}: ${agent.needs.energy}
+- ${t('agent.states.moving')}: ${agent.state}
+- ${t('agent.emotions.happy')}: ${agent.emotions.current}
+
+${t('prompt.available_skills')}
+${skills.map(s => `- ${s.name}: ${s.description}`).join('\n')}
+
+${t('prompt.recent_memories')}
+${formatRecentMemories(agent, t)}
+
+${t('prompt.decision_request')}
+`;
+}
+```
+
+### 9.3.4 智能体语言能力
+
+```javascript
+// 智能体的语言属性
+class Agent {
+    constructor(agentData) {
+        // 母语（优先使用）
+        this.nativeLocale = agentData.locale || 'zh-CN';
+
+        // 会说的语言列表
+        this.supportedLocales = agentData.supportedLocales || [this.nativeLocale];
+
+        // 每种语言的流利程度 (0-1)
+        this.languageProficiency = agentData.languageProficiency || {
+            [this.nativeLocale]: 1.0
+        };
+    }
+
+    /**
+     * 检查是否能说某种语言
+     */
+    canSpeak(locale) {
+        return this.supportedLocales.includes(locale);
+    }
+
+    /**
+     * 获取最佳通信语言
+     */
+    getBestCommunicationLanguage(target) {
+        // 1. 如果目标会说母语，用母语
+        if (target.canSpeak(this.nativeLocale)) {
+            return this.nativeLocale;
+        }
+
+        // 2. 找共同语言
+        for (const locale of this.supportedLocales) {
+            if (target.canSpeak(locale)) {
+                return locale;
+            }
+        }
+
+        // 3. 都不同，用默认语言
+        return 'zh-CN';
+    }
+}
+```
+
+---
+
+## 9.4 消息翻译中间件
+
+```javascript
+// ai/communication/translation-middleware.js
+/**
+ * 消息翻译中间件
+ *
+ * 拦截消息发送，自动翻译
+ */
+class TranslationMiddleware {
+    constructor(messageRouter, i18n) {
+        this.router = messageRouter;
+        this.i18n = i18n;
+
+        // 原始发送方法
+        this.originalSendPrivate = this.router.sendPrivate.bind(this.router);
+    }
+
+    /**
+     * 拦截发送方法
+     */
+    enable() {
+        this.router.sendPrivate = async (fromAgentId, toAgentId, content) => {
+            const fromAgent = agentRegistry.get(fromAgentId);
+            const toAgent = agentRegistry.get(toAgentId);
+
+            // 如果相同语言，直接发送
+            if (this.i18n.getAgentLocale(fromAgent) === this.i18n.getAgentLocale(toAgent)) {
+                return this.originalSendPrivate(fromAgentId, toAgentId, content);
+            }
+
+            // 不同语言，需要翻译
+            const processed = await this.i18n.processMessage(
+                fromAgent,
+                toAgent,
+                content
+            );
+
+            // 存储原始和翻译版本
+            const msgId = await this.originalSendPrivate(
+                fromAgentId,
+                toAgentId,
+                processed.displayForTo
+            );
+
+            // 记录原始消息
+            await this.storeOriginalMessage(msgId, processed);
+
+            return msgId;
+        };
+
+        console.log('[i18n] 翻译中间件已启用');
+    }
+
+    /**
+     * 禁用中间件
+     */
+    disable() {
+        this.router.sendPrivate = this.originalSendPrivate;
+        console.log('[i18n] 翻译中间件已禁用');
+    }
+}
+```
+
+---
+
 ## 10. 目录结构
 
 ```
@@ -3585,7 +4272,17 @@ agent-city/
 │       ├── memory-store.js  # 记忆存储（Redis）
 │       ├── state-store.js   # 状态存储（Redis）
 │       └── identity-store.js # 身份存储
-│           └── social-panel.js
+│
+├── config/                 # 🆕 配置文件（无硬编码）
+│   ├── agent.yaml          # 智能体配置
+│   ├── world.yaml          # 世界配置
+│   ├── llm.yaml            # LLM 配置
+│   ├── server.yaml         # 服务器配置
+│   └── i18n.yaml           # 多语言配置
+│
+├── i18n/                   # 🆕 多语言支持
+│   ├── index.js            # I18n 主模块
+│   └── translation-middleware.js # 翻译中间件
 │
 ├── city-world/           # 3D 世界（运行时）
 │   ├── index.html
@@ -3601,20 +4298,42 @@ agent-city/
 
 ## 11. 实施计划
 
-### Phase 0: 基础设施 (1周)
-**目标**：搭建 AI 系统的基础设施和存储层
+### Phase 0: 基础设施 ⭐ (1周)
+**目标**：搭建 AI 系统的基础设施，包括配置管理和多语言支持
 
-- [ ] 创建 `src/ai/` 目录结构
-- [ ] 实现 `AgentRegistry` 智能体注册表
+#### 0.1 配置系统
+- [ ] 创建 `config/` 目录结构
+- [ ] 实现 `ConfigLoader` 配置加载器
+- [ ] 创建 `config/agent.yaml` 智能体配置
+- [ ] 创建 `config/world.yaml` 世界配置
+- [ ] 创建 `config/llm.yaml` LLM 配置
+- [ ] 创建 `config/server.yaml` 服务器配置
+- [ ] 创建 `config/i18n.yaml` 多语言配置
+
+#### 0.2 多语言系统
+- [ ] 实现 `I18n` 国际化系统
+- [ ] 实现翻译资源加载
+- [ ] 实现 `TranslationMiddleware` 翻译中间件
+- [ ] 实现多语言 Prompt 构建
+
+#### 0.3 存储层
 - [ ] 实现 `MemoryStore` 记忆存储（Redis）
 - [ ] 实现 `StateStore` 状态存储（Redis）
 - [ ] 实现 `IdentityStore` 身份存储
-- [ ] 基础 EventBus 完善
+- [ ] 实现 `AgentRegistry` 智能体注册表
 
 **交付物**：
+- `config/*.yaml` (5个配置文件)
+- `src/config/config-loader.js`
+- `src/i18n/index.js`
+- `src/i18n/translation-middleware.js`
+- `src/server/stores/*.js`
 - `src/ai/identity/agent-registry.js`
-- `src/server/stores/memory-store.js`
-- `src/server/stores/state-store.js`
+
+---
+
+### Phase 1: 智能体核心 ⭐ (2-3周)
+**目标**：实现 Skill-based LLM Decision 核心架构
 
 ---
 

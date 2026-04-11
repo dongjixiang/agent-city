@@ -739,6 +739,684 @@ class Inventory {
 }
 ```
 
+### 7.5 生态系统（Ecology System）
+
+智体城不仅是智能体的城市，还是一个有生命的生态世界。
+
+#### 7.5.1 鸟群系统（Boids 算法）
+
+```javascript
+// systems/ecology/bird-flock.js
+/**
+ * 鸟群系统 - 使用 Boids 算法实现群体智能
+ * 
+ * 三条核心规则：
+ * 1. 分离（Separation）- 避免与其他鸟太近
+ * 2. 对齐（Alignment）- 趋向于与邻近鸟飞行方向一致
+ * 3. 聚合（Cohesion）- 趋向于飞向邻近鸟群的中心
+ */
+class BirdFlock {
+    constructor(scene, count = 12) {
+        this.scene = scene;
+        this.birds = [];
+        this.count = count;
+        
+        // Boids 参数
+        this.minDistance = 2;      // 最小距离
+        this.maxSpeed = 0.5;       // 最大速度
+        this.viewRadius = 5;        // 视野半径
+        
+        // 三条规则权重
+        this.separationWeight = 1.5;
+        this.alignmentWeight = 1.0;
+        this.cohesionWeight = 1.0;
+        
+        // 吸引点（如喷泉、智能体位置）
+        this.attractionPoint = null;
+        this.attractionRadius = 20;
+    }
+
+    /**
+     * 创建一只鸟
+     */
+    createBird(index) {
+        const bird = {
+            id: `bird_${index}`,
+            mesh: this.createBirdMesh(),
+            position: this.randomPosition(),
+            velocity: { x: 0, y: 0, z: 0 },
+            // 飞行参数
+            radius: 15 + Math.random() * 30,  // 飞行半径
+            angle: Math.random() * Math.PI * 2,
+            height: 12 + Math.random() * 8,
+            wingPhase: Math.random() * Math.PI * 2,
+            state: 'flying' // flying, landing, resting, takingOff
+        };
+        return bird;
+    }
+
+    createBirdMesh() {
+        const group = new THREE.Group();
+        
+        // 身体
+        const bodyGeo = new THREE.ConeGeometry(0.08, 0.2, 5);
+        const bodyMat = new THREE.MeshLambertMaterial({ color: 0x8B7355 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.rotation.x = Math.PI / 2;
+        group.add(body);
+        
+        // 头
+        const headGeo = new THREE.SphereGeometry(0.06, 6, 6);
+        const head = new THREE.Mesh(headGeo, bodyMat);
+        head.position.z = 0.12;
+        group.add(head);
+        
+        // 啄
+        const beakGeo = new THREE.ConeGeometry(0.02, 0.06, 4);
+        const beak = new THREE.Mesh(beakGeo, new THREE.MeshBasicMaterial({ color: 0xFFA500 }));
+        beak.rotation.x = -Math.PI / 2;
+        beak.position.z = 0.2;
+        group.add(beak);
+        
+        // 翅膀
+        const wingGeo = new THREE.PlaneGeometry(0.2, 0.1);
+        const wingMat = new THREE.MeshLambertMaterial({ color: 0x6B5344, side: THREE.DoubleSide });
+        
+        const leftWing = new THREE.Mesh(wingGeo, wingMat);
+        leftWing.position.set(-0.1, 0.02, 0);
+        leftWing.name = 'leftWing';
+        group.add(leftWing);
+        
+        const rightWing = new THREE.Mesh(wingGeo, wingMat);
+        rightWing.position.set(0.1, 0.02, 0);
+        rightWing.name = 'rightWing';
+        group.add(rightWing);
+        
+        return group;
+    }
+
+    randomPosition() {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 15 + Math.random() * 30;
+        return {
+            x: Math.cos(angle) * radius,
+            y: 12 + Math.random() * 8,
+            z: Math.sin(angle) * radius
+        };
+    }
+
+    /**
+     * 每帧更新
+     */
+    update(deltaTime) {
+        for (const bird of this.birds) {
+            const neighbors = this.getNeighbors(bird);
+            
+            // 计算三个方向的力
+            const separation = this.calculateSeparation(bird, neighbors);
+            const alignment = this.calculateAlignment(neighbors);
+            const cohesion = this.calculateCohesion(bird, neighbors);
+            const attraction = this.calculateAttraction(bird);
+            
+            // 合成速度
+            bird.velocity.x = separation.x * this.separationWeight + 
+                             alignment.x * this.alignmentWeight + 
+                             cohesion.x * this.cohesionWeight +
+                             attraction.x * 0.3;
+            bird.velocity.y = separation.y * this.separationWeight + 
+                             alignment.y * this.alignmentWeight + 
+                             cohesion.y * this.cohesionWeight +
+                             attraction.y * 0.3;
+            bird.velocity.z = separation.z * this.separationWeight + 
+                             alignment.z * this.alignmentWeight + 
+                             cohesion.z * this.cohesionWeight +
+                             attraction.z * 0.3;
+            
+            // 限制速度
+            this.limitSpeed(bird.velocity);
+            
+            // 更新位置
+            bird.mesh.position.x += bird.velocity.x;
+            bird.mesh.position.y += bird.velocity.y;
+            bird.mesh.position.z += bird.velocity.z;
+            
+            // 保持最小高度
+            if (bird.mesh.position.y < 5) {
+                bird.mesh.position.y = 5 + Math.random() * 3;
+                bird.velocity.y = Math.abs(bird.velocity.y);
+            }
+            
+            // 更新飞行动画
+            bird.wingPhase += deltaTime * 10;
+            const wingAngle = Math.sin(bird.wingPhase) * 0.3;
+            const leftWing = bird.mesh.getObjectByName('leftWing');
+            const rightWing = bird.mesh.getObjectByName('rightWing');
+            if (leftWing) leftWing.rotation.z = wingAngle;
+            if (rightWing) rightWing.rotation.z = -wingAngle;
+            
+            // 面向飞行方向
+            if (Math.hypot(bird.velocity.x, bird.velocity.z) > 0.01) {
+                bird.mesh.rotation.y = Math.atan2(bird.velocity.x, bird.velocity.z);
+            }
+        }
+    }
+
+    getNeighbors(bird) {
+        return this.birds.filter(other => {
+            if (other === bird) return false;
+            const dist = bird.mesh.position.distanceTo(other.mesh.position);
+            return dist < this.viewRadius;
+        });
+    }
+
+    calculateSeparation(bird, neighbors) {
+        const result = { x: 0, y: 0, z: 0 };
+        for (const other of neighbors) {
+            const dist = bird.mesh.position.distanceTo(other.mesh.position);
+            if (dist < this.minDistance && dist > 0) {
+                const factor = 1 / dist;
+                result.x += (bird.mesh.position.x - other.mesh.position.x) * factor;
+                result.y += (bird.mesh.position.y - other.mesh.position.y) * factor;
+                result.z += (bird.mesh.position.z - other.mesh.position.z) * factor;
+            }
+        }
+        return result;
+    }
+
+    calculateAlignment(neighbors) {
+        if (neighbors.length === 0) return { x: 0, y: 0, z: 0 };
+        const result = { x: 0, y: 0, z: 0 };
+        for (const other of neighbors) {
+            result.x += other.velocity.x;
+            result.y += other.velocity.y;
+            result.z += other.velocity.z;
+        }
+        result.x /= neighbors.length;
+        result.y /= neighbors.length;
+        result.z /= neighbors.length;
+        return result;
+    }
+
+    calculateCohesion(bird, neighbors) {
+        if (neighbors.length === 0) return { x: 0, y: 0, z: 0 };
+        const center = { x: 0, y: 0, z: 0 };
+        for (const other of neighbors) {
+            center.x += other.mesh.position.x;
+            center.y += other.mesh.position.y;
+            center.z += other.mesh.position.z;
+        }
+        center.x /= neighbors.length;
+        center.y /= neighbors.length;
+        center.z /= neighbors.length;
+        
+        return {
+            x: center.x - bird.mesh.position.x,
+            y: center.y - bird.mesh.position.y,
+            z: center.z - bird.mesh.position.z
+        };
+    }
+
+    calculateAttraction(bird) {
+        if (!this.attractionPoint) return { x: 0, y: 0, z: 0 };
+        
+        const dist = bird.mesh.position.distanceTo(this.attractionPoint);
+        if (dist > this.attractionRadius) return { x: 0, y: 0, z: 0 };
+        
+        return {
+            x: this.attractionPoint.x - bird.mesh.position.x,
+            y: this.attractionPoint.y - bird.mesh.position.y,
+            z: this.attractionPoint.z - bird.mesh.position.z
+        };
+    }
+
+    limitSpeed(velocity) {
+        const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
+        if (speed > this.maxSpeed) {
+            const factor = this.maxSpeed / speed;
+            velocity.x *= factor;
+            velocity.y *= factor;
+            velocity.z *= factor;
+        }
+    }
+
+    /**
+     * 设置吸引点（如喷泉附近）
+     */
+    setAttractionPoint(point) {
+        this.attractionPoint = point;
+    }
+
+    clearAttractionPoint() {
+        this.attractionPoint = null;
+    }
+}
+```
+
+#### 7.5.2 生态事件
+
+```javascript
+// 生态事件
+const EcologyEvents = {
+    BIRD_FLOCK_APPROACHING: 'ecology:bird_flock_approaching',
+    BIRD_FLOCK_SETTLED: 'ecology:bird_flock_settled',
+    AGENT_NEAR_FOUNTAIN: 'ecology:agent_near_fountain',
+    FOUNTAIN_ACTIVATED: 'ecology:fountain_activated'
+};
+
+// 智能体到达喷泉 -> 吸引鸟群
+events.on('agent:move_complete', ({ agentId, position }) => {
+    const distToFountain = Math.hypot(position.x, position.z); // 假设喷泉在 0,0
+    if (distToFountain < 10) {
+        ecologySystem.getFlock().setAttractionPoint(position);
+        events.emit(EcologyEvents.AGENT_NEAR_FOUNTAIN, { agentId });
+    }
+});
+
+events.on('agent:leave_fountain', () => {
+    ecologySystem.getFlock().clearAttractionPoint();
+});
+```
+
+#### 7.5.3 生态类层次
+
+```
+EcologySystem
+├── BirdFlock (鸟群)
+├── ButterflySwarm (蝴蝶群)
+├── FishSchool (鱼群 - 如果有水体)
+└── StrayAnimals (流浪动物)
+```
+
+#### 7.5.4 蝴蝶群（简化版）
+
+```javascript
+class ButterflySwarm {
+    constructor(scene, count = 20) {
+        this.scene = scene;
+        this.butterflies = [];
+        
+        for (let i = 0; i < count; i++) {
+            const butterfly = {
+                mesh: this.createButterflyMesh(),
+                position: this.randomPosition(),
+                targetPosition: this.randomPosition(),
+                color: this.randomColor()
+            };
+            this.scene.add(butterfly.mesh);
+            this.butterflies.push(butterfly);
+        }
+    }
+
+    update(deltaTime) {
+        for (const b of this.butterflies) {
+            // 移向目标
+            const dx = b.targetPosition.x - b.mesh.position.x;
+            const dy = b.targetPosition.y - b.mesh.position.y;
+            const dz = b.targetPosition.z - b.mesh.position.z;
+            const dist = Math.hypot(dx, dy, dz);
+            
+            if (dist < 0.5) {
+                // 到达目标，生成新目标
+                b.targetPosition = this.randomPosition();
+            } else {
+                b.mesh.position.x += (dx / dist) * 0.02;
+                b.mesh.position.y += (dy / dist) * 0.02 + Math.sin(Date.now() * 0.01) * 0.01;
+                b.mesh.position.z += (dz / dist) * 0.02;
+            }
+            
+            // 扇动翅膀
+            b.mesh.children[0].rotation.z = Math.sin(Date.now() * 0.05) * 0.5;
+            b.mesh.children[1].rotation.z = -Math.sin(Date.now() * 0.05) * 0.5;
+        }
+    }
+
+    createButterflyMesh() {
+        const group = new THREE.Group();
+        // 左右翅膀
+        const wingGeo = new THREE.PlaneGeometry(0.1, 0.08);
+        const wingMat = new THREE.MeshBasicMaterial({ 
+            color: this.randomColor(), 
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.8
+        });
+        const leftWing = new THREE.Mesh(wingGeo, wingMat);
+        leftWing.position.x = -0.05;
+        group.add(leftWing);
+        
+        const rightWing = new THREE.Mesh(wingGeo, wingMat);
+        rightWing.position.x = 0.05;
+        group.add(rightWing);
+        
+        return group;
+    }
+
+    randomPosition() {
+        return {
+            x: (Math.random() - 0.5) * 80,
+            y: 1 + Math.random() * 3,
+            z: (Math.random() - 0.5) * 80
+        };
+    }
+
+    randomColor() {
+        const colors = [0xff69b4, 0xff6347, 0xffd700, 0x9370db, 0x00ced1];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+}
+```
+
+---
+
+### 7.6 环境交互系统
+
+智能体与环境的互动是"自主生活"的重要组成部分。
+
+#### 7.6.1 可交互对象
+
+```javascript
+class Interactable {
+    constructor(id, options = {}) {
+        this.id = id;
+        this.position = options.position;
+        this.radius = options.radius || 2;  // 交互半径
+        this.onInteract = options.onInteract; // 交互回调
+    }
+
+    canInteract(agent) {
+        const dist = Math.hypot(
+            agent.position.x - this.position.x,
+            agent.position.z - this.position.z
+        );
+        return dist <= this.radius;
+    }
+}
+
+// 环境中的可交互对象
+const interactables = [
+    new Interactable('fountain', {
+        position: { x: 0, z: 0 },
+        radius: 5,
+        onInteract: (agent) => {
+            events.emit('fountain:used', { agent });
+            return { message: '清凉的水花溅在身上，真舒服！' };
+        }
+    }),
+    new Interactable('notice_board', {
+        position: { x: -25, z: -20 },
+        radius: 3,
+        onInteract: (agent) => {
+            events.emit('notice_board:viewed', { agent });
+            return { tasks: taskSystem.getAvailableTasks() };
+        }
+    })
+];
+```
+
+#### 7.6.2 公告板系统
+
+```javascript
+class NoticeBoard {
+    constructor() {
+        this.notices = [];
+    }
+
+    post(notice) {
+        this.notices.push({
+            id: generateId(),
+            ...notice,
+            timestamp: Date.now(),
+            expiresAt: notice.expiresAt || Date.now() + 7 * 24 * 60 * 60 * 1000
+        });
+        events.emit('notice:posted', { notice });
+    }
+
+    getActive() {
+        const now = Date.now();
+        return this.notices.filter(n => n.expiresAt > now);
+    }
+}
+```
+
+---
+
+### 7.7 信鸽系统
+
+智能体之间传递消息的古老方式。
+
+```javascript
+class CarrierPigeon {
+    constructor() {
+        this.pigeons = [];
+        this.maxPigeons = 5;
+    }
+
+    sendMessage(fromAgent, toAgent, message) {
+        if (this.pigeons.length >= this.maxPigeons) {
+            return { error: '所有信鸽都在送信中，请稍后再试' };
+        }
+
+        const pigeon = {
+            id: generateId(),
+            from: fromAgent,
+            to: toAgent,
+            message,
+            progress: 0,
+            departureTime: Date.now(),
+            travelTime: 5000 // 5秒送达
+        };
+
+        this.pigeons.push(pigeon);
+
+        // 异步送达
+        setTimeout(() => {
+            this.deliver(pigeon);
+        }, pigeon.travelTime);
+
+        return { success: true, pigeonId: pigeon.id };
+    }
+
+    deliver(pigeon) {
+        // 发送消息给接收者
+        events.emit('pigeon:arrived', {
+            from: pigeon.from,
+            to: pigeon.to,
+            message: pigeon.message
+        });
+
+        // 从列表移除
+        const idx = this.pigeons.findIndex(p => p.id === pigeon.id);
+        if (idx >= 0) this.pigeons.splice(idx, 1);
+    }
+}
+```
+
+---
+
+### 7.8 日夜活动系统
+
+不同生物在不同时段有不同行为。
+
+```javascript
+class DayNightBehavior {
+    constructor(ecologySystem) {
+        this.ecology = ecologySystem;
+        this.currentPhase = 'day';
+    }
+
+    setPhase(phase) {
+        this.currentPhase = phase;
+        this.applyBehaviors();
+    }
+
+    applyBehaviors() {
+        switch (this.currentPhase) {
+            case 'dawn':
+                // 黎明：鸟儿苏醒，开始歌唱
+                ecologySystem.birds.setSongFrequency('high');
+                ecologySystem.butterflies.deactivate();
+                break;
+                
+            case 'day':
+                // 白天：活跃觅食
+                ecologySystem.birds.setActive(true);
+                ecologySystem.butterflies.setActive(true);
+                break;
+                
+            case 'evening':
+                // 傍晚：鸟儿归巢
+                ecologySystem.birds.moveToNests();
+                break;
+                
+            case 'night':
+                // 夜晚：猫头鹰苏醒（如果有）
+                ecologySystem.owls.setActive(true);
+                ecologySystem.birds.setActive(false);
+                break;
+        }
+    }
+}
+```
+
+---
+
+### 7.9 天气影响系统
+
+天气影响智能体和生态的行为。
+
+```javascript
+class WeatherEffects {
+    constructor(ecologySystem, agentSystem) {
+        this.ecology = ecologySystem;
+        this.agents = agentSystem;
+    }
+
+    setWeather(weather) {
+        switch (weather) {
+            case 'rainy':
+                // 雨天气：鸟躲雨，智能体心情变化
+                this.ecology.birds.hide();
+                this.ecology.butterflies.hide();
+                this.agents.forEach(agent => {
+                    agent.emotions.react({ 
+                        type: 'weather', 
+                        weather: 'rain',
+                        mood: -0.2 
+                    });
+                });
+                break;
+                
+            case 'sunny':
+                // 晴天：一切正常，生机勃勃
+                this.ecology.birds.setActive(true);
+                this.ecology.butterflies.setActive(true);
+                this.agents.forEach(agent => {
+                    agent.emotions.react({ 
+                        type: 'weather', 
+                        weather: 'sunny',
+                        mood: 0.1 
+                    });
+                });
+                break;
+                
+            case 'snowy':
+                // 雪天：特殊景色，安静祥和
+                this.ecology.birds.hide();
+                this.ecology.butterflies.hide();
+                break;
+        }
+    }
+}
+```
+
+---
+
+### 7.10 成长与进化系统
+
+智能体和世界一起成长。
+
+```javascript
+class WorldEvolution {
+    constructor() {
+        this.population = 0;
+        this.buildings = 0;
+        this.age = 0; // 世界年龄（天数）
+    }
+
+    /**
+     * 世界进化
+     * - 人口增长到一定程度，解锁新建筑
+     * - 建造了特定建筑，解锁新智能体类型
+     * - 达到特定声誉，解锁新区域
+     */
+    evolve() {
+        const unlocks = [];
+        
+        // 人口解锁
+        if (this.population >= 10 && !this.hasBuilding('market')) {
+            unlocks.push({ type: 'building', id: 'market', reason: '人口达到10，解锁市场' });
+        }
+        
+        // 声誉解锁
+        if (this.getAverageReputation() >= 100 && !this.hasBuilding('guild')) {
+            unlocks.push({ type: 'building', id: 'guild', reason: '平均声誉达到100，解锁公会' });
+        }
+        
+        // 时间解锁
+        if (this.age >= 30 && !this.hasBuilding('temple')) {
+            unlocks.push({ type: 'building', id: 'temple', reason: '世界存活30天，解锁神殿' });
+        }
+        
+        unlocks.forEach(unlock => {
+            events.emit('world:unlock', unlock);
+        });
+        
+        return unlocks;
+    }
+}
+```
+
+---
+
+### 7.11 智能体生命周期
+
+```javascript
+class AgentLifecycle {
+    /**
+     * 智能体可以"出生"、"成长"、"老去"
+     */
+    
+    age(agent, days) {
+        agent.age = days;
+        
+        // 年龄影响属性
+        if (days > 100) {
+            agent.skills.communication *= 1.2;  // 老年更善于沟通
+            agent.skills.exploration *= 0.8;    // 老年行动力下降
+        }
+        
+        // 老年智能体可能"退休"
+        if (days > 500 && Math.random() < 0.1) {
+            events.emit('agent:retire', { agent });
+        }
+    }
+    
+    /**
+     * 智能体可以留下"遗产"
+     */
+    inherit(agent, heir, items) {
+        items.forEach(item => {
+            heir.inventory.addItem(item);
+            events.emit('inheritance:received', {
+                from: agent.name,
+                to: heir.name,
+                item: item.name
+            });
+        });
+    }
+}
+```
+
 ---
 
 ## 8. UI/UX 设计
@@ -858,7 +1536,8 @@ agent-city/
 │   │   ├── base/
 │   │   │   └── world-object.js   # 世界对象基类
 │   │   ├── agent.js              # 智能体基类
-│   │   └── event-bus.js         # 事件总线
+│   │   ├── event-bus.js         # 事件总线
+│   │   └── spatial-index.js      # 空间索引
 │   │
 │   ├── objects/            # 世界对象
 │   │   ├── terrain/        # 地形
@@ -871,6 +1550,9 @@ agent-city/
 │   │   │   ├── bench.js
 │   │   │   ├── flower.js
 │   │   │   └── bush.js
+│   │   ├── ecology/         # 🆕 生态对象
+│   │   │   ├── bird.js
+│   │   │   └── butterfly.js
 │   │   ├── facilities/     # 设施
 │   │   │   └── fountain.js
 │   │   └── buildings/      # 建筑
@@ -892,6 +1574,10 @@ agent-city/
 │   │   ├── goal-system.js       # 目标系统
 │   │   ├── weather-system.js   # 天气系统
 │   │   ├── daynight-system.js   # 昼夜系统
+│   │   ├── ecology-system.js   # 🆕 生态系统
+│   │   │   ├── bird-flock.js    # 鸟群
+│   │   │   └── butterfly-swarm.js # 蝴蝶群
+│   │   ├── interaction-system.js # 🆕 环境交互
 │   │   ├── reputation-system.js # 声誉系统
 │   │   └── task-system.js      # 任务系统
 │   │
@@ -933,22 +1619,34 @@ agent-city/
 - [ ] 实现 Goal System
 - [ ] 实现 AI 决策循环
 
-### Phase 3: 社交系统 (2周)
+### Phase 3: 生态系统 (1-2周)
+- [ ] 🆕 实现 BirdFlock 鸟群系统（Boids 算法）
+- [ ] 🆕 实现 ButterflySwarm 蝴蝶群
+- [ ] 🆕 环境交互系统（公告板、信鸽）
+- [ ] 🆕 日夜行为系统
+- [ ] 🆕 天气影响系统
+
+### Phase 4: 社交系统 (2周)
 - [ ] 实现 Relationship System
 - [ ] 实现 Reputation System
 - [ ] 实现 Conversation System
 
-### Phase 4: 经济系统 (2周)
+### Phase 5: 经济系统 (2周)
 - [ ] 实现 Item System
 - [ ] 实现 Inventory
 - [ ] 实现 Task System
 - [ ] 实现 Trading
 
-### Phase 5: 高级特性 (持续)
-- [ ] 智能体学习
-- [ ] 群体智能
-- [ ] 自我建设
-- [ ] 世界演进
+### Phase 6: 进化系统 (2周)
+- [ ] 🆕 世界进化系统（解锁新内容）
+- [ ] 🆕 智能体生命周期（遗产继承）
+- [ ] 🆕 成长与成就系统
+
+### Phase 7: 高级特性 (持续)
+- [ ] 智能体学习（强化学习/模仿学习）
+- [ ] 自我建设系统
+- [ ] 多智能体协作
+- [ ] 世界事件系统
 
 ---
 
@@ -962,12 +1660,21 @@ const EventTypes = {
     AGENT_SPAWN: 'agent:spawn',
     AGENT_DESPAWN: 'agent:despawn',
     AGENT_MOVE: 'agent:move',
+    AGENT_MOVE_COMPLETE: 'agent:move_complete',
     AGENT_SPEAK: 'agent:speak',
     AGENT_THINK: 'agent:think',
+    AGENT_INTERACT: 'agent:interact',
+    AGENT_LEAVE_FOUNTAIN: 'agent:leave_fountain',
 
     // World
     BUILDING_CLICKED: 'building:clicked',
     BUILDING_ENTERED: 'building:entered',
+
+    // Ecology 🆕
+    ECOLOGY_BIRD_APPROACHING: 'ecology:bird_flock_approaching',
+    ECOLOGY_BIRD_SETTLED: 'ecology:bird_flock_settled',
+    ECOLOGY_AGENT_NEAR_FOUNTAIN: 'ecology:agent_near_fountain',
+    ECOLOGY_FOUNTAIN_ACTIVATED: 'ecology:fountain_activated',
 
     // Weather
     WEATHER_CHANGED: 'weather:changed',
@@ -991,7 +1698,21 @@ const EventTypes = {
     // Inventory
     ITEM_ACQUIRED: 'item:acquired',
     ITEM_LOST: 'item:lost',
-    COINS_CHANGED: 'coins:changed'
+    COINS_CHANGED: 'coins:changed',
+
+    // World Evolution 🆕
+    WORLD_UNLOCK: 'world:unlock',
+    
+    // Pigeon 🆕
+    PIGEON_ARRIVED: 'pigeon:arrived',
+
+    // Notice Board 🆕
+    NOTICE_POSTED: 'notice:posted',
+    NOTICE_VIEWED: 'notice:viewed',
+
+    // Agent Lifecycle 🆕
+    AGENT_RETIRE: 'agent:retire',
+    INHERITANCE_RECEIVED: 'inheritance:received'
 };
 ```
 

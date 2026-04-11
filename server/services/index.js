@@ -8,6 +8,9 @@ const { messageService, MessageService, setStores: setMessageStores } = require(
 const { relationService, RelationService } = require('./relation-service');
 const { partyService, PartyService } = require('./party-service');
 const { guildService, GuildService } = require('./guild-service');
+const { petService, PetService } = require('./pet-service');
+const { achievementService, AchievementService } = require('./achievement-service');
+const { appearanceService, AppearanceService } = require('./appearance-service');
 
 /**
  * 初始化所有服务
@@ -23,7 +26,10 @@ function initializeServices(stores) {
         messageService,
         relationService,
         partyService,
-        guildService
+        guildService,
+        petService,
+        achievementService,
+        appearanceService
     };
 }
 
@@ -34,11 +40,17 @@ module.exports = {
     relationService,
     partyService,
     guildService,
+    petService,
+    achievementService,
+    appearanceService,
     AgentService,
     TaskService,
     MessageService,
     RelationService,
     PartyService,
     GuildService,
+    PetService,
+    AchievementService,
+    AppearanceService,
     initializeServices
 };

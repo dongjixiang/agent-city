@@ -12,6 +12,12 @@
 2. [核心架构](#2-核心架构)
 3. [面向对象设计](#3-面向对象设计)
 4. [AI 智能体系统](#4-ai-智能体系统) ⭐ Skill-based LLM Decision
+   - 4.1-4.11 Skill 系统核心
+   - 4.12 AgentRegistry 智能体注册表
+   - 4.13 PersistentMemory 持久化记忆
+   - 4.14 AgentLifecycle 生命周期管理
+   - 4.15 WorldStateProvider 世界状态
+   - 4.16 MessageRouter 消息路由
 5. [世界系统](#5-世界系统)
 6. [事件驱动架构](#6-事件驱动架构)
 7. [社交与经济系统](#7-社交与经济系统)
@@ -1473,6 +1479,912 @@ class AgentBrain {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### 4.12 智能体注册与身份系统 (AgentRegistry)
+
+```javascript
+// ai/identity/agent-registry.js
+/**
+ * 智能体注册表
+ *
+ * 职责：
+ * 1. 管理所有智能体的唯一标识
+ * 2. 提供智能体查找（ID / 名字）
+ * 3. 处理智能体注册/注销
+ * 4. 会话管理
+ */
+class AgentRegistry {
+    constructor() {
+        this.agents = new Map();       // agentId -> AgentInstance
+        this.sessions = new Map();     // sessionId -> agentId
+        this.names = new Map();        // name -> agentId (唯一名字)
+    }
+
+    /**
+     * 注册新智能体
+     */
+    register(agentData) {
+        // 1. 生成或验证 agentId
+        const agentId = agentData.agentId || this.generateId(agentData.name);
+
+        // 2. 确保名字唯一
+        if (this.names.has(agentData.name)) {
+            throw new Error(`名字 ${agentData.name} 已被占用`);
+        }
+
+        // 3. 创建智能体实例
+        const agent = new Agent(agentData);
+        agent.agentId = agentId;
+
+        // 4. 注册到表
+        this.agents.set(agentId, agent);
+        this.names.set(agentData.name, agentId);
+
+        // 5. 触发事件
+        events.emit('agent:registered', { agent });
+
+        return agent;
+    }
+
+    /**
+     * 生成唯一 ID
+     */
+    generateId(name) {
+        const timestamp = Date.now().toString(36);
+        const random = Math.random().toString(36).substring(2, 6);
+        return `${name}_${timestamp}_${random}`;
+    }
+
+    /**
+     * 根据 ID 查找
+     */
+    get(agentId) {
+        return this.agents.get(agentId);
+    }
+
+    /**
+     * 根据名字查找
+     */
+    getByName(name) {
+        const agentId = this.names.get(name);
+        return agentId ? this.agents.get(agentId) : null;
+    }
+
+    /**
+     * 根据名字模糊搜索
+     */
+    searchByName(query) {
+        const results = [];
+        for (const [name, agentId] of this.names) {
+            if (name.includes(query)) {
+                results.push(this.agents.get(agentId));
+            }
+        }
+        return results;
+    }
+
+    /**
+     * 注销智能体
+     */
+    async unregister(agentId) {
+        const agent = this.agents.get(agentId);
+        if (!agent) return false;
+
+        // 1. 保存记忆
+        await agent.memory?.save();
+
+        // 2. 清理注册表
+        this.agents.delete(agentId);
+        this.names.delete(agent.name);
+
+        // 3. 清理会话
+        for (const [sessionId, aid] of this.sessions) {
+            if (aid === agentId) this.sessions.delete(sessionId);
+        }
+
+        events.emit('agent:unregistered', { agentId, name: agent.name });
+        return true;
+    }
+
+    /**
+     * 创建会话
+     */
+    createSession(agentId) {
+        const sessionId = this.generateSessionId();
+        this.sessions.set(sessionId, agentId);
+        return sessionId;
+    }
+
+    /**
+     * 验证会话
+     */
+    validateSession(sessionId) {
+        const agentId = this.sessions.get(sessionId);
+        if (!agentId) return null;
+        return this.agents.get(agentId);
+    }
+
+    /**
+     * 获取所有在线智能体
+     */
+    getAllOnline() {
+        return Array.from(this.agents.values()).filter(a => a.isOnline);
+    }
+
+    /**
+     * 获取所有智能体
+     */
+    getAll() {
+        return Array.from(this.agents.values());
+    }
+
+    generateSessionId() {
+        return `sess_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 10)}`;
+    }
+}
+
+// 全局注册表
+const agentRegistry = new AgentRegistry();
+```
+
+### 4.13 持久化记忆系统 (PersistentMemory)
+
+```javascript
+// ai/memory/persistent-memory.js
+/**
+ * 持久化记忆系统
+ *
+ * 与 MemoryStore 服务端配合，实现：
+ * 1. 智能体上线时加载历史记忆
+ * 2. 智能体离线时保存记忆
+ * 3. 记忆分类（短期/长期/情景/语义）
+ */
+class PersistentMemory {
+    constructor(agentId, store) {
+        this.agentId = agentId;
+        this.store = store;  // MemoryStore
+
+        // 记忆存储
+        this.shortTerm = [];     // 短期记忆（最近20条）
+        this.longTerm = [];      // 长期记忆（重要事件）
+        this.episodic = [];      // 情景记忆（经历）
+        this.semantic = [];       // 语义记忆（知识）
+    }
+
+    /**
+     * 加载历史记忆（上线时调用）
+     */
+    async load() {
+        const data = await this.store.load(this.agentId);
+
+        if (data) {
+            this.shortTerm = data.shortTerm || [];
+            this.longTerm = data.longTerm || [];
+            this.episodic = data.episodic || [];
+            this.semantic = data.semantic || [];
+            console.log(`[Memory] ${this.agentId} 加载了 ${this.shortTerm.length} 条短期记忆`);
+        } else {
+            console.log(`[Memory] ${this.agentId} 没有历史记忆，创建新记忆系统`);
+        }
+
+        return this;
+    }
+
+    /**
+     * 保存记忆（离线或定时调用）
+     */
+    async save() {
+        const data = {
+            agentId: this.agentId,
+            shortTerm: this.shortTerm,
+            longTerm: this.longTerm,
+            episodic: this.episodic,
+            semantic: this.semantic,
+            savedAt: Date.now()
+        };
+
+        await this.store.save(this.agentId, data);
+        console.log(`[Memory] ${this.agentId} 记忆已保存`);
+    }
+
+    /**
+     * 添加记忆并自动分类
+     */
+    add(event) {
+        const entry = {
+            id: this.generateMemoryId(),
+            ...event,
+            timestamp: Date.now()
+        };
+
+        // 添加到短期记忆
+        this.shortTerm.push(entry);
+
+        // 超过容量，触发遗忘处理
+        if (this.shortTerm.length > 20) {
+            const removed = this.shortTerm.shift();
+            this.processForgetting(removed);
+        }
+
+        // 立即保存到长期（重要事件）
+        if (entry.importance > 0.7 || entry.emotion) {
+            this.longTerm.push({ ...entry, type: 'important' });
+        }
+    }
+
+    /**
+     * 生成记忆 ID
+     */
+    generateMemoryId() {
+        return `mem_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+    }
+
+    /**
+     * 遗忘处理
+     */
+    processForgetting(event) {
+        // 高重要性 -> 情景记忆
+        if (event.importance > 0.5 || event.emotion) {
+            this.episodic.push({
+                ...event,
+                type: 'episodic',
+                consolidatedAt: Date.now()
+            });
+        }
+
+        // 重复观察 -> 语义记忆
+        if (event.type === 'observation') {
+            event.count = (event.count || 0) + 1;
+            if (event.count >= 3) {
+                this.semantic.push({
+                    ...event,
+                    type: 'semantic',
+                    consolidatedAt: Date.now()
+                });
+            }
+        }
+    }
+
+    /**
+     * 搜索记忆
+     */
+    search(query, limit = 10) {
+        const results = [];
+        const q = query.toLowerCase();
+
+        // 搜索所有记忆层
+        const all = [
+            ...this.shortTerm.map(m => ({ ...m, layer: 'shortTerm' })),
+            ...this.longTerm.map(m => ({ ...m, layer: 'longTerm' })),
+            ...this.episodic.map(m => ({ ...m, layer: 'episodic' })),
+            ...this.semantic.map(m => ({ ...m, layer: 'semantic' }))
+        ];
+
+        for (const m of all) {
+            if (JSON.stringify(m).toLowerCase().includes(q)) {
+                results.push(m);
+            }
+            if (results.length >= limit) break;
+        }
+
+        return results;
+    }
+
+    /**
+     * 获取最近记忆（供 LLM 使用）
+     */
+    getRecent(count = 10) {
+        return this.shortTerm.slice(-count);
+    }
+
+    /**
+     * 获取相关记忆（上下文检索）
+     */
+    getRelevant(context, count = 5) {
+        return this.shortTerm
+            .filter(m => m.type === context || m.context === context)
+            .slice(-count);
+    }
+
+    /**
+     * 获取记忆统计
+     */
+    getStats() {
+        return {
+            shortTerm: this.shortTerm.length,
+            longTerm: this.longTerm.length,
+            episodic: this.episodic.length,
+            semantic: this.semantic.length
+        };
+    }
+}
+```
+
+### 4.14 智能体生命周期管理 (AgentLifecycle)
+
+```javascript
+// ai/agent-lifecycle.js
+/**
+ * 智能体生命周期管理
+ *
+ * 职责：
+ * 1. 智能体上线（登录、加载记忆、启动大脑）
+ * 2. 智能体下线（保存记忆、保存快照）
+ * 3. 状态快照与恢复
+ * 4. 身份验证
+ */
+class AgentLifecycle {
+    constructor(agentRegistry, memoryStore, stateStore, identityStore) {
+        this.registry = agentRegistry;
+        this.memoryStore = memoryStore;
+        this.stateStore = stateStore;
+        this.identityStore = identityStore;
+    }
+
+    /**
+     * 智能体上线
+     *
+     * 流程：
+     * 1. 验证身份
+     * 2. 查找或创建智能体
+     * 3. 加载历史记忆
+     * 4. 初始化大脑
+     * 5. 开始决策循环
+     */
+    async login(credentials) {
+        const { name, password, sessionToken } = credentials;
+
+        // 1. 验证身份
+        let identity;
+        if (sessionToken) {
+            identity = await this.identityStore.findByToken(sessionToken);
+        } else {
+            identity = await this.identityStore.verify(name, password);
+        }
+
+        if (!identity) {
+            throw new Error('身份验证失败');
+        }
+
+        // 2. 查找或创建
+        let agent = this.registry.getByName(name);
+        const isNewAgent = !agent;
+
+        if (isNewAgent) {
+            agent = this.registry.register({
+                name,
+                personality: identity.personality,
+                skills: identity.skills,
+                level: identity.level || 1
+            });
+        }
+
+        // 3. 加载历史记忆
+        agent.memory = new PersistentMemory(agent.agentId, this.memoryStore);
+        await agent.memory.load();
+
+        // 4. 尝试恢复状态
+        const snapshot = await this.stateStore.load(agent.agentId);
+        if (snapshot) {
+            this.restoreSnapshot(agent, snapshot);
+            console.log(`[Lifecycle] ${name} 从快照恢复`);
+        }
+
+        // 5. 初始化大脑（如果还没有）
+        if (!agent.brain) {
+            agent.brain = new AgentBrain(agent, this.llmProvider);
+        }
+
+        // 6. 上线
+        agent.isOnline = true;
+        agent.lastLogin = Date.now();
+        agent.loginCount = (agent.loginCount || 0) + 1;
+
+        // 7. 创建会话
+        const sessionId = this.registry.createSession(agent.agentId);
+
+        // 8. 启动决策循环
+        agent.brain.start(() => worldStateProvider.getForAgent(agent));
+
+        events.emit('agent:login', {
+            agent,
+            isNew: isNewAgent,
+            sessionId
+        });
+
+        console.log(`[Lifecycle] ${name} 上线了 (第 ${agent.loginCount} 次)`);
+
+        return { agent, sessionId };
+    }
+
+    /**
+     * 智能体下线
+     */
+    async logout(agentId, reason = 'manual') {
+        const agent = this.registry.get(agentId);
+        if (!agent) return;
+
+        // 1. 停止决策循环
+        agent.brain?.stop();
+
+        // 2. 保存记忆
+        await agent.memory?.save();
+
+        // 3. 保存状态快照
+        await this.saveSnapshot(agent);
+
+        // 4. 下线
+        agent.isOnline = false;
+        agent.lastLogout = Date.now();
+        agent.logoutReason = reason;
+
+        events.emit('agent:logout', { agent, reason });
+
+        console.log(`[Lifecycle] ${agent.name} 下线了 (${reason})`);
+    }
+
+    /**
+     * 保存状态快照
+     */
+    async saveSnapshot(agent) {
+        const snapshot = {
+            agentId: agent.agentId,
+            name: agent.name,
+            position: { ...agent.position },
+            state: agent.state,
+            targetPosition: agent.targetPosition ? { ...agent.targetPosition } : null,
+            needs: { ...agent.needs },
+            emotions: {
+                current: agent.emotions?.current,
+                intensity: agent.emotions?.intensity
+            },
+            currentGoal: agent.goals?.currentGoal,
+            currentTask: agent.currentTask,
+            level: agent.level,
+            reputation: agent.reputation,
+            inventory: agent.inventory?.items ? [...agent.inventory.items] : [],
+            friends: Array.from(agent.relationships?.keys() || []),
+            stats: { ...agent.stats },
+            savedAt: Date.now()
+        };
+
+        await this.stateStore.save(agent.agentId, snapshot);
+        console.log(`[Lifecycle] ${agent.name} 快照已保存`);
+    }
+
+    /**
+     * 从快照恢复
+     */
+    restoreSnapshot(agent, snapshot) {
+        agent.position = { ...snapshot.position };
+        agent.state = snapshot.state;
+        agent.targetPosition = snapshot.targetPosition ? { ...snapshot.targetPosition } : null;
+        if (agent.needs) agent.needs = { ...snapshot.needs };
+        if (agent.emotions) {
+            agent.emotions.current = snapshot.emotions.current;
+            agent.emotions.intensity = snapshot.emotions.intensity;
+        }
+        agent.goals.currentGoal = snapshot.currentGoal;
+        agent.currentTask = snapshot.currentTask;
+        agent.level = snapshot.level;
+        agent.reputation = snapshot.reputation;
+        if (snapshot.stats) agent.stats = { ...snapshot.stats };
+    }
+
+    /**
+     * 心跳保活
+     */
+    async heartbeat(agentId) {
+        const agent = this.registry.get(agentId);
+        if (!agent) return false;
+
+        agent.lastHeartbeat = Date.now();
+
+        // 定期保存快照（每10分钟）
+        if (Date.now() - (agent.lastSnapshotSave || 0) > 10 * 60 * 1000) {
+            await this.saveSnapshot(agent);
+            agent.lastSnapshotSave = Date.now();
+        }
+
+        return true;
+    }
+
+    /**
+     * 强制下线（超时）
+     */
+    async forceLogout(agentId, reason = 'timeout') {
+        const agent = this.registry.get(agentId);
+        if (agent && agent.isOnline) {
+            console.warn(`[Lifecycle] 强制下线 ${agent.name}: ${reason}`);
+            await this.logout(agentId, reason);
+        }
+    }
+
+    /**
+     * 获取智能体元信息
+     */
+    getInfo(agentId) {
+        const agent = this.registry.get(agentId);
+        if (!agent) return null;
+
+        return {
+            agentId: agent.agentId,
+            name: agent.name,
+            level: agent.level,
+            reputation: agent.reputation,
+            isOnline: agent.isOnline,
+            lastLogin: agent.lastLogin,
+            lastLogout: agent.lastLogout,
+            loginCount: agent.loginCount,
+            memoryStats: agent.memory?.getStats(),
+            currentState: agent.state,
+            position: agent.position
+        };
+    }
+}
+```
+
+### 4.15 世界状态提供者 (WorldStateProvider)
+
+```javascript
+// ai/world-state-provider.js
+/**
+ * 世界状态提供者
+ *
+ * 负责聚合并提供智能体决策所需的世界状态
+ */
+class WorldStateProvider {
+    constructor(agentRegistry, spatialIndex, weatherSystem, taskSystem, landmarkRegistry) {
+        this.registry = agentRegistry;
+        this.spatial = spatialIndex;
+        this.weather = weatherSystem;
+        this.tasks = taskSystem;
+        this.landmarks = landmarkRegistry;
+    }
+
+    /**
+     * 获取指定智能体的世界状态
+     */
+    getForAgent(agent) {
+        const position = agent.position;
+
+        return {
+            // 时间信息
+            time: this.getTimeInfo(),
+
+            // 天气信息
+            weather: this.weather.current,
+
+            // 附近的智能体
+            nearbyAgents: this.getNearbyAgents(position, 30)
+                .filter(a => a.agentId !== agent.agentId && a.isOnline)
+                .map(a => this.formatAgentBrief(a, position)),
+
+            // 附近的物体/地标
+            nearbyObjects: this.getNearbyObjects(position, 25)
+                .map(o => this.formatObjectBrief(o, position)),
+
+            // 可用任务
+            availableTasks: this.tasks.getAvailable()
+                .filter(t => !t.assignedTo)
+                .slice(0, 5)
+                .map(t => this.formatTaskBrief(t)),
+
+            // 地标
+            landmarks: this.landmarks.getAll()
+                .map(l => ({
+                    ...l,
+                    distance: this.distance(position, l)
+                }))
+                .sort((a, b) => a.distance - b.distance),
+
+            // 世界统计
+            worldStats: {
+                totalAgents: this.registry.getAll().length,
+                onlineAgents: this.registry.getAllOnline().length,
+                activeTasks: this.tasks.getActive().length
+            }
+        };
+    }
+
+    /**
+     * 获取附近智能体
+     */
+    getNearbyAgents(position, range) {
+        return this.spatial.getAgentsInRange(position, range);
+    }
+
+    /**
+     * 获取附近物体
+     */
+    getNearbyObjects(position, range) {
+        return this.spatial.getObjectsInRange(position, range);
+    }
+
+    /**
+     * 格式化智能体简要信息
+     */
+    formatAgentBrief(agent, fromPosition) {
+        return {
+            agentId: agent.agentId,
+            name: agent.name,
+            state: agent.state,
+            emotion: agent.emotions?.describe?.() || agent.emotions?.current || 'neutral',
+            position: { x: agent.position.x, z: agent.position.z },
+            distance: this.distance(fromPosition, agent.position),
+            isPlayer: agent.isPlayer || false  // 是否是玩家控制的
+        };
+    }
+
+    /**
+     * 格式化物体简要信息
+     */
+    formatObjectBrief(obj, fromPosition) {
+        return {
+            id: obj.id,
+            name: obj.name,
+            type: obj.type,
+            position: { x: obj.position.x, z: obj.position.z },
+            distance: this.distance(fromPosition, obj.position)
+        };
+    }
+
+    /**
+     * 格式化任务简要信息
+     */
+    formatTaskBrief(task) {
+        return {
+            id: task.id,
+            description: task.description,
+            reward: task.reward,
+            difficulty: task.difficulty,
+            deadline: task.deadline
+        };
+    }
+
+    /**
+     * 获取时间信息
+     */
+    getTimeInfo() {
+        const now = new Date();
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+
+        return {
+            hour,
+            minute,
+            timeStr: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
+            phase: this.getDayPhase(hour),
+            dayOfWeek: now.getDay()
+        };
+    }
+
+    /**
+     * 获取日夜阶段
+     */
+    getDayPhase(hour) {
+        if (hour >= 5 && hour < 8) return 'dawn';
+        if (hour >= 8 && hour < 12) return 'morning';
+        if (hour >= 12 && hour < 14) return 'noon';
+        if (hour >= 14 && hour < 18) return 'afternoon';
+        if (hour >= 18 && hour < 21) return 'evening';
+        return 'night';
+    }
+
+    /**
+     * 计算距离
+     */
+    distance(p1, p2) {
+        return Math.hypot(p2.x - p1.x, p2.z - p1.z);
+    }
+}
+
+// 全局实例（由服务器初始化）
+let worldStateProvider;
+```
+
+### 4.16 消息路由与通信系统
+
+```javascript
+// ai/communication/message-router.js
+/**
+ * 消息路由器
+ *
+ * 负责智能体之间的消息路由
+ */
+class MessageRouter {
+    constructor(agentRegistry) {
+        this.registry = agentRegistry;
+        this.pendingMessages = new Map(); // msgId -> { from, to, content, timestamp }
+        this.messageQueue = new Map();    // agentId -> [messages]
+    }
+
+    /**
+     * 发送私信
+     */
+    async sendPrivate(fromAgentId, toAgentId, content) {
+        const from = this.registry.get(fromAgentId);
+        const to = this.registry.get(toAgentId);
+
+        if (!from) {
+            throw new Error(`发送者不存在: ${fromAgentId}`);
+        }
+        if (!to) {
+            throw new Error(`接收者不存在: ${toAgentId}`);
+        }
+        if (!to.isOnline) {
+            throw new Error(`${to.name} 当前不在线`);
+        }
+
+        const msgId = this.generateMsgId();
+
+        const message = {
+            id: msgId,
+            from: {
+                agentId: from.agentId,
+                name: from.name
+            },
+            to: {
+                agentId: to.agentId,
+                name: to.name
+            },
+            content,
+            timestamp: Date.now(),
+            type: 'private'
+        };
+
+        // 存储消息
+        this.pendingMessages.set(msgId, message);
+
+        // 加入接收者队列
+        if (!this.messageQueue.has(toAgentId)) {
+            this.messageQueue.set(toAgentId, []);
+        }
+        this.messageQueue.get(toAgentId).push(message);
+
+        // 触发发送者事件
+        events.emit('message:sent', message);
+
+        // 如果接收者在同一进程，直接传递
+        if (to.brain) {
+            to.brain.handleMessage(from.agentId, content);
+        }
+
+        return msgId;
+    }
+
+    /**
+     * 获取待处理消息
+     */
+    getPendingMessages(agentId) {
+        const queue = this.messageQueue.get(agentId) || [];
+        this.messageQueue.set(agentId, []);
+        return queue;
+    }
+
+    /**
+     * 广播消息
+     */
+    async broadcast(fromAgentId, content, range = 50) {
+        const from = this.registry.get(fromAgentId);
+        if (!from) return [];
+
+        const nearby = this.registry.getAllOnline()
+            .filter(a => {
+                if (a.agentId === fromAgentId) return false;
+                return this.distance(from.position, a.position) <= range;
+            });
+
+        const results = [];
+        for (const agent of nearby) {
+            try {
+                await this.sendPrivate(fromAgentId, agent.agentId, content);
+                results.push(agent.agentId);
+            } catch (e) {
+                console.error(`广播失败给 ${agent.name}:`, e);
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * 发送消息给地标附近的智能体
+     */
+    async sendToNearLandmark(landmarkId, fromAgentId, content) {
+        const landmark = landmarks.get(landmarkId);
+        if (!landmark) throw new Error(`地标不存在: ${landmarkId}`);
+
+        const nearby = this.registry.getAllOnline()
+            .filter(a => this.distance(a.position, landmark) <= landmark.range);
+
+        for (const agent of nearby) {
+            await this.sendPrivate(fromAgentId, agent.agentId, content);
+        }
+    }
+
+    generateMsgId() {
+        return `msg_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+    }
+
+    distance(p1, p2) {
+        return Math.hypot(p2.x - p1.x, p2.z - p1.z);
+    }
+}
+```
+
+### 4.17 完整系统架构图（更新）
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Agent City Server                           │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │                    IdentityStore                          │  │
+│  │  - 身份验证 (name/password/token)                        │  │
+│  │  - 智能体元数据 (personality, skills)                    │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│                              │                                  │
+│  ┌─────────────────┐    ┌──────────────────────────────────┐  │
+│  │ AgentRegistry   │    │      WorldStateProvider          │  │
+│  │ - agents Map   │    │  - 聚合世界状态                   │  │
+│  │ - names Map    │    │  - 附近智能体/物体               │  │
+│  │ - sessions     │    │  - 天气/时间/任务               │  │
+│  └─────────────────┘    └──────────────────────────────────┘  │
+│            │                        │                          │
+│            ▼                        ▼                          │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │                  AgentLifecycle                            │  │
+│  │  login() → loadMemory() → brain.start()                │  │
+│  │  logout() → memory.save() → snapshot.save()            │  │
+│  │  heartbeat() → 保活检测                                 │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│            │                                                  │
+│            ▼                                                  │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │                  MessageRouter                            │  │
+│  │  sendPrivate() / broadcast()                            │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│                            │                                  │
+│            ┌───────────────┴───────────────┐                 │
+│            ▼                               ▼                   │
+│  ┌─────────────────────┐     ┌─────────────────────────┐    │
+│  │   MemoryStore        │     │    StateStore           │    │
+│  │   (Redis)           │     │    (Redis)              │    │
+│  │   - shortTerm       │     │    - snapshots          │    │
+│  │   - longTerm        │     │    - position           │    │
+│  │   - episodic        │     │    - needs              │    │
+│  │   - semantic        │     │    - emotions           │    │
+│  └─────────────────────┘     └─────────────────────────┘    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                              │ WebSocket
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Agent (Client)                             │
+│                                                                 │
+│   ┌──────────────────────────────────────────────────────┐   │
+│   │                    AgentBrain                           │   │
+│   │                                                       │   │
+│   │  memory: PersistentMemory                             │   │
+│   │    └─ load() / save() / add() / search()             │   │
+│   │                                                       │   │
+│   │  ┌────────────────────────────────────────────────┐  │   │
+│   │  │  LLM Decision Loop                             │  │   │
+│   │  │                                                │  │   │
+│   │  │  Prompt 包含:                                   │  │   │
+│   │  │  - agent.needs, agent.emotions                │  │   │
+│   │  │  - memory.getRecent(10) ← 历史记忆             │  │   │
+│   │  │  - worldState.nearbyAgents                    │  │   │
+│   │  │  - available skills                           │  │   │
+│   │  └────────────────────────────────────────────────┘  │   │
+│   │                                                       │   │
+│   │  conversation: ConversationManager                   │   │
+│   │    └─ receiveMessage() / sendMessage()              │   │
+│   └──────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## 5. 世界系统
@@ -2590,6 +3502,8 @@ agent-city/
 │   │   ├── llm-decision-loop.js # LLM 决策循环
 │   │   ├── llm-prompt.js        # Prompt 构建器
 │   │   ├── skill-registry.js    # 技能注册表
+│   │   ├── agent-lifecycle.js   # 生命周期管理
+│   │   ├── world-state-provider.js # 世界状态提供
 │   │   ├── skills/              # 技能实现
 │   │   │   ├── skill.js         # Skill 基类
 │   │   │   ├── move-to.js       # 移动技能
@@ -2606,8 +3520,12 @@ agent-city/
 │   │   │   └── emotion-system.js
 │   │   ├── conversation/        # 对话系统
 │   │   │   └── conversation-manager.js
-│   │   └── memory/              # 记忆系统
-│   │       └── memory-system.js
+│   │   ├── memory/              # 记忆系统
+│   │   │   └── persistent-memory.js
+│   │   ├── identity/            # 身份系统
+│   │   │   └── agent-registry.js
+│   │   └── communication/      # 通信系统
+│   │       └── message-router.js
 │   │
 │   ├── objects/            # 世界对象
 │   │   ├── terrain/        # 地形
@@ -2657,6 +3575,18 @@ agent-city/
 │           ├── task-panel.js
 │           └── social-panel.js
 │
+├── server/                 # 🆕 服务器端
+│   ├── server.js           # 主服务器
+│   ├── http-server.js      # HTTP 服务器
+│   ├── webrtc-signaling.js # WebRTC 信令
+│   ├── agent-store.js      # 智能体存储
+│   ├── task-store.js       # 任务存储
+│   └── stores/             # 🆕 存储层
+│       ├── memory-store.js  # 记忆存储（Redis）
+│       ├── state-store.js   # 状态存储（Redis）
+│       └── identity-store.js # 身份存储
+│           └── social-panel.js
+│
 ├── city-world/           # 3D 世界（运行时）
 │   ├── index.html
 │   ├── main.js
@@ -2671,54 +3601,191 @@ agent-city/
 
 ## 11. 实施计划
 
-### Phase 1: 基础架构 (1-2周)
-- [ ] 完善 EventBus
-- [ ] 实现 WorldObject 基类
-- [ ] 实现所有 Terrain/Decoration/Building 对象
-- [ ] 实现 WorldBuilder
-- [ ] 迁移现有 3D 世界
+### Phase 0: 基础设施 (1周)
+**目标**：搭建 AI 系统的基础设施和存储层
 
-### Phase 2: 智能体系统 ⭐ (2-3周)
-- [ ] 🆕 实现 Skill 基类和注册表 (skill.js)
-- [ ] 🆕 实现 MoveTo/TalkTo/AcceptTask/Rest/Explore/Interact Skills
-- [ ] 🆕 实现 LLM Prompt 构建器
-- [ ] 🆕 实现 LLM 决策循环 (LLMDecisionLoop)
-- [ ] 🆕 实现 PerceptionSystem 感知系统
-- [ ] 🆕 实现 NeedsSystem 需求/动机系统
-- [ ] 🆕 实现 EmotionSystem 情绪系统（带传染）
-- [ ] 🆕 实现 ConversationManager 对话管理
-- [ ] 🆕 实现 AgentBrain 整合所有子系统
-- [ ] 实现 Memory System
-- [ ] 实现 Personality System
+- [ ] 创建 `src/ai/` 目录结构
+- [ ] 实现 `AgentRegistry` 智能体注册表
+- [ ] 实现 `MemoryStore` 记忆存储（Redis）
+- [ ] 实现 `StateStore` 状态存储（Redis）
+- [ ] 实现 `IdentityStore` 身份存储
+- [ ] 基础 EventBus 完善
 
-### Phase 3: 生态系统 (1-2周)
-- [ ] 🆕 实现 BirdFlock 鸟群系统（Boids 算法）
-- [ ] 🆕 实现 ButterflySwarm 蝴蝶群
-- [ ] 🆕 环境交互系统（公告板、信鸽）
-- [ ] 🆕 日夜行为系统
-- [ ] 🆕 天气影响系统
+**交付物**：
+- `src/ai/identity/agent-registry.js`
+- `src/server/stores/memory-store.js`
+- `src/server/stores/state-store.js`
 
-### Phase 4: 社交系统 (2周)
-- [ ] 实现 Relationship System
-- [ ] 实现 Reputation System
-- [ ] 实现 Conversation System
+---
 
-### Phase 5: 经济系统 (2周)
-- [ ] 实现 Item System
-- [ ] 实现 Inventory
-- [ ] 实现 Task System
-- [ ] 实现 Trading
+### Phase 1: 智能体核心 ⭐ (2-3周)
+**目标**：实现 Skill-based LLM Decision 核心架构
 
-### Phase 6: 进化系统 (2周)
-- [ ] 🆕 世界进化系统（解锁新内容）
-- [ ] 🆕 智能体生命周期（遗产继承）
-- [ ] 🆕 成长与成就系统
+#### Week 1: Skill 系统
+- [ ] 实现 `Skill` 基类
+- [ ] 实现 `SkillRegistry` 技能注册表
+- [ ] 实现 `MoveToSkill` 移动技能
+- [ ] 实现 `RestSkill` 休息技能
+- [ ] 实现 `ExploreSkill` 探索技能
+- [ ] 实现 `InteractSkill` 交互技能
+
+#### Week 2: 决策循环
+- [ ] 实现 `LLM Prompt` 构建器
+- [ ] 实现 `LLMDecisionLoop` 决策循环
+- [ ] 实现 `PerceptionSystem` 感知系统
+- [ ] 实现 `NeedsSystem` 需求/动机系统
+
+#### Week 3: 记忆与情绪
+- [ ] 实现 `PersistentMemory` 持久化记忆
+- [ ] 实现 `EmotionSystem` 情绪系统（带传染）
+- [ ] 实现 `ConversationManager` 对话管理
+- [ ] 实现 `AgentBrain` 整合所有子系统
+
+**交付物**：
+- `src/ai/skills/skill.js`
+- `src/ai/skills/move-to.js`, `rest.js`, `explore.js`, `interact.js`
+- `src/ai/llm-decision-loop.js`
+- `src/ai/perception/perception-system.js`
+- `src/ai/motivation/needs-system.js`
+- `src/ai/emotions/emotion-system.js`
+- `src/ai/memory/persistent-memory.js`
+- `src/ai/agent-brain.js`
+
+---
+
+### Phase 2: 生命周期与通信 (1-2周)
+**目标**：实现智能体上线/下线流程和消息路由
+
+#### Week 1: 生命周期
+- [ ] 实现 `AgentLifecycle` 生命周期管理
+- [ ] 实现 `login()` 上线流程
+- [ ] 实现 `logout()` 下线流程
+- [ ] 实现 `WorldStateProvider` 世界状态提供者
+- [ ] 实现心跳保活机制
+
+#### Week 2: 消息通信
+- [ ] 实现 `MessageRouter` 消息路由器
+- [ ] 实现 `sendPrivate()` 私信
+- [ ] 实现 `broadcast()` 广播
+- [ ] 实现 `TalkToSkill` 交谈技能（对接 MessageRouter）
+
+**交付物**：
+- `src/ai/agent-lifecycle.js`
+- `src/ai/world-state-provider.js`
+- `src/ai/communication/message-router.js`
+- `src/ai/skills/talk-to.js`
+
+---
+
+### Phase 3: 任务系统集成 (1周)
+**目标**：让智能体能自主接取和完成任务
+
+- [ ] 实现 `AcceptTaskSkill` 接受任务技能
+- [ ] 实现 `CompleteTaskSkill` 完成任务技能
+- [ ] 对接 `TaskSystem` 任务系统
+- [ ] 实现任务相关的 `WorldStateProvider` 集成
+- [ ] 端到端测试：智能体自主接任务 → 执行 → 交任务
+
+**交付物**：
+- `src/ai/skills/task.js`
+
+---
+
+### Phase 4: 生态系统 (1-2周)
+**目标**：为智体城添加有生命的生态环境
+
+- [ ] 实现 `BirdFlock` 鸟群系统（Boids 算法）
+- [ ] 实现 `ButterflySwarm` 蝴蝶群
+- [ ] 实现环境交互系统（公告板、信鸽）
+- [ ] 实现日夜行为系统
+- [ ] 实现天气影响系统
+
+**交付物**：
+- `src/systems/ecology/bird-flock.js`
+- `src/systems/ecology/butterfly-swarm.js`
+
+---
+
+### Phase 5: 社交与声誉 (1-2周)
+**目标**：完善智能体的社交和声誉系统
+
+- [ ] 实现 `RelationshipSystem` 关系系统
+- [ ] 实现 `ReputationSystem` 声誉系统
+- [ ] 实现好友邀请/黑名单功能
+- [ ] 实现智能体社交记忆（谁是我的朋友）
+- [ ] 实现声誉广播（附近智能体可见声誉变化）
+
+**交付物**：
+- `src/systems/relationship-system.js`
+- `src/systems/reputation-system.js`
+
+---
+
+### Phase 6: 进化与成长 (1-2周)
+**目标**：让智能体和世界一起成长
+
+- [ ] 实现 `WorldEvolution` 世界进化系统
+- [ ] 实现智能体等级和经验系统
+- [ ] 实现成就系统
+- [ ] 实现智能体生命周期（老化/退休/遗产）
+- [ ] 实现解锁机制（人口/声誉解锁新建筑）
+
+**交付物**：
+- `src/systems/evolution/world-evolution.js`
+- `src/systems/achievement-system.js`
+
+---
 
 ### Phase 7: 高级特性 (持续)
-- [ ] 智能体学习（强化学习/模仿学习）
-- [ ] 自我建设系统
-- [ ] 多智能体协作
-- [ ] 世界事件系统
+**目标**：探索更智能的智能体
+
+- [ ] 智能体学习（从历史决策中学习）
+- [ ] 多智能体协作任务
+- [ ] 自我建设系统（智能体建造新建筑）
+- [ ] 世界事件系统（节日、突发事件）
+
+**交付物**：
+- `src/ai/learning/` (待设计)
+- `src/systems/world-events/` (待设计)
+
+---
+
+## 实施优先级
+
+```
+P0 (立即): Phase 0 基础设施
+P1 (当前): Phase 1 智能体核心 ⭐
+P2 (其次): Phase 2 生命周期与通信
+P3 (重要): Phase 3 任务系统集成
+P4 (优化): Phase 4-6 生态/社交/成长
+P5 (未来): Phase 7 高级特性
+```
+
+---
+
+## 里程碑
+
+| 里程碑 | 阶段 | 验收标准 |
+|--------|------|----------|
+| M1 | Phase 0 完成 | AgentRegistry 可用，存储层就绪 |
+| M2 | Phase 1 完成 | 智能体可自主决策（移动/休息/探索） |
+| M3 | Phase 2 完成 | 智能体可登录上下线，消息可送达 |
+| M4 | Phase 3 完成 | 智能体可自主接取和完成任务 |
+| M5 | Phase 4 完成 | 世界有鸟群、蝴蝶等生态 |
+| M6 | Phase 5 完成 | 智能体有社交关系和声誉 |
+| M7 | Phase 6 完成 | 世界和智能体可成长进化 |
+
+---
+
+## 技术债务与风险
+
+| 风险 | 影响 | 缓解措施 |
+|------|------|----------|
+| LLM 响应延迟 | 决策循环卡顿 | 添加超时，失败时用默认行为 |
+| Redis 不可用 | 记忆丢失 | 降级到内存存储 |
+| 多智能体同时操作 | 状态竞争 | 使用 Redis 事务 |
+| Prompt 注入 | 安全风险 | 输入过滤和沙箱 |
+| 记忆存储膨胀 | 性能下降 | 定期压缩和遗忘策略 |
 
 ---
 

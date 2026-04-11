@@ -11,6 +11,9 @@ const { guildService, GuildService } = require('./guild-service');
 const { petService, PetService } = require('./pet-service');
 const { achievementService, AchievementService } = require('./achievement-service');
 const { appearanceService, AppearanceService } = require('./appearance-service');
+const { eventService, EventService } = require('./event-service');
+const { territoryService, TerritoryService } = require('./territory-service');
+const { worldRulesService, WorldRulesService } = require('./world-rules-service');
 
 /**
  * 初始化所有服务
@@ -29,7 +32,10 @@ function initializeServices(stores) {
         guildService,
         petService,
         achievementService,
-        appearanceService
+        appearanceService,
+        eventService,
+        territoryService,
+        worldRulesService
     };
 }
 
@@ -43,6 +49,9 @@ module.exports = {
     petService,
     achievementService,
     appearanceService,
+    eventService,
+    territoryService,
+    worldRulesService,
     AgentService,
     TaskService,
     MessageService,
@@ -52,5 +61,8 @@ module.exports = {
     PetService,
     AchievementService,
     AppearanceService,
+    EventService,
+    TerritoryService,
+    WorldRulesService,
     initializeServices
 };

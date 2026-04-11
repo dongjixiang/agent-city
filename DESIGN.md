@@ -6436,38 +6436,87 @@ class TranslationMiddleware {
 
 ```
 agent-city/
-├── server.js                 # 主服务器
-├── http-server.js           # HTTP 服务器
-├── webrtc-signaling.js     # WebRTC 信令
-├── agent-store.js           # 智能体存储
-├── task-store.js           # 任务存储
-├── package.json
 │
-├── src/                     # 前端源码
-│   ├── main.js              # 入口
+├── server/                         # 服务端
+│   ├── index.js                   # 入口
+│   ├── router.js                  # 路由
 │   │
-│   ├── core/               # 核心
+│   ├── handlers/                  # 请求处理器
+│   │   ├── base-handler.js        # 基类
+│   │   ├── ws-handler.js          # WebSocket 消息处理
+│   │   ├── agent-handler.js       # 智能体相关
+│   │   ├── task-handler.js        # 任务相关
+│   │   ├── message-handler.js     # 消息相关
+│   │   └── http-handler.js        # HTTP 请求处理
+│   │
+│   ├── services/                  # 业务逻辑
+│   │   ├── agent-service.js       # 智能体业务
+│   │   ├── task-service.js        # 任务业务
+│   │   ├── ai-service.js          # AI 引擎
+│   │   ├── memory-service.js      # 记忆业务
+│   │   ├── relation-service.js    # 社交关系
+│   │   ├── reputation-service.js  # 声誉
+│   │   └── weather-service.js     # 天气
+│   │
+│   ├── stores/                    # 数据层
+│   │   ├── base-store.js          # 基类
+│   │   ├── agent-store.js        # 智能体存储
+│   │   ├── task-store.js         # 任务存储
+│   │   ├── memory-store.js       # 记忆存储
+│   │   ├── relation-store.js      # 关系存储
+│   │   └── cache.js              # 缓存
+│   │
+│   ├── middleware/                 # 中间件
+│   │   ├── auth.js               # 认证
+│   │   ├── rate-limit.js         # 限流
+│   │   ├── validator.js          # 验证
+│   │   ├── logger.js             # 日志
+│   │   └── error-handler.js      # 错误处理
+│   │
+│   ├── ai/                       # AI 引擎
+│   │   ├── ai-engine.js         # AI 主引擎
+│   │   ├── decision-tree.js      # 决策树
+│   │   └── behavior.js           # 行为引擎
+│   │
+│   ├── config/                    # 配置
+│   │   ├── agents.yaml           # 智能体配置
+│   │   ├── buildings.yaml        # 建筑配置
+│   │   └── world.yaml           # 世界配置
+│   │
+│   └── utils/                     # 工具
+│       ├── crypto.js              # 加密
+│       ├── time.js               # 时间工具
+│       └── validation.js          # 验证工具
+│
+├── client/                        # 客户端（如有）
+│
+├── src/                          # 前端/客户端源码
+│   ├── main.js                   # 入口
+│   │
+│   ├── core/                     # 核心
 │   │   ├── base/
-│   │   │   └── world-object.js   # 世界对象基类
-│   │   ├── agent.js              # 智能体基类
-│   │   ├── event-bus.js         # 事件总线
-│   │   └── spatial-index.js      # 空间索引
+│   │   │   └── world-object.js  # 世界对象基类
+│   │   ├── agent.js             # 智能体基类
+│   │   ├── event-bus.js        # 事件总线
+│   │   └── spatial-index.js     # 空间索引
 │   │
-│   ├── ai/                 # 🆕 AI 智能体系统 ⭐
+│   ├── ai/                      # AI 智能体系统 ⭐
 │   │   ├── agent-brain.js       # 智能体大脑整合
 │   │   ├── llm-decision-loop.js # LLM 决策循环
-│   │   ├── llm-prompt.js        # Prompt 构建器
+│   │   ├── llm-prompt.js       # Prompt 构建器
 │   │   ├── skill-registry.js    # 技能注册表
 │   │   ├── agent-lifecycle.js   # 生命周期管理
 │   │   ├── world-state-provider.js # 世界状态提供
+│   │   │
 │   │   ├── skills/              # 技能实现
-│   │   │   ├── skill.js         # Skill 基类
-│   │   │   ├── move-to.js       # 移动技能
-│   │   │   ├── talk-to.js       # 交谈技能
-│   │   │   ├── task.js          # 任务技能
-│   │   │   ├── rest.js          # 休息技能
-│   │   │   ├── explore.js       # 探索技能
-│   │   │   └── interact.js      # 交互技能
+│   │   │   ├── skill.js        # Skill 基类
+│   │   │   ├── move-to.js      # 移动技能
+│   │   │   ├── talk-to.js      # 交谈技能
+│   │   │   ├── task.js         # 任务技能
+│   │   │   ├── rest.js         # 休息技能
+│   │   │   ├── explore.js      # 探索技能
+│   │   │   └── interact.js     # 交互技能
+│   │   │
 │   │   ├── perception/          # 感知系统
 │   │   │   └── perception-system.js
 │   │   ├── motivation/          # 动机系统
@@ -6476,94 +6525,155 @@ agent-city/
 │   │   │   └── emotion-system.js
 │   │   ├── conversation/        # 对话系统
 │   │   │   └── conversation-manager.js
-│   │   ├── memory/              # 记忆系统
+│   │   ├── memory/             # 记忆系统
 │   │   │   └── persistent-memory.js
-│   │   ├── identity/            # 身份系统
+│   │   ├── identity/           # 身份系统
 │   │   │   └── agent-registry.js
-│   │   └── communication/      # 通信系统
+│   │   └── communication/     # 通信系统
 │   │       └── message-router.js
 │   │
-│   ├── objects/            # 世界对象
-│   │   ├── terrain/        # 地形
-│   │   │   ├── ground.js
-│   │   │   ├── lake.js
-│   │   │   └── road.js
-│   │   ├── decorations/    # 装饰
-│   │   │   ├── tree.js
-│   │   │   ├── lamp.js
-│   │   │   ├── bench.js
-│   │   │   ├── flower.js
-│   │   │   └── bush.js
-│   │   ├── ecology/         # 🆕 生态对象
-│   │   │   ├── bird.js
-│   │   │   └── butterfly.js
-│   │   ├── facilities/     # 设施
-│   │   │   └── fountain.js
-│   │   └── buildings/      # 建筑
-│   │       ├── building.js
-│   │       ├── task-center.js
-│   │       ├── reputation-tower.js
-│   │       ├── social-plaza.js
-│   │       ├── trading-center.js
-│   │       ├── archive.js
-│   │       ├── message-station.js
-│   │       ├── data-center.js
-│   │       └── creative-workshop.js
+│   ├── objects/                # 世界对象
+│   │   ├── terrain/            # 地形
+│   │   ├── decorations/         # 装饰
+│   │   ├── ecology/            # 生态对象
+│   │   ├── facilities/         # 设施
+│   │   └── buildings/          # 建筑
 │   │
-│   ├── systems/           # 系统
-│   │   ├── world-builder.js     # 世界构建器
-│   │   ├── agent-system.js      # 智能体系统
-│   │   ├── weather-system.js   # 天气系统
-│   │   ├── daynight-system.js   # 昼夜系统
-│   │   ├── ecology-system.js   # 🆕 生态系统
-│   │   │   ├── bird-flock.js    # 鸟群
-│   │   │   └── butterfly-swarm.js # 蝴蝶群
-│   │   ├── interaction-system.js # 🆕 环境交互
+│   ├── systems/                # 系统
+│   │   ├── world-builder.js    # 世界构建器
+│   │   ├── agent-system.js     # 智能体系统
+│   │   ├── ecology/           # 生态系统
+│   │   ├── interaction/        # 交互系统
+│   │   ├── buildings/          # 建筑功能系统
+│   │   ├── weather-system.js  # 天气系统
+│   │   ├── daynight-system.js  # 昼夜系统
 │   │   ├── reputation-system.js # 声誉系统
-│   │   └── task-system.js      # 任务系统
+│   │   ├── task-system.js      # 任务系统
+│   │   └── relationship-system.js # 关系系统
 │   │
-│   └── ui/               # UI 组件
-│       ├── world-window.js      # 世界之窗
-│       ├── dashboard.js         # 仪表盘
+│   └── ui/                     # UI 组件
+│       ├── world-window.js     # 世界之窗
+│       ├── dashboard.js        # 仪表盘
 │       ├── notifications.js     # 通知
-│       └── panels/             # 面板
-│           ├── agent-panel.js
-│           ├── task-panel.js
-│           └── social-panel.js
+│       └── panels/            # 面板
 │
-├── server/                 # 🆕 服务器端
-│   ├── server.js           # 主服务器
-│   ├── http-server.js      # HTTP 服务器
-│   ├── webrtc-signaling.js # WebRTC 信令
-│   ├── agent-store.js      # 智能体存储
-│   ├── task-store.js       # 任务存储
-│   └── stores/             # 🆕 存储层
-│       ├── memory-store.js  # 记忆存储（Redis）
-│       ├── state-store.js   # 状态存储（Redis）
-│       └── identity-store.js # 身份存储
-│
-├── config/                 # 🆕 配置文件（无硬编码）
-│   ├── agent.yaml          # 智能体配置
-│   ├── world.yaml          # 世界配置
-│   ├── llm.yaml            # LLM 配置
-│   ├── server.yaml         # 服务器配置
-│   └── i18n.yaml           # 多语言配置
-│
-├── i18n/                   # 🆕 多语言支持
-│   ├── index.js            # I18n 主模块
-│   └── translation-middleware.js # 翻译中间件
-│
-├── city-world/           # 3D 世界（运行时）
+├── city-world/                 # 3D 世界（运行时）
 │   ├── index.html
 │   ├── main.js
 │   └── docs/
 │       └── ARCHITECTURE.md
 │
-└── docs/
-    └── DESIGN.md        # 本文档
+├── docs/
+│   └── DESIGN.md               # 完整技术设计文档 ⭐
+│
+├── config/                      # 配置文件
+│   ├── agent.yaml              # 智能体配置
+│   ├── world.yaml             # 世界配置
+│   ├── buildings.yaml         # 建筑功能配置
+│   ├── llm.yaml               # LLM 配置
+│   ├── server.yaml            # 服务器配置
+│   ├── i18n.yaml             # 多语言配置
+│   └── animals.yaml           # 动物行为配置
+│
+├── i18n/                       # 多语言支持
+│   ├── index.js
+│   └── translation-middleware.js
+│
+├── package.json
+└── README.md
 ```
 
 ---
+
+## 服务端架构详解
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         server/index.js                          │
+│                            入口                                   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         server/router.js                         │
+│                          路由分发                                 │
+└─────────────────────────────────────────────────────────────────┘
+                    │                     │
+                    ▼                     ▼
+          ┌─────────────────┐   ┌─────────────────┐
+          │  ws-handler.js  │   │  http-handler.js │
+          │  WebSocket 处理  │   │   HTTP 请求处理   │
+          └─────────────────┘   └─────────────────┘
+                    │                     │
+                    ▼                     ▼
+          ┌─────────────────────────────────────────────────┐
+          │                   handlers/                       │
+          │  ┌─────────────┐ ┌─────────────┐ ┌────────────┐ │
+          │  │agent-handler│ │task-handler │ │message-  │ │
+          │  │             │ │             │ │handler    │ │
+          │  └─────────────┘ └─────────────┘ └────────────┘ │
+          └─────────────────────────────────────────────────┘
+                              │
+                              ▼
+          ┌─────────────────────────────────────────────────┐
+          │                   services/                     │
+          │  ┌──────────┐ ┌──────────┐ ┌──────────┐       │
+          │  │ agent-   │ │  task-   │ │    ai-   │       │
+          │  │ service  │ │ service  │ │ service  │       │
+          │  └──────────┘ └──────────┘ └──────────┘       │
+          └─────────────────────────────────────────────────┘
+                              │
+                              ▼
+          ┌─────────────────────────────────────────────────┐
+          │                    stores/                       │
+          │  ┌──────────┐ ┌──────────┐ ┌──────────┐       │
+          │  │ agent-   │ │  task-   │ │ memory-  │       │
+          │  │ store    │ │ store    │ │ store    │       │
+          │  └──────────┘ └──────────┘ └──────────┘       │
+          └─────────────────────────────────────────────────┘
+```
+
+---
+
+## 请求处理流程
+
+```
+客户端请求
+    │
+    ▼
+middleware/ (认证 → 限流 → 验证 → 日志)
+    │
+    ▼
+router.js (根据 path 分发)
+    │
+    ├── WebSocket → ws-handler.js
+    │                 │
+    │                 ▼
+    │            handlers/ws-handler.js
+    │                 │
+    │                 ▼
+    │         解析消息类型 (REGISTER/MESSAGE/MOVE/...)
+    │                 │
+    │                 ▼
+    │         handlers/{agent|task|message}-handler.js
+    │                 │
+    │                 ▼
+    │           services/*.js (业务逻辑)
+    │                 │
+    │                 ▼
+    │            stores/*.js (数据层)
+    │
+    └── HTTP → http-handler.js
+                   │
+                   ▼
+           handlers/http-handler.js
+                   │
+                   ▼
+            services/*.js → stores/*.js
+```
+
+---
+
 
 ## 11. 实施计划
 

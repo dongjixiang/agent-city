@@ -3,7 +3,7 @@
 
 server:
   # 服务器地址
-  host: 0.0.0.0
+  host: 127.0.0.1
   port: 9876
 
   # HTTP 服务器
@@ -36,7 +36,7 @@ server:
     port: 6379
     password: ""
     db: 0
-    keyPrefix: agentcity:
+    keyPrefix: "agentcity:"
     connectionTimeout: 5000
     maxRetries: 3
 

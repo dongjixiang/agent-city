@@ -10,7 +10,7 @@ class PetService {
         // 宠物数据: agentId -> Pet[]
         this.pets = new Map();
         // 宠物配置
-        this.petConfig = config.get('world.animals.pets', {});
+        this.petConfig = config.getValue('world.animals.pets', {});
     }
 
     /**

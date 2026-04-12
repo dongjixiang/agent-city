@@ -9,9 +9,9 @@ const config = require('../../utils/config-loader');
 
 class PerceptionSystem {
     constructor() {
-        this.visualRange = config.get('agents.default.perception.visualRange', 30);
-        this.hearingRange = config.get('agents.default.perception.hearingRange', 15);
-        this.interactionRange = config.get('agents.default.perception.interactionRange', 5);
+        this.visualRange = config.getValue('agents.default.perception.visualRange', 30);
+        this.hearingRange = config.getValue('agents.default.perception.hearingRange', 15);
+        this.interactionRange = config.getValue('agents.default.perception.interactionRange', 5);
     }
 
     /**

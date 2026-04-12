@@ -101,7 +101,7 @@
   </script>
 
   <script type="module">
-    import './src/main.js';
+    import './main.js';
     
     // 模拟加载进度
     let progress = 0;
@@ -116,12 +116,9 @@
     function updateStatus() {
       if (window.app) {
         const status = window.app.getStatus();
-        document.getElementById('time').textContent = status.time;
-        document.getElementById('phase').textContent = status.phase;
-        document.getElementById('camera-mode').textContent = status.mode;
-        document.getElementById('entity-count').textContent = 
-          status.entities.agents + status.entities.buildings + status.entities.decorations;
-        document.getElementById('init-status').textContent = status.initialized ? '是' : '否';
+        document.getElementById('entity-count').textContent =
+          (status.agents || 0) + (status.buildings || 0);
+        document.getElementById('init-status').textContent = status.isRunning ? '是' : '否';
       }
     }
     

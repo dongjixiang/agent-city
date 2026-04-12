@@ -64,7 +64,7 @@ class InteractSkill extends Skill {
 
     async interactDecoration(agent, targetId, action) {
         // 装饰物配置
-        const decorations = config.get('world.decorations', {});
+        const decorations = config.getValue('world.decorations', {});
 
         // 找到对应的装饰类型
         let foundType = null;
@@ -134,7 +134,7 @@ class InteractSkill extends Skill {
     }
 
     async interactBuilding(agent, targetId, action) {
-        const buildings = config.get('buildings.buildings', {});
+        const buildings = config.getValue('buildings.buildings', {});
 
         const building = buildings[targetId];
 

@@ -5,7 +5,7 @@
  * 所有对象的中心管理
  */
 
-import { eventBus, Events } from '../core/event-bus.js';
+import { eventBus, Events } from '../../core/event-bus.js';
 
 class WorldState {
     constructor() {

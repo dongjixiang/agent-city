@@ -213,8 +213,8 @@ class HTTPHandler extends BaseHandler {
             this.sendJson(res, {
                 name: '智体城',
                 version: '0.5.0',
-                worldSize: config.get('world.size', { width: 200, height: 200 }),
-                rules: config.get('server.worldRules', {})
+                worldSize: config.getValue('world.size', { width: 200, height: 200 }),
+                rules: config.getValue('server.worldRules', {})
             });
         });
 

@@ -4,8 +4,8 @@
  * 管理多个 LLM Provider，支持动态切换
  */
 
-const logger = require('../../utils/logger');
-const config = require('../../utils/config-loader');
+const logger = require('../utils/logger');
+const config = require('../utils/config-loader');
 
 // Providers
 const MiniMaxProvider = require('./providers/minimax');
@@ -73,7 +73,7 @@ class LLMManager {
             this.initialize();
         }
 
-        const localeModels = config.get('llm.localeModels', {});
+        const localeModels = config.getValue('llm.localeModels', {});
         const modelName = localeModels[locale] || this.defaultProvider;
 
         return this.getProvider(modelName);

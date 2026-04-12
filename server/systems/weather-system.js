@@ -12,7 +12,7 @@ class WeatherSystem {
         this.transitionProgress = 0;
         this.isTransitioning = false;
 
-        this.weatherConfig = config.get('world.weather', {
+        this.weatherConfig = config.getValue('world.weather', {
             changeInterval: 300000, // 5分钟
             default: 'sunny',
             types: ['sunny', 'cloudy', 'rainy', 'snowy']

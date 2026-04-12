@@ -34,7 +34,7 @@ class AgentService {
         }
 
         // 获取职业配置
-        const agentTypes = config.get('agents.agentTypes', {});
+        const agentTypes = config.getValue('agents.agentTypes', {});
         const typeConfig = agentTypes[type] || agentTypes.explorer;
 
         // 创建智能体
@@ -150,7 +150,7 @@ class AgentService {
      * 更新位置
      */
     async updatePosition(agentId, position) {
-        const worldSize = config.get('world.size', { width: 200, height: 200 });
+        const worldSize = config.getValue('world.size', { width: 200, height: 200 });
 
         // 边界检查
         if (Math.abs(position.x) > worldSize.width / 2 ||

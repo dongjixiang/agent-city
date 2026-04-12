@@ -125,6 +125,11 @@ const Events = {
     DECORATION_CLICKED: 'decoration:clicked',
     DECORATION_INTERACT: 'decoration:interact',
 
+    // 世界对象事件
+    WORLD_OBJECT_SELECTED: 'worldObject:selected',
+    WORLD_OBJECT_DESELECTED: 'worldObject:deselected',
+    WORLD_OBJECT_CLICKED: 'worldObject:clicked',
+
     // 世界事件
     WORLD_LOADED: 'world:loaded',
     WORLD_STATE_UPDATE: 'world:stateUpdate',

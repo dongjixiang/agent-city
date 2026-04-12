@@ -6,7 +6,7 @@
 
 const BuildingBase = require('./building-base');
 const logger = require('../../utils/logger');
-const config = require('../../../utils/config-loader');
+const config = require('../../utils/config-loader');
 
 // Store 依赖
 let agentStore = null;

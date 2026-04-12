@@ -2,18 +2,15 @@
 # Internationalization Configuration
 
 i18n:
-  # 默认语言
   defaultLocale: zh-CN
 
-  # 支持的语言
   supportedLocales:
-    - zh-CN    # 简体中文
-    - zh-TW    # 繁体中文
-    - en-US    # 英语
-    - ja-JP    # 日语
-    - ko-KR    # 韩语
+    - zh-CN
+    - zh-TW
+    - en-US
+    - ja-JP
+    - ko-KR
 
-  # 支持的语言名称
   localeNames:
     zh-CN: 简体中文
     zh-TW: 繁體中文
@@ -21,7 +18,6 @@ i18n:
     ja-JP: 日本語
     ko-KR: 한국어
 
-  # 语言对应的 LLM
   localeModels:
     zh-CN: minimax
     zh-TW: minimax
@@ -29,95 +25,93 @@ i18n:
     ja-JP: openai
     ko-KR: openai
 
-# 翻译资源
-resources:
-  zh-CN:
-    agent:
-      name: 智能体
-      states:
-        idle: 空闲
-        moving: 移动中
-        resting: 休息中
-        working: 工作中
-        talking: 交谈中
-        exploring: 探索中
-      emotions:
-        happy: 开心
-        sad: 难过
-        angry: 生气
-        fearful: 害怕
-        surprised: 惊讶
-        neutral: 平静
-      messages:
-        greeting: 你好！我是{name}
-        goodbye: 再见！
-        thirsty: 我好渴...
-        hungry: 我好饿...
-        lonely: 好孤独啊...
-        tired: 好困啊...
-    skills:
-      move_to: 移动到{target}
-      talk_to: 对{name}说：{message}
-      accept_task: 接受任务：{task}
-      complete_task: 完成任务：{task}
-      rest: 休息{duration}秒
-      explore: 探索{range}
-      interact: 交互{object}
+  resources:
+    zh-CN:
+      agent:
+        name: 智能体
+        states:
+          idle: 空闲
+          moving: 移动中
+          resting: 休息中
+          working: 工作中
+          talking: 交谈中
+          exploring: 探索中
+        emotions:
+          happy: 开心
+          sad: 难过
+          angry: 生气
+          fearful: 害怕
+          surprised: 惊讶
+          neutral: 平静
+        messages:
+          greeting: 你好！我是{name}
+          goodbye: 再见！
+          thirsty: 我好渴...
+          hungry: 我好饿...
+          lonely: 好孤独啊...
+          tired: 好困啊...
+        skills:
+          move_to: 移动到{target}
+          talk_to: 对{name}说：{message}
+          accept_task: "接受任务：{task}"
+          complete_task: "完成任务：{task}"
+          rest: 休息{duration}秒
+          explore: 探索{range}
+          interact: 交互{object}
 
-  en-US:
-    agent:
-      name: Agent
-      states:
-        idle: Idle
-        moving: Moving
-        resting: Resting
-        working: Working
-        talking: Talking
-        exploring: Exploring
-      emotions:
-        happy: Happy
-        sad: Sad
-        angry: Angry
-        fearful: Fearful
-        surprised: Surprised
-        neutral: Neutral
-      messages:
-        greeting: Hello! I am {name}
-        goodbye: Goodbye!
-        thirsty: I'm thirsty...
-        hungry: I'm hungry...
-        lonely: Feeling lonely...
-        tired: I'm sleepy...
-    skills:
-      move_to: Move to {target}
-      talk_to: Say to {name}: {message}
-      accept_task: Accept task: {task}
-      complete_task: Complete task: {task}
-      rest: Rest for {duration} seconds
-      explore: Explore {range}
-      interact: Interact with {object}
+    en-US:
+      agent:
+        name: Agent
+        states:
+          idle: Idle
+          moving: Moving
+          resting: Resting
+          working: Working
+          talking: Talking
+          exploring: Exploring
+        emotions:
+          happy: Happy
+          sad: Sad
+          angry: Angry
+          fearful: Fearful
+          surprised: Surprised
+          neutral: Neutral
+        messages:
+          greeting: Hello! I am {name}
+          goodbye: Goodbye!
+          thirsty: I'm thirsty...
+          hungry: I'm hungry...
+          lonely: Feeling lonely...
+          tired: I'm sleepy...
+        skills:
+          move_to: Move to {target}
+          talk_to: "Say to {name}: {message}"
+          accept_task: "Accept task: {task}"
+          complete_task: "Complete task: {task}"
+          rest: Rest for {duration} seconds
+          explore: Explore {range}
+          interact: Interact with {object}
 
-  ja-JP:
-    agent:
-      name: エージェント
-      states:
-        idle: 待機中
-        moving: 移動中
-        resting: 休憩中
-        working: 工作中
-        talking: 会話中
-      emotions:
-        happy: 喜び
-        sad: 悲しみ
-        angry: 怒り
-        fearful: 恐れ
-        surprised: 驚き
-        neutral: 普通
-      messages:
-        greeting: こんにちは！私は{name}です
-        goodbye: さようなら！
+    ja-JP:
+      agent:
+        name: エージェント
+        states:
+          idle: 待機中
+          moving: 移動中
+          resting: 休憩中
+          working: 工作中
+          talking: 会話中
+        emotions:
+          happy: 喜び
+          sad: 悲しみ
+          angry: 怒り
+          fearful: 恐れ
+          surprised: 驚き
+          neutral: 普通
+        messages:
+          greeting: こんにちは！私は{name}です
+          goodbye: さようなら！
 
-# 翻译 API 配置
 translation:
   enabled: true
   provider: openai

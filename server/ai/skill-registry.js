@@ -4,7 +4,7 @@
  * 管理所有可用技能
  */
 
-const logger = require('../../utils/logger');
+const logger = require('../utils/logger');
 
 class SkillRegistry {
     constructor() {

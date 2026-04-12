@@ -4,7 +4,7 @@
  * 处理与服务端的状态同步
  */
 
-import { eventBus, Events } from '../core/event-bus.js';
+import { eventBus, Events } from '../../core/event-bus.js';
 import { worldState } from '../world/world-state.js';
 
 class Sync {

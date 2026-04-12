@@ -6,7 +6,7 @@
  */
 
 import * as THREE from 'three';
-import { eventBus, Events } from '../core/event-bus.js';
+import { eventBus, Events } from '../../core/event-bus.js';
 
 class HeadDisplay {
     constructor(scene) {

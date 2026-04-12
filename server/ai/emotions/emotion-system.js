@@ -11,7 +11,7 @@ class EmotionSystem {
     constructor() {
         this.emotions = ['happy', 'sad', 'angry', 'fearful', 'surprised', 'neutral', 'excited', 'bored'];
         
-        this.emotionConfig = config.get('agents.default.emotions', {
+        this.emotionConfig = config.getValue('agents.default.emotions', {
             contagionRadius: 10,
             happyBoost: 0.1,
             sadSuppress: 0.05

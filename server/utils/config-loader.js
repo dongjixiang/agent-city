@@ -20,7 +20,7 @@ class ConfigLoader {
     /**
      * 加载配置目录
      */
-    async load(dir = './config') {
+    async load(dir = '../config') {
         const configDir = path.resolve(dir);
         
         if (!fs.existsSync(configDir)) {
@@ -126,15 +126,30 @@ class ConfigLoader {
 
     /**
      * 获取配置值（支持点号路径）
+     * path 格式: 'configName.key.subkey'
+     * 例如: 'server.host', 'agents.default.needs.energy'
      */
     getValue(path, defaultValue = undefined) {
         const parts = path.split('.');
-        let current = this.configs;
-
-        for (const part of parts) {
-            if (current instanceof Map) {
-                current = current.get(part);
-            } else if (typeof current === 'object' && current !== null) {
+        
+        // 第一个部分是配置名（如 'server', 'agents'）
+        const configName = parts[0];
+        let current = this.configs.get(configName);
+        
+        if (current === undefined) {
+            return defaultValue;
+        }
+        
+        // 特殊情况：如果路径是 'server.host' 但配置中实际是 'server.server.host'
+        // 需要检查并跳过中间层
+        if (parts.length >= 2 && current[configName] !== undefined && current[parts[1]] === undefined) {
+            current = current[configName];
+        }
+        
+        // 遍历剩余路径
+        for (let i = 1; i < parts.length; i++) {
+            const part = parts[i];
+            if (typeof current === 'object' && current !== null) {
                 current = current[part];
             } else {
                 return defaultValue;

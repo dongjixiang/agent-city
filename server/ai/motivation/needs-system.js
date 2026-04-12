@@ -10,7 +10,7 @@ const config = require('../../utils/config-loader');
 class NeedsSystem {
     constructor() {
         // 加载默认配置
-        const defaultNeeds = config.get('agents.default.needs', {});
+        const defaultNeeds = config.getValue('agents.default.needs', {});
         
         this.needsConfig = {
             energy: {

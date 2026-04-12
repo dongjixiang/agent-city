@@ -178,7 +178,7 @@ class WebSocketHandler extends BaseHandler {
         }
 
         // 验证密码（如果有）
-        const worldRules = config.get('server.worldRules', {});
+        const worldRules = config.getValue('server.worldRules', {});
         if (worldRules.requireInvite && !password) {
             this.sendToClient(clientId, {
                 type: 'ERROR',
@@ -201,7 +201,7 @@ class WebSocketHandler extends BaseHandler {
                 type: 'REGISTERED',
                 agent,
                 config: {
-                    worldSize: config.get('world.size', { width: 200, height: 200 }),
+                    worldSize: config.getValue('world.size', { width: 200, height: 200 }),
                     buildings: config.get('buildings', {}),
                     animals: config.get('animals', {})
                 }
@@ -262,7 +262,7 @@ class WebSocketHandler extends BaseHandler {
         const agentId = ws.agentId;
 
         // 验证坐标
-        const worldSize = config.get('world.size', { width: 200, height: 200 });
+        const worldSize = config.getValue('world.size', { width: 200, height: 200 });
         if (Math.abs(x) > worldSize.width / 2 || Math.abs(z) > worldSize.height / 2) {
             this.sendToClient(clientId, {
                 type: 'ERROR',
@@ -400,7 +400,7 @@ class WebSocketHandler extends BaseHandler {
      * 启动 Ping/Pong 检测
      */
     startHeartbeat() {
-        const pingInterval = config.get('server.websocket.pingInterval', 30000);
+        const pingInterval = config.getValue('server.websocket.pingInterval', 30000);
         
         this.pingInterval = setInterval(() => {
             this.broadcast({ type: 'PING' });

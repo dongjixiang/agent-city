@@ -10,7 +10,7 @@ class TerritoryService {
         // 领地数据: agentId -> { territories: [], items: [] }
         this.territories = new Map();
         // 领地物品定义
-        this.items = config.get('world.world.territoryItems', [
+        this.items = config.getValue('world.world.territoryItems', [
             { id: 'flower_pot', name: '花盆', cost: 50, size: 1 },
             { id: 'bench', name: '长椅', cost: 100, size: 1 },
             { id: 'lamp', name: '灯笼', cost: 80, size: 1 },

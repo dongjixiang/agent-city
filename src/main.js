@@ -1,0 +1,456 @@
+/**
+ * AgentCityApp - 智体城 3D 世界主程序
+ *
+ * @module main
+ */
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// Core - 核心基础设施
+import { eventBus, Events } from './core/event-bus.js';
+import { SpatialIndex } from './core/spatial-index.js';
+import { WorldObject } from './core/world-object.js';
+import { Agent, AgentState } from './core/agent.js';
+
+// Systems - 世界系统
+import { agentSystem } from './systems/agent-system.js';
+import { worldBuilder } from './systems/world-builder.js';
+import { WeatherSystem } from './systems/weather-system.js';
+import { DayNightSystem } from './systems/daynight-system.js';
+import { ReputationSystem } from './systems/reputation-system.js';
+import { TaskSystem } from './systems/task-system.js';
+import { RelationshipSystem } from './systems/relationship-system.js';
+
+// Buildings - 建筑功能系统
+import { TaskCenter } from './systems/buildings/task-center.js';
+import { ReputationTower } from './systems/buildings/reputation-tower.js';
+import { TradingCenter } from './systems/buildings/trading-center.js';
+import { Archive } from './systems/buildings/archive.js';
+import { MessageStation } from './systems/buildings/message-station.js';
+import { DataCenter } from './systems/buildings/data-center.js';
+import { CreativeWorkshop } from './systems/buildings/creative-workshop.js';
+import { SkillAcademy } from './systems/buildings/skill-academy.js';
+
+// Ecology - 生态系统
+import { BirdFlock } from './systems/ecology/bird-flock.js';
+import { ButterflySwarm } from './systems/ecology/butterfly-swarm.js';
+
+// Interaction - 交互系统
+import { AnimalBehaviors } from './systems/interaction/animal-behaviors.js';
+import { MovableObjects } from './systems/interaction/movable-objects.js';
+
+// AI - 人工智能
+import { AgentBrain } from './ai/agent-brain.js';
+import { SkillRegistry } from './ai/skill-registry.js';
+import { LLMDecisionLoop } from './ai/llm-decision-loop.js';
+import { worldStateProvider } from './ai/world-state-provider.js';
+import { PerceptionSystem } from './ai/perception/perception-system.js';
+import { NeedsSystem } from './ai/motivation/needs-system.js';
+import { EmotionSystem } from './ai/emotions/emotion-system.js';
+import { ConversationManager } from './ai/conversation/conversation-manager.js';
+import { PersistentMemory } from './ai/memory/persistent-memory.js';
+import { agentRegistry } from './ai/identity/agent-registry.js';
+import { messageRouter } from './ai/communication/message-router.js';
+
+// WebSocket
+import { connection } from './websocket/connection.js';
+
+// UI - 用户界面
+import { WorldWindow } from './ui/world-window.js';
+import { Dashboard } from './ui/dashboard.js';
+import { Notifications } from './ui/notifications.js';
+
+class AgentCityApp {
+    constructor() {
+        this.isRunning = false;
+        this.frameId = null;
+
+        // Three.js 核心
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.controls = null;
+        this.clock = new THREE.Clock();
+
+        // 世界建筑
+        this.buildings = {};
+
+        // 世界生态系统
+        this.ecology = {};
+
+        // 系统实例
+        this.systems = {
+            agent: agentSystem,
+            worldBuilder,
+            weather: null,
+            dayNight: null,
+            reputation: null,
+            task: null,
+            relationship: null,
+            animals: null,
+            movableObjects: null
+        };
+
+        // AI 子系统
+        this.ai = {
+            brain: null,
+            skillRegistry: null,
+            llmLoop: null
+        };
+
+        // UI
+        this.ui = {
+            worldWindow: null,
+            dashboard: null,
+            notifications: null
+        };
+    }
+
+    /**
+     * 初始化应用
+     */
+    async init() {
+        console.log('[App] Initializing Agent City...');
+
+        try {
+            // 1. 初始化 Three.js 核心
+            this.initThreeJS();
+
+            // 2. 初始化核心系统
+            this.initCore();
+
+            // 3. 初始化 AI 系统
+            await this.initAI();
+
+            // 4. 初始化世界
+            this.initWorld();
+
+            // 5. 初始化 UI
+            this.initUI();
+
+            // 6. 连接 WebSocket
+            this.connectWebSocket();
+
+            // 7. 绑定事件
+            this.bindEvents();
+
+            // 8. 隐藏加载画面
+            this.hideLoading();
+
+            console.log('[App] Initialization complete!');
+            return true;
+        } catch (err) {
+            console.error('[App] Initialization failed:', err);
+            return false;
+        }
+    }
+
+    /**
+     * 初始化 Three.js 核心
+     */
+    initThreeJS() {
+        // Scene
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x1a1a2e);
+
+        // Camera
+        this.camera = new THREE.PerspectiveCamera(
+            60, window.innerWidth / window.innerHeight, 0.1, 1000
+        );
+        this.camera.position.set(0, 50, 50);
+
+        // Renderer
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('canvas-container')?.appendChild(this.renderer.domElement);
+
+        // Controls
+        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.05;
+
+        // Lights
+        const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+        this.scene.add(ambient);
+
+        const directional = new THREE.DirectionalLight(0xffffff, 0.8);
+        directional.position.set(50, 100, 50);
+        this.scene.add(directional);
+
+        console.log('[App] Three.js initialized');
+    }
+
+    /**
+     * 初始化核心系统
+     */
+    initCore() {
+        // 初始化空间索引
+        const spatialIndex = new SpatialIndex();
+
+        // 初始化世界状态提供者
+        worldStateProvider.setSpatialIndex(spatialIndex);
+
+        console.log('[App] Core systems initialized');
+    }
+
+    /**
+     * 初始化 AI 系统
+     */
+    async initAI() {
+        // 初始化技能注册表
+        this.ai.skillRegistry = new SkillRegistry();
+        await this.ai.skillRegistry.init();
+
+        // 初始化 LLM 决策循环
+        this.ai.llmLoop = new LLMDecisionLoop();
+        this.ai.llmLoop.configure('http://localhost:8080', 'minimax-cn/MiniMax-M2');
+
+        // 初始化智能体大脑
+        this.ai.brain = new AgentBrain();
+        this.ai.brain.skillRegistry = this.ai.skillRegistry;
+        this.ai.brain.decisionLoop = this.ai.llmLoop;
+
+        console.log('[App] AI systems initialized');
+    }
+
+    /**
+     * 初始化世界
+     */
+    initWorld() {
+        // 构建世界
+        if (this.systems.worldBuilder) {
+            this.systems.worldBuilder.init(this.scene);
+            this.systems.worldBuilder.build();
+        }
+
+        // 初始化智能体系统
+        this.systems.agent.init(this.scene);
+
+        // 初始化天气系统
+        this.systems.weather = new WeatherSystem();
+        this.systems.weather.init(this.scene);
+        this.systems.weather.start();
+
+        // 初始化昼夜系统
+        this.systems.dayNight = new DayNightSystem();
+        this.systems.dayNight.init(this.scene);
+        this.systems.dayNight.start();
+
+        // 初始化社交系统
+        this.systems.reputation = new ReputationSystem();
+        this.systems.task = new TaskSystem();
+        this.systems.relationship = new RelationshipSystem();
+
+        // 初始化动物行为系统
+        this.systems.animals = new AnimalBehaviors();
+        this.systems.movableObjects = new MovableObjects();
+
+        // 初始化建筑
+        this.initBuildings();
+
+        // 初始化生态系统
+        this.initEcology();
+
+        console.log('[App] World initialized');
+    }
+
+    /**
+     * 初始化建筑
+     */
+    initBuildings() {
+        // 8 大建筑 - 位置参考 DESIGN.md
+        this.buildings.task_center = new TaskCenter({ x: -25, z: -25 });
+        this.buildings.reputation_tower = new ReputationTower({ x: 25, z: -25 });
+        this.buildings.trading_center = new TradingCenter({ x: -25, z: 25 });
+        this.buildings.archive = new Archive({ x: 25, z: 25 });
+        this.buildings.message_station = new MessageStation({ x: 0, z: -35 });
+        this.buildings.data_center = new DataCenter({ x: -35, z: 0 });
+        this.buildings.creative_workshop = new CreativeWorkshop({ x: 35, z: 0 });
+        this.buildings.skill_academy = new SkillAcademy({ x: 0, z: 35 });
+
+        // 添加到场景
+        for (const building of Object.values(this.buildings)) {
+            const mesh = building.createMesh();
+            if (mesh && this.scene) {
+                this.scene.add(mesh);
+            }
+        }
+
+        console.log('[App] Buildings initialized:', Object.keys(this.buildings).join(', '));
+    }
+
+    /**
+     * 初始化生态系统
+     */
+    initEcology() {
+        // 鸟群
+        this.ecology.birds = new BirdFlock();
+        this.ecology.birds.init(this.scene);
+        this.ecology.birds.spawn(20);
+
+        // 蝴蝶群
+        this.ecology.butterflies = new ButterflySwarm();
+        this.ecology.butterflies.init(this.scene);
+
+        console.log('[App] Ecology initialized');
+    }
+
+    /**
+     * 初始化 UI
+     */
+    initUI() {
+        this.ui.worldWindow = new WorldWindow();
+        this.ui.worldWindow.init(this.scene, this.camera);
+
+        this.ui.dashboard = new Dashboard();
+        this.ui.dashboard.init();
+
+        this.ui.notifications = new Notifications();
+        this.ui.notifications.init();
+
+        console.log('[App] UI initialized');
+    }
+
+    /**
+     * 连接 WebSocket
+     */
+    connectWebSocket() {
+        // 连接服务器（开发环境可跳过）
+        try {
+            connection.connect('ws://localhost:9876', 'player_' + Date.now());
+        } catch (err) {
+            console.warn('[App] WebSocket connection skipped:', err.message);
+        }
+    }
+
+    /**
+     * 绑定事件
+     */
+    bindEvents() {
+        window.addEventListener('resize', () => this.onResize());
+
+        // ESC 取消选中
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.systems.agent.deselectAll();
+            }
+        });
+
+        console.log('[App] Events bound');
+    }
+
+    /**
+     * 开始应用
+     */
+    start() {
+        if (this.isRunning) return;
+        this.isRunning = true;
+        this.clock.start();
+        this.animate();
+        console.log('[App] Started');
+    }
+
+    /**
+     * 停止应用
+     */
+    stop() {
+        this.isRunning = false;
+        if (this.frameId) {
+            cancelAnimationFrame(this.frameId);
+            this.frameId = null;
+        }
+    }
+
+    /**
+     * 动画循环
+     */
+    animate() {
+        if (!this.isRunning) return;
+        this.frameId = requestAnimationFrame(() => this.animate());
+
+        const deltaTime = this.clock.getDelta();
+
+        // 更新控制器
+        this.controls.update();
+
+        // 更新系统
+        this.systems.weather?.update(deltaTime);
+        this.systems.dayNight?.update(deltaTime);
+
+        // 更新智能体
+        this.systems.agent.update(deltaTime);
+
+        // 更新生态系统
+        this.ecology.birds?.update(deltaTime);
+        this.ecology.butterflies?.update(deltaTime);
+
+        // 更新可移动物体
+        this.systems.movableObjects?.update(deltaTime);
+
+        // 更新建筑
+        for (const building of Object.values(this.buildings)) {
+            building.update(deltaTime);
+        }
+
+        // 渲染
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    /**
+     * 窗口大小变化
+     */
+    onResize() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        this.camera.aspect = w / h;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(w, h);
+    }
+
+    /**
+     * 隐藏加载画面
+     */
+    hideLoading() {
+        const loading = document.getElementById('loading');
+        if (loading) {
+            loading.classList.add('hidden');
+            setTimeout(() => loading.remove(), 800);
+        }
+    }
+
+    /**
+     * 获取状态
+     */
+    getStatus() {
+        return {
+            isRunning: this.isRunning,
+            agents: this.systems.agent?.getAllAgents().length || 0,
+            buildings: Object.keys(this.buildings).length,
+            ecology: {
+                birds: this.ecology.birds?.count || 0,
+                butterflies: this.ecology.butterflies?.count || 0
+            }
+        };
+    }
+}
+
+// 创建全局实例
+const app = new AgentCityApp();
+window.app = app;
+
+// 自动初始化
+if (document.readyState === 'complete') {
+    app.init().then(success => {
+        if (success) app.start();
+    });
+} else {
+    window.addEventListener('load', () => {
+        app.init().then(success => {
+            if (success) app.start();
+        });
+    });
+}
+
+export { AgentCityApp, app };

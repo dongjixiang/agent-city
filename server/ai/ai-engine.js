@@ -4,8 +4,8 @@
  * 负责 AI 决策循环和 LLM 调用
  */
 
-const logger = require('../../utils/logger');
-const config = require('../../utils/config-loader');
+const logger = require('../utils/logger');
+const config = require('../utils/config-loader');
 const { skillRegistry } = require('./skill-registry');
 const { llmManager } = require('./llm-manager');
 const PerceptionSystem = require('./perception/perception-system');
@@ -50,7 +50,7 @@ class AIEngine {
         this.isRunning = true;
 
         // 从配置获取决策间隔
-        const interval = config.get('agents.default.decision.interval', 5000);
+        const interval = config.getValue('agents.default.decision.interval', 5000);
 
         this.decisionInterval = setInterval(() => {
             this.decisionLoop();
@@ -114,7 +114,7 @@ class AIEngine {
 
         // 检查时间（决策冷却）
         const lastDecision = agent.lastDecision || 0;
-        const cooldown = config.get('agents.default.decision.interval', 5000);
+        const cooldown = config.getValue('agents.default.decision.interval', 5000);
         if (Date.now() - lastDecision < cooldown) {
             return false;
         }
@@ -203,7 +203,7 @@ class AIEngine {
             nearbyAgents = await agentStore.getNearbyAgents(
                 agent.position.x,
                 agent.position.z,
-                config.get('agents.default.perception.visualRange', 30)
+                config.getValue('agents.default.perception.visualRange', 30)
             );
         }
 
@@ -252,7 +252,7 @@ class AIEngine {
      */
     async callLLM(agent, context) {
         // 获取 Prompt 模板
-        const promptTemplate = config.get('llm.prompts.decision', '');
+        const promptTemplate = config.getValue('llm.prompts.decision', '');
 
         // 替换变量
         const prompt = this.buildPrompt(promptTemplate, agent, context);
@@ -383,7 +383,7 @@ class AIEngine {
      * 执行默认技能
      */
     async executeDefaultSkill(agent) {
-        const defaultSkill = config.get('agents.default.decision.defaultSkill', 'rest');
+        const defaultSkill = config.getValue('agents.default.decision.defaultSkill', 'rest');
 
         try {
             const result = await skillRegistry.execute(defaultSkill, agent, {}, {});

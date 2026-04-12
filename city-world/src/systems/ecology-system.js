@@ -6,7 +6,7 @@
  */
 
 import * as THREE from 'three';
-import { eventBus } from '../core/event-bus.js';
+import { eventBus } from '../../core/event-bus.js';
 
 class Animal {
     constructor(id, config) {

@@ -14,6 +14,10 @@ class BaseStore {
         this.indexes = new Map(); // 索引
     }
 
+    async init() {
+        // 可被子类覆盖
+    }
+
     /**
      * 生成 ID
      */

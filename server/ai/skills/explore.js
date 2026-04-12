@@ -44,7 +44,7 @@ class ExploreSkill extends Skill {
         const targetZ = Math.round(currentZ + Math.sin(angle) * distance);
 
         // 边界检查
-        const worldSize = config.get('world.size', { width: 200, height: 200 });
+        const worldSize = config.getValue('world.size', { width: 200, height: 200 });
         const boundedX = Math.max(-worldSize.width / 2, Math.min(worldSize.width / 2, targetX));
         const boundedZ = Math.max(-worldSize.height / 2, Math.min(worldSize.height / 2, targetZ));
 
@@ -85,7 +85,7 @@ class ExploreSkill extends Skill {
         }
 
         // 检查是否是建筑附近
-        const buildings = config.get('buildings.buildings', {});
+        const buildings = config.getValue('buildings.buildings', {});
         for (const [id, building] of Object.entries(buildings)) {
             const dx = building.position?.x - x;
             const dz = building.position?.z - z;

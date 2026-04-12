@@ -12,7 +12,7 @@ class DayNightSystem {
         this.gameTime = 6 * 60; // 从 6:00 开始
         this.lastUpdate = Date.now();
 
-        this.daynightConfig = config.get('world.daynight', {
+        this.daynightConfig = config.getValue('world.daynight', {
             enabled: true,
             cycleSpeed: 60,
             dawnHour: 6,

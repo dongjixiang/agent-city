@@ -23,8 +23,8 @@ class EcologySystem {
      */
     initialize() {
         // 加载配置
-        const animalsConfig = config.get('world.animals', {});
-        const decorationsConfig = config.get('world.decorations', {});
+        const animalsConfig = config.getValue('world.animals', {});
+        const decorationsConfig = config.getValue('world.decorations', {});
 
         logger.info('[EcologySystem] Initialized', {
             animalTypes: Object.keys(animalsConfig).length,

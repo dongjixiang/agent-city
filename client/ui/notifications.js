@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @fileoverview 通知系统（气泡、徽章）
  * 
  * 职责：
@@ -386,3 +386,6 @@ export default {
     showLevelUpBadge,
     playVoice
 };
+
+
+export class Notifications { init() { console.log('[Notifications] Initialized'); } }

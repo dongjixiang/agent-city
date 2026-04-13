@@ -308,4 +308,38 @@ export function getLandingSpots() {
 window.updateBirds = updateBirds;
 window.lastBirdTime = null;
 
-export default { initBirds, updateBirds, getBirds, createBird };
+/**
+ * BirdFlock - 鸟群管理器
+ */
+export class BirdFlock {
+    constructor() {
+        this.scene = null;
+        this.count = MAX_BIRDS;
+    }
+
+    init(scene) {
+        this.scene = scene;
+        initBirds(scene, this.count);
+    }
+
+    /**
+     * 生成更多鸟类
+     * @param {number} additionalCount - 额外生成的数量
+     */
+    spawn(additionalCount) {
+        for (let i = 0; i < additionalCount; i++) {
+            const bird = createBird();
+            birds.push(bird);
+            if (this.scene) {
+                this.scene.add(bird);
+            }
+        }
+        console.log(`[Birds] Spawned ${additionalCount} additional birds, total: ${birds.length}`);
+    }
+
+    update(time) {
+        updateBirds(time);
+    }
+}
+
+export default { initBirds, updateBirds, getBirds, createBird, BirdFlock };

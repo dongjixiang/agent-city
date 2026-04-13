@@ -30,7 +30,7 @@ class Lake {
             shininess: 100
         });
         const water = new THREE.Mesh(waterGeo, waterMat);
-        water.rotation.x = -Math.PI / 2;
+        water.rotation.x = Math.PI / 2;
         water.position.y = 0.05;
         group.add(water);
 
@@ -41,7 +41,7 @@ class Lake {
             side: THREE.DoubleSide
         });
         const edge = new THREE.Mesh(edgeGeo, edgeMat);
-        edge.rotation.x = -Math.PI / 2;
+        edge.rotation.x = Math.PI / 2;
         edge.position.y = 0.02;
         group.add(edge);
 
@@ -52,3 +52,4 @@ class Lake {
 }
 
 export { Lake };
+

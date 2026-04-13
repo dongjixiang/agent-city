@@ -58,6 +58,10 @@ class SkillRegistry {
     /**
      * 注册内置技能
      */
+    _registerBuiltinSkills() {
+        // Built-in skills are loaded asynchronously in init()
+    }
+
     /**
      * 异步初始化（加载内置技能）
      */

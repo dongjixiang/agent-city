@@ -35,6 +35,8 @@ import { SkillAcademy } from './systems/buildings/skill-academy.js';
 // Ecology - 生态系统
 import { BirdFlock } from './systems/ecology/bird-flock.js';
 import { ButterflySwarm } from './systems/ecology/butterfly-swarm.js';
+import { FishSystem } from './systems/ecology/fish.js';
+import { BoatSystem } from './systems/ecology/boat.js';
 
 // Interaction - 交互系统
 import { AnimalBehaviors } from './systems/interaction/animal-behaviors.js';
@@ -78,6 +80,8 @@ class AgentCityApp {
 
         // 世界生态系统
         this.ecology = {};
+        this.fishSystem = null;
+        this.boatSystem = null;
 
         // 系统实例
         this.systems = {
@@ -111,6 +115,13 @@ class AgentCityApp {
      * 初始化应用
      */
     async init() {
+        // 防止重复初始化
+        if (this._initialized) {
+            console.log('[App] Already initialized, skipping');
+            return false;
+        }
+        this._initialized = true;
+        
         console.log('[App] Initializing Agent City...');
 
         try {
@@ -121,16 +132,16 @@ class AgentCityApp {
             this.initCore();
 
             // 3. 初始化 AI 系统
-            await this.initAI();
+             await this.initAI();
 
             // 4. 初始化世界
             this.initWorld();
 
             // 5. 初始化 UI
-            this.initUI();
+            //this.initUI();
 
             // 6. 连接 WebSocket
-            this.connectWebSocket();
+            //this.connectWebSocket();
 
             // 7. 绑定事件
             this.bindEvents();
@@ -150,26 +161,49 @@ class AgentCityApp {
      * 初始化 Three.js 核心
      */
     initThreeJS() {
+        // 防止重复初始化
+        if (this._threeInitialized) {
+            console.log('[App] Three.js already initialized, skipping');
+            return;
+        }
+        this._threeInitialized = true;
+        
         // Scene
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x1a1a2e);
 
-        // Camera
+        // Camera - 调整以适应新地图（南湖北山格局）
         this.camera = new THREE.PerspectiveCamera(
             60, window.innerWidth / window.innerHeight, 0.1, 1000
         );
-        this.camera.position.set(0, 50, 50);
+        this.camera.position.set(0, 120, 120);
 
         // Renderer
+        // 清除旧的 canvas 防止重复
+        const container = document.getElementById('canvas-container');
+        if (container) container.innerHTML = '';
+        
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
-        document.getElementById('canvas-container')?.appendChild(this.renderer.domElement);
+        container?.appendChild(this.renderer.domElement);
+
+        // 验证渲染器创建成功
+        if (!this.renderer.domElement) {
+            console.error('[App] ERROR: WebGL renderer failed to create canvas!');
+        } else {
+            console.log('[App] WebGL canvas created:', this.renderer.domElement.width, 'x', this.renderer.domElement.height);
+        }
 
         // Controls
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
+        this.controls.target.set(0, 0, 0);  // 确保相机指向场景中心
+
+        // 打印场景内容
+        console.log('[App] Scene children count:', this.scene.children.length);
+        console.log('[App] Scene children:', this.scene.children.map(c => c.name || c.type || 'unnamed'));
 
         // Lights
         const ambient = new THREE.AmbientLight(0xffffff, 0.4);
@@ -219,10 +253,18 @@ class AgentCityApp {
      * 初始化世界
      */
     initWorld() {
+        // 防止重复初始化
+        if (this._worldInitialized) {
+            console.log('[App] World already initialized, skipping');
+            return;
+        }
+        this._worldInitialized = true;
+        
         // 构建世界
         if (this.systems.worldBuilder) {
             this.systems.worldBuilder.init(this.scene);
             this.systems.worldBuilder.build();
+            console.log('[App] After build - Scene children:', this.scene.children.length);
         }
 
         // 初始化智能体系统
@@ -294,6 +336,14 @@ class AgentCityApp {
         this.ecology.butterflies = new ButterflySwarm();
         this.ecology.butterflies.init(this.scene);
 
+        // 鱼类系统
+        this.fishSystem = new FishSystem(this.scene);
+        this.fishSystem.init();
+
+        // 船只系统
+        this.boatSystem = new BoatSystem(this.scene);
+        this.boatSystem.init();
+
         console.log('[App] Ecology initialized');
     }
 
@@ -345,11 +395,20 @@ class AgentCityApp {
      * 开始应用
      */
     start() {
-        if (this.isRunning) return;
+        if (this.isRunning) {
+            console.log('[App] Already running, skipping start');
+            return;
+        }
         this.isRunning = true;
         this.clock.start();
-        this.animate();
         console.log('[App] Started');
+        
+        // 延迟启动动画循环，让初始化完全完成
+        setTimeout(() => {
+            if (this.isRunning) {
+                this.animate();
+            }
+        }, 100);
     }
 
     /**
@@ -370,32 +429,40 @@ class AgentCityApp {
         if (!this.isRunning) return;
         this.frameId = requestAnimationFrame(() => this.animate());
 
-        const deltaTime = this.clock.getDelta();
+        try {
+            const deltaTime = this.clock.getDelta();
 
-        // 更新控制器
-        this.controls.update();
+            // 更新控制器
+            this.controls.update();
 
-        // 更新系统
-        this.systems.weather?.update(deltaTime);
-        this.systems.dayNight?.update(deltaTime);
+            // 更新系统
+            this.systems.weather?.update(deltaTime);
+            this.systems.dayNight?.update(deltaTime);
 
-        // 更新智能体
-        this.systems.agent.update(deltaTime);
+            // 更新智能体
+            this.systems.agent.update(deltaTime);
 
-        // 更新生态系统
-        this.ecology.birds?.update(deltaTime);
-        this.ecology.butterflies?.update(deltaTime);
+            // 更新生态系统
+            this.ecology.birds?.update(deltaTime);
+            this.ecology.butterflies?.update(deltaTime);
+            this.fishSystem?.update(deltaTime);
+            this.boatSystem?.update(deltaTime);
 
-        // 更新可移动物体
-        this.systems.movableObjects?.update(deltaTime);
+            // 更新可移动物体
+            this.systems.movableObjects?.update(deltaTime);
 
-        // 更新建筑
-        for (const building of Object.values(this.buildings)) {
-            building.update(deltaTime);
+            // 更新建筑
+            for (const building of Object.values(this.buildings)) {
+                building.update(deltaTime);
+            }
+
+            // 渲染
+            if (this.renderer) {
+                this.renderer.render(this.scene, this.camera);
+            }
+        } catch (err) {
+            console.error('[App] Animation error:', err);
         }
-
-        // 渲染
-        this.renderer.render(this.scene, this.camera);
     }
 
     /**
@@ -437,20 +504,10 @@ class AgentCityApp {
 }
 
 // 创建全局实例
+// 创建全局实例（但不自动初始化）
 const app = new AgentCityApp();
 window.app = app;
 
-// 自动初始化
-if (document.readyState === 'complete') {
-    app.init().then(success => {
-        if (success) app.start();
-    });
-} else {
-    window.addEventListener('load', () => {
-        app.init().then(success => {
-            if (success) app.start();
-        });
-    });
-}
+// 不在这里自动初始化 - 由 HTML 脚本唯一负责初始化
 
 export { AgentCityApp, app };

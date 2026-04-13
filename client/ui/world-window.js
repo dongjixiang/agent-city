@@ -1,4 +1,4 @@
-/**
+﻿/**
 
  * World Window - Bridge between external world and Agent City
 
@@ -783,3 +783,6 @@ class WorldWindow {
 
 window.worldWindow = new WorldWindow();
 
+
+
+export { WorldWindow };

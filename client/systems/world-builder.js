@@ -1,750 +1,489 @@
 /**
- * @fileoverview 世界构建器
- * 
- * 职责：
- * - 创建地形增强（草地、水体）
- * - 创建道路
- * - 创建装饰物（树、路灯、长椅、花卉、灌木）
- * - 创建喷泉
- * - 创建建筑（广场、任务中心、声誉塔、交易中心、档案馆、消息站、数据中心、创意工坊）
- * 
- * 使用方式：
- *   import { buildWorld } from './world/world-builder.js';
- *   buildWorld(scene);
- * 
- * @module world/world-builder
+ * World Builder - Agent City
+ * Ocean at south, Urban SE, Suburban NW
  */
 
 import * as THREE from 'three';
 
-// 地标配置
+import { createBaseGround } from '../objects/terrain/ground.js';
+import { createHill } from '../objects/terrain/hill.js';
+import { createRiver, createLake, createBeach, createOcean, createOceanBeach } from '../objects/terrain/river.js';
+import { createRoad, createPath } from '../objects/terrain/road.js';
+import { createSimpleBridge, createLightBridge, createArchBridge, createGlassBridge } from '../objects/terrain/bridge.js';
+import { createTree, createPineTree, createPalmTree } from '../objects/decorations/tree.js';
+import { createBench, createLamp } from '../objects/decorations/bench.js';
+import { createBuilding, createDomeBuilding, createTower, createGlassBuilding, createSuburbanHouse, createUrbanBuilding, createLibraryBuilding, createWorkshopBuilding, createMessageStationBuilding, createArtGalleryBuilding, createArchiveBuilding, createTaskCenterBuilding, createDataCenterBuilding, createReputationTower, createSkillAcademyBuilding, createDiverseUrbanBuilding } from '../objects/buildings/minecraft-buildings.js';
+import { createLabel } from '../objects/buildings/label.js';
+
+function rand(min, max) { return min + Math.random() * (max - min); }
+
 export const LANDMARKS = {
-    FOUNTAIN: { x: 0, z: 0, name: '中央喷泉' },
-    TASK_CENTER: { x: -25, z: -25, name: '任务中心' },
-    REPUTATION_TOWER: { x: 25, z: -25, name: '声誉塔' },
-    TRADING_CENTER: { x: -25, z: 25, name: '交易中心' },
-    ARCHIVE: { x: 25, z: 25, name: '档案馆' },
-    MESSAGE_STATION: { x: 0, z: -35, name: '消息站' },
-    DATA_CENTER: { x: -35, z: 0, name: '数据中心' },
-    CREATIVE_WORKSHOP: { x: 35, z: 0, name: '创意工坊' }
+    FOUNTAIN: { x: 55, z: 35, name: 'Central Fountain' },
+    TOWN_HALL: { x: 50, z: 20, name: 'Town Hall' },
+    SKILL_ACADEMY: { x: -45, z: -50, name: 'Skill Academy' },
+    LIBRARY: { x: 65, z: 5, name: 'Library' },
+    WORKSHOP: { x: 70, z: 25, name: 'Creative Workshop' },
+    GALLERY: { x: 75, z: 45, name: 'Art Gallery' },
+    ARCHIVE: { x: 60, z: 55, name: 'Archive' },
+    MESSAGE_STATION: { x: 55, z: 10, name: 'Message Station' },
+    REPUTATION_TOWER: { x: 45, z: 60, name: 'Reputation Tower' },
+    DATA_CENTER: { x: 35, z: 50, name: 'Data Center' },
+    TASK_CENTER: { x: 65, z: 65, name: 'Task Center' },
 };
 
-/**
- * 构建完整世界
- * @param {THREE.Scene} scene
- */
-export function buildWorld(scene) {
-    improveGround(scene);
-    addLakes(scene);
-    addRoads(scene);
-    addTrees(scene);
-    addStreetLights(scene);
-    addFlowers(scene);
-    addBenches(scene);
-    addBushes(scene);
-    addFountain(scene);
-    addDetailedBuildings(scene);
-    setupBuildingHover(scene);
-    console.log('[WorldBuilder] World built successfully');
-}
-
-// ============ 地形增强 ============
-
-/**
- * 增强地面
- */
-function improveGround(scene) {
-    const grassMat = new THREE.MeshLambertMaterial({ color: 0x4caf50 });
-    const patches = [
-        { x: 40, z: 40, w: 20, h: 20 },
-        { x: -40, z: 40, w: 20, h: 20 },
-        { x: 40, z: -40, w: 20, h: 20 },
-        { x: -40, z: -40, w: 20, h: 20 }
-    ];
-    
-    patches.forEach(p => {
-        const geo = new THREE.PlaneGeometry(p.w, p.h);
-        const mesh = new THREE.Mesh(geo, grassMat);
-        mesh.rotation.x = -Math.PI / 2;
-        mesh.position.set(p.x, 0.01, p.z);
-        scene.add(mesh);
-    });
-}
-
-// ============ 水体 ============
-
-/**
- * 添加湖泊
- */
-function addLakes(scene) {
-    // 中心湖泊
-    createLake(scene, 0, 0, 12);
-    // 小水池
-    createLake(scene, 40, 40, 5);
-    createLake(scene, -40, 40, 4);
-    createLake(scene, 40, -40, 4);
-}
-
-/**
- * 创建单个湖泊
- */
-export function createLake(scene, x, z, size = 10) {
-    const geo = new THREE.CircleGeometry(size, 32);
-    const mat = new THREE.MeshStandardMaterial({
-        color: 0x3388cc,
-        transparent: true,
-        opacity: 0.8
-    });
-    const lake = new THREE.Mesh(geo, mat);
-    lake.rotation.x = -Math.PI / 2;
-    lake.position.set(x, 0.05, z);
-    scene.add(lake);
-}
-
-// ============ 道路 ============
-
-/**
- * 添加道路
- */
-function addRoads(scene) {
-    const roadMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
-    const roadWidth = 4;
-    
-    // 十字路口
-    const roads = [
-        { x: 0, z: 0, w: 120, h: roadWidth },  // 南北
-        { x: 0, z: 0, w: roadWidth, h: 120 }   // 东西
-    ];
-    
-    roads.forEach(r => {
-        const geo = new THREE.PlaneGeometry(r.w, r.h);
-        const mesh = new THREE.Mesh(geo, roadMat);
-        mesh.rotation.x = -Math.PI / 2;
-        mesh.position.set(r.x, 0.02, r.z);
-        scene.add(mesh);
-    });
-}
-
-// ============ 装饰物 ============
-
-/**
- * 添加树
- */
-function addTrees(scene) {
-    const positions = [
-        [15, 15], [-15, 15], [15, -15], [-15, -15],
-        [50, 0], [-50, 0], [0, 50], [0, -50],
-        [15, 50], [-15, 50], [15, -50], [-15, -50],
-        [50, 15], [-50, 15], [50, -15], [-50, -15]
-    ];
-    
-    positions.forEach(pos => {
-        createTree(scene, pos[0], pos[1]);
-    });
-}
-
-/**
- * 创建单棵树
- */
-export function createTree(scene, x, z) {
-    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6d4c41 });
-    const leavesMat = new THREE.MeshLambertMaterial({ color: 0x388e3c });
-    
-    // 树干
-    const trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.2, 0.3, 2.5, 8),
-        trunkMat
-    );
-    trunk.position.set(x, 1.25, z);
-    scene.add(trunk);
-    
-    // 树冠（3层）
-    const bottom = new THREE.Mesh(new THREE.ConeGeometry(2, 2, 8), leavesMat);
-    bottom.position.set(x, 3, z);
-    scene.add(bottom);
-    
-    const middle = new THREE.Mesh(new THREE.ConeGeometry(1.5, 1.8, 8), leavesMat);
-    middle.position.set(x, 4.2, z);
-    scene.add(middle);
-    
-    const top = new THREE.Mesh(new THREE.ConeGeometry(1, 1.5, 8), leavesMat);
-    top.position.set(x, 5.2, z);
-    scene.add(top);
-}
-
-/**
- * 添加路灯
- */
-function addStreetLights(scene) {
-    const positions = [
-        [10, 10], [-10, 10], [10, -10], [-10, -10],
-        [30, 0], [-30, 0], [0, 30], [0, -30]
-    ];
-    
-    positions.forEach(pos => {
-        createLamp(scene, pos[0], pos[1]);
-    });
-}
-
-/**
- * 创建路灯
- */
-export function createLamp(scene, x, z) {
-    const poleMat = new THREE.MeshLambertMaterial({ color: 0x444444 });
-    
-    // 灯柱
-    const pole = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.1, 0.1, 4, 8),
-        poleMat
-    );
-    pole.position.set(x, 2, z);
-    scene.add(pole);
-    
-    // 灯头
-    const head = new THREE.Mesh(
-        new THREE.SphereGeometry(0.3, 8, 8),
-        new THREE.MeshBasicMaterial({ color: 0xffffaa })
-    );
-    head.position.set(x, 4.2, z);
-    scene.add(head);
-}
-
-/**
- * 添加花卉
- */
-function addFlowers(scene) {
-    const flowerPositions = [];
-    for (let i = 0; i < 50; i++) {
-        flowerPositions.push([
-            (Math.random() - 0.5) * 80,
-            (Math.random() - 0.5) * 80
-        ]);
+export class WorldBuilder {
+    constructor() {
+        this.scene = null;
     }
     
-    flowerPositions.forEach(pos => {
-        createFlower(scene, pos[0], pos[1]);
-    });
-}
-
-/**
- * 创建单朵花
- */
-export function createFlower(scene, x, z) {
-    const colors = [0xff6b6b, 0xffeb3b, 0xff9800, 0xe91e63, 0x9c27b0];
-    const color = colors[Math.floor(Math.random() * colors.length)];
-    
-    const flower = new THREE.Mesh(
-        new THREE.SphereGeometry(0.15, 6, 6),
-        new THREE.MeshLambertMaterial({ color })
-    );
-    flower.position.set(x, 0.15, z);
-    scene.add(flower);
-}
-
-/**
- * 添加长椅
- */
-function addBenches(scene) {
-    const positions = [
-        [8, 0], [-8, 0], [0, 8], [0, -8],
-        [20, 20], [-20, 20], [20, -20], [-20, -20]
-    ];
-    
-    positions.forEach(pos => {
-        createBench(scene, pos[0], pos[1]);
-    });
-}
-
-/**
- * 创建长椅
- */
-export function createBench(scene, x, z) {
-    const benchMat = new THREE.MeshLambertMaterial({ color: 0x8d6e63 });
-    
-    // 座板
-    const seat = new THREE.Mesh(
-        new THREE.BoxGeometry(2, 0.1, 0.5),
-        benchMat
-    );
-    seat.position.set(x, 0.5, z);
-    scene.add(seat);
-    
-    // 腿
-    const leg1 = new THREE.Mesh(
-        new THREE.BoxGeometry(0.1, 0.5, 0.4),
-        benchMat
-    );
-    leg1.position.set(x - 0.8, 0.25, z);
-    scene.add(leg1);
-    
-    const leg2 = new THREE.Mesh(
-        new THREE.BoxGeometry(0.1, 0.5, 0.4),
-        benchMat
-    );
-    leg2.position.set(x + 0.8, 0.25, z);
-    scene.add(leg2);
-}
-
-/**
- * 添加灌木
- */
-function addBushes(scene) {
-    const positions = [
-        [25, 25], [-25, 25], [25, -25], [-25, -25],
-        [35, 35], [-35, 35], [35, -35], [-35, -35]
-    ];
-    
-    positions.forEach(pos => {
-        createBush(scene, pos[0], pos[1]);
-    });
-}
-
-/**
- * 创建灌木
- */
-export function createBush(scene, x, z) {
-    const bushMat = new THREE.MeshLambertMaterial({ color: 0x2e7d32 });
-    
-    const bush = new THREE.Mesh(
-        new THREE.SphereGeometry(1, 8, 8),
-        bushMat
-    );
-    bush.position.set(x, 0.8, z);
-    bush.scale.set(1, 0.7, 1);
-    scene.add(bush);
-}
-
-// ============ 喷泉 ============
-
-/**
- * 添加喷泉
- */
-function addFountain(scene) {
-    createFountain(scene, 0, 0);
-}
-
-/**
- * 创建喷泉
- */
-export function createFountain(scene, x, z) {
-    const baseMat = new THREE.MeshLambertMaterial({ color: 0x607d8b });
-    const waterMat = new THREE.MeshStandardMaterial({
-        color: 0x42a5f5,
-        transparent: true,
-        opacity: 0.7
-    });
-    
-    // 底座
-    const base = new THREE.Mesh(
-        new THREE.CylinderGeometry(3, 3.5, 0.5, 16),
-        baseMat
-    );
-    base.position.set(x, 0.25, z);
-    scene.add(base);
-    
-    // 中柱
-    const pillar = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.3, 0.4, 2, 12),
-        baseMat
-    );
-    pillar.position.set(x, 1.5, z);
-    scene.add(pillar);
-    
-    // 水盘
-    const bowl = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.5, 1.2, 0.3, 16),
-        baseMat
-    );
-    bowl.position.set(x, 2.2, z);
-    scene.add(bowl);
-    
-    // 水面
-    const water = new THREE.Mesh(
-        new THREE.CircleGeometry(1.3, 16),
-        waterMat
-    );
-    water.rotation.x = -Math.PI / 2;
-    water.position.set(x, 2.35, z);
-    scene.add(water);
-}
-
-// ============ 建筑 ============
-
-/**
- * 添加所有建筑
- */
-function addDetailedBuildings(scene) {
-    createSocialPlaza(scene, 0, 0);
-    createTaskCenter(scene, LANDMARKS.TASK_CENTER.x, LANDMARKS.TASK_CENTER.z);
-    createReputationTower(scene, LANDMARKS.REPUTATION_TOWER.x, LANDMARKS.REPUTATION_TOWER.z);
-    createTradingCenter(scene, LANDMARKS.TRADING_CENTER.x, LANDMARKS.TRADING_CENTER.z);
-    createArchive(scene, LANDMARKS.ARCHIVE.x, LANDMARKS.ARCHIVE.z);
-    createMessageStation(scene, LANDMARKS.MESSAGE_STATION.x, LANDMARKS.MESSAGE_STATION.z);
-    createDataCenter(scene, LANDMARKS.DATA_CENTER.x, LANDMARKS.DATA_CENTER.z);
-    createCreativeWorkshop(scene, LANDMARKS.CREATIVE_WORKSHOP.x, LANDMARKS.CREATIVE_WORKSHOP.z);
-}
-
-/**
- * 创建社交广场
- */
-export function createSocialPlaza(scene, x, z) {
-    const group = new THREE.Group();
-    
-    const platformMat = new THREE.MeshLambertMaterial({ color: 0xec407a });
-    const pinkMat = new THREE.MeshLambertMaterial({ color: 0xf48fb1 });
-    const darkMat = new THREE.MeshLambertMaterial({ color: 0xad1457 });
-    const seatMat = new THREE.MeshLambertMaterial({ color: 0xfce4ec });
-    
-    // 平台
-    const platform = new THREE.Mesh(new THREE.BoxGeometry(14, 0.4, 14), platformMat);
-    platform.position.y = 0.2;
-    group.add(platform);
-    
-    // 舞台
-    const stage = new THREE.Mesh(new THREE.BoxGeometry(6, 0.6, 3), pinkMat);
-    stage.position.set(0, 0.5, -5);
-    group.add(stage);
-    
-    // 柱子
-    const pillarMat = new THREE.MeshLambertMaterial({ color: 0x880e4f });
-    [[-5, -5], [5, -5], [-5, 5], [5, 5]].forEach(pos => {
-        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 3.5, 8), pillarMat);
-        pillar.position.set(pos[0], 2.2, pos[1]);
-        group.add(pillar);
-    });
-    
-    // 屋顶
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(12, 0.25, 12), darkMat);
-    roof.position.y = 4;
-    group.add(roof);
-    
-    // 座椅
-    for (let i = 0; i < 3; i++) {
-        const seat = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.3, 0.8), seatMat);
-        seat.position.set(-3 + i * 3, 0.35, 4);
-        group.add(seat);
+    init(scene) {
+        this.scene = scene;
     }
     
-    // 爱心
-    const heart = new THREE.Mesh(
-        new THREE.SphereGeometry(0.8, 12, 12),
-        new THREE.MeshLambertMaterial({ color: 0xe91e63 })
-    );
-    heart.scale.set(1, 1.1, 0.4);
-    heart.position.set(0, 1.3, -5);
-    group.add(heart);
-    
-    group.position.set(x, 0, z);
-    scene.add(group);
-}
-
-/**
- * 创建任务中心
- */
-export function createTaskCenter(scene, x, z) {
-    const group = new THREE.Group();
-    
-    const baseMat = new THREE.MeshLambertMaterial({ color: 0x3f51b5 });
-    const accentMat = new THREE.MeshLambertMaterial({ color: 0x7986cb });
-    
-    // 底座
-    const base = new THREE.Mesh(new THREE.BoxGeometry(10, 1, 10), baseMat);
-    base.position.y = 0.5;
-    group.add(base);
-    
-    // 主体
-    const body = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 8), accentMat);
-    body.position.y = 3;
-    group.add(body);
-    
-    // 屋顶
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(9, 0.5, 9), baseMat);
-    roof.position.y = 5.25;
-    group.add(roof);
-    
-    // 图标
-    const icon = new THREE.Mesh(
-        new THREE.BoxGeometry(2, 2, 0.5),
-        new THREE.MeshLambertMaterial({ color: 0xffeb3b })
-    );
-    icon.position.set(0, 3, 4.25);
-    group.add(icon);
-    
-    group.position.set(x, 0, z);
-    scene.add(group);
-}
-
-/**
- * 创建声誉塔
- */
-export function createReputationTower(scene, x, z) {
-    const group = new THREE.Group();
-    
-    const towerMat = new THREE.MeshLambertMaterial({ color: 0xffd700 });
-    const darkMat = new THREE.MeshLambertMaterial({ color: 0xffa000 });
-    
-    // 塔基
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(4, 5, 2, 8), towerMat);
-    base.position.y = 1;
-    group.add(base);
-    
-    // 塔身
-    const tower = new THREE.Mesh(new THREE.CylinderGeometry(2, 3, 8, 8), darkMat);
-    tower.position.y = 6;
-    group.add(tower);
-    
-    // 塔尖
-    const top = new THREE.Mesh(new THREE.ConeGeometry(1.5, 3, 8), towerMat);
-    top.position.y = 11.5;
-    group.add(top);
-    
-    group.position.set(x, 0, z);
-    scene.add(group);
-}
-
-/**
- * 创建交易中心
- */
-export function createTradingCenter(scene, x, z) {
-    const group = new THREE.Group();
-    
-    const wallMat = new THREE.MeshLambertMaterial({ color: 0x4caf50 });
-    const roofMat = new THREE.MeshLambertMaterial({ color: 0x2e7d32 });
-    
-    // 底座
-    const base = new THREE.Mesh(new THREE.BoxGeometry(12, 0.5, 12), roofMat);
-    base.position.y = 0.25;
-    group.add(base);
-    
-    // 墙体
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(10, 3, 10), wallMat);
-    wall.position.y = 2;
-    group.add(wall);
-    
-    // 屋顶（金字塔形）
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(7.5, 3, 4), roofMat);
-    roof.rotation.y = Math.PI / 4;
-    roof.position.y = 4.5;
-    group.add(roof);
-    
-    group.position.set(x, 0, z);
-    scene.add(group);
-}
-
-/**
- * 创建档案馆
- */
-export function createArchive(scene, x, z) {
-    const group = new THREE.Group();
-    
-    const wallMat = new THREE.MeshLambertMaterial({ color: 0x795548 });
-    const roofMat = new THREE.MeshLambertMaterial({ color: 0x5d4037 });
-    
-    // 底座
-    const base = new THREE.Mesh(new THREE.BoxGeometry(10, 0.5, 8), roofMat);
-    base.position.y = 0.25;
-    group.add(base);
-    
-    // 主体
-    const body = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 6), wallMat);
-    body.position.y = 3;
-    group.add(body);
-    
-    // 屋顶
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(9, 0.5, 7), roofMat);
-    roof.position.y = 5.75;
-    group.add(roof);
-    
-    // 书柜图标
-    const shelf = new THREE.Mesh(
-        new THREE.BoxGeometry(3, 2, 0.3),
-        new THREE.MeshLambertMaterial({ color: 0x8d6e63 })
-    );
-    shelf.position.set(0, 3, 3.15);
-    group.add(shelf);
-    
-    group.position.set(x, 0, z);
-    scene.add(group);
-}
-
-/**
- * 创建消息站
- */
-export function createMessageStation(scene, x, z) {
-    const group = new THREE.Group();
-    
-    const mat = new THREE.MeshLambertMaterial({ color: 0x00bcd4 });
-    
-    // 底座
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(3, 3.5, 0.5, 16), mat);
-    base.position.y = 0.25;
-    group.add(base);
-    
-    // 柱体
-    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.5, 4, 12), mat);
-    pillar.position.y = 2.5;
-    group.add(pillar);
-    
-    // 顶部（消息气泡造型）
-    const bubble = new THREE.Mesh(
-        new THREE.SphereGeometry(1.5, 16, 16),
-        new THREE.MeshLambertMaterial({ color: 0x03a9f4 })
-    );
-    bubble.position.y = 5;
-    group.add(bubble);
-    
-    group.position.set(x, 0, z);
-    scene.add(group);
-}
-
-/**
- * 创建数据中心
- */
-export function createDataCenter(scene, x, z) {
-    const group = new THREE.Group();
-    
-    const mat = new THREE.MeshLambertMaterial({ color: 0x673ab7 });
-    const accentMat = new THREE.MeshLambertMaterial({ color: 0x9575cd });
-    
-    // 主体（服务器机房造型）
-    const body = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 6), mat);
-    body.position.y = 3;
-    group.add(body);
-    
-    // 服务器图标
-    for (let i = 0; i < 3; i++) {
-        const server = new THREE.Mesh(
-            new THREE.BoxGeometry(2, 0.3, 1.5),
-            accentMat
-        );
-        server.position.set(0, 1 + i * 0.5, 3.1);
-        group.add(server);
+    build() {
+        console.log('[WorldBuilder] Building world...');
+        this.buildTerrain();
+        this.buildWater();
+        this.buildBridges();
+        this.buildRoads();
+        this.buildBuildings();
+        this.buildParks();
+        this.buildLamps();
+        console.log('[WorldBuilder] World built successfully!');
     }
     
-    // 天线
-    const antenna = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.1, 0.1, 2, 8),
-        accentMat
-    );
-    antenna.position.set(2, 7, 0);
-    group.add(antenna);
+    buildTerrain() {
+        const ground = createBaseGround();
+        this.scene.add(ground);
+        
+        // North mountains (at north edge, west higher than east)
+        // Far west (highest)
+        this.scene.add(createHill(-73, -92, 28, 32, 0x3d6a3d));
+        this.scene.add(createHill(-53, -90, 24, 28, 0x4a7a4a));
+        this.scene.add(createHill(-33, -92, 22, 24, 0x5a8a5a));
+        
+        // Center-west (high)
+        this.scene.add(createHill(-13, -90, 20, 22, 0x5a9a5a));
+        this.scene.add(createHill(25, -92, 18, 20, 0x5a8a5a));
+        
+        // Center (medium)
+        this.scene.add(createHill(40, -90, 16, 16, 0x6a9a6a));
+        this.scene.add(createHill(60, -88, 14, 12, 0x7a9a7a));
+        
+        // East (lower)
+        this.scene.add(createHill(80, -85, 12, 8, 0x8a9a8a));
+        this.scene.add(createHill(90, -82, 10, 6, 0x9a9a8a));
+        
+        console.log('[WorldBuilder] Terrain built');
+    }
     
-    const antennaHead = new THREE.Mesh(
-        new THREE.SphereGeometry(0.3, 8, 8),
-        new THREE.MeshBasicMaterial({ color: 0xff5722 })
-    );
-    antennaHead.position.set(2, 8, 0);
-    group.add(antennaHead);
+    buildWater() {
+        // ===== OCEAN AT SOUTH =====
+        this.scene.add(createOcean(90, 200, 10));
+        
+        // Ocean beach (north of ocean)
+        this.scene.add(createOceanBeach(-60, 87.5, 70, 5));
+        
+        // ===== NORTH LAKE (center-north) =====
+        this.scene.add(createLake({
+            x: 10, z: -75, radiusX: 55, radiusZ: 22,
+            organicPoints: [
+                { angle: 0, factor: 1.0 },
+                { angle: 60, factor: 0.95 },
+                { angle: 120, factor: 1.05 },
+                { angle: 180, factor: 0.9 },
+                { angle: 240, factor: 1.0 },
+                { angle: 300, factor: 1.05 },
+            ],
+        }));
+        
+        
+        // ===== RIVERS (flowing from lake toward south/ocean) =====
+        // Main river (from lake, flowing south to ocean)
+        const mainRiver = [
+            { x: -10, z: -55 },
+            { x: -10, z: -20 },
+            { x: -12, z: 0 },
+            { x: -15, z: 20 },
+            { x: -18, z: 40 },
+            { x: -20, z: 55 },
+            { x: -20, z: 91 },
+        ];
+        this.scene.add(createRiver(mainRiver, 8));
+        
+       
+        console.log('[WorldBuilder] Water system built');
+    }
     
-    group.position.set(x, 0, z);
-    scene.add(group);
-}
-
-/**
- * 创建创意工坊
- */
-export function createCreativeWorkshop(scene, x, z) {
-    const group = new THREE.Group();
+    buildBridges() {
+        // Bridges over river (river is at x=-10 to x=-20, z=-55 to z=91)
+        // E-W roads cross the river at different z positions
+        this.scene.add(createSimpleBridge(-20, 5, -5, 5));
+        this.scene.add(createSimpleBridge(-22, 35, -7, 35));
+        this.scene.add(createSimpleBridge(-25, 65, -10, 65));
+        
+        // Additional bridges for other E-W roads
+        //this.scene.add(createArchBridge(-18, 15, -2, 15));
+        //this.scene.add(createSimpleBridge(-20, 50, -5, 50));
+        //this.scene.add(createGlassBridge(-22, 75, -7, 75));
+        
+        console.log('[WorldBuilder] Bridges built');
+    }
     
-    const wallMat = new THREE.MeshLambertMaterial({ color: 0xff9800 });
-    const roofMat = new THREE.MeshLambertMaterial({ color: 0xf57c00 });
+    buildRoads() {
+        // ===== SUBURBAN ROADS (NW quadrant, winding) =====
+        const suburbanRoads = [
+            { x: -50, z: -55 }, { x: -50, z: -45 },
+            { x: -40, z: -55 }, { x: -40, z: -45 },
+            { x: -55, z: -40 }, { x: -55, z: -30 },
+            { x: -45, z: -35 }, { x: -45, z: -25 },
+            { x: -55, z: -20 }, { x: -55, z: -10 },
+            { x: -45, z: -15 }, { x: -45, z: -5 },
+            { x: -55, z: 0 }, { x: -55, z: 10 },
+            { x: -45, z: 5 }, { x: -45, z: 15 },
+            { x: -50, z: 20 }, { x: -50, z: 30 },
+            { x: -40, z: 25 }, { x: -40, z: 35 },
+        ];
+        createRoad(suburbanRoads, 3).forEach(m => this.scene.add(m));
+        
+        // ===== URBAN GRID (simple N-S and E-W only, square around plaza) =====
+        // Plaza center at (40, 35), plaza area is x=25~55, z=20~50
+        // N-S vertical roads at x=15, x=40, x=65
+        const nsRoad1 = [
+            { x: 15, z: -10 }, { x: 15, z: 20 },
+        ];
+        createRoad(nsRoad1, 4).forEach(m => this.scene.add(m));
+        
+        const nsRoad2 = [
+            { x: 15, z: 50 }, { x: 15, z: 80 },
+        ];
+        createRoad(nsRoad2, 4).forEach(m => this.scene.add(m));
+        
+        const nsRoad3 = [
+            { x: 40, z: -10 }, { x: 40, z: 20 },
+        ];
+        createRoad(nsRoad3, 4).forEach(m => this.scene.add(m));
+        
+        const nsRoad4 = [
+            { x: 40, z: 50 }, { x: 40, z: 80 },
+        ];
+        createRoad(nsRoad4, 4).forEach(m => this.scene.add(m));
+        
+        const nsRoad5 = [
+            { x: 65, z: -10 }, { x: 65, z: 20 },
+        ];
+        createRoad(nsRoad5, 4).forEach(m => this.scene.add(m));
+        
+        const nsRoad6 = [
+            { x: 65, z: 50 }, { x: 65, z: 80 },
+        ];
+        createRoad(nsRoad6, 4).forEach(m => this.scene.add(m));
+        
+        // E-W horizontal roads at z=5, z=35, z=65
+        const ewRoad1 = [
+            { x: -10, z: 5 }, { x: 85, z: 5 },
+        ];
+        createRoad(ewRoad1, 4).forEach(m => this.scene.add(m));
+        
+        const ewRoad2 = [
+            { x: -10, z: 35 }, { x: 25, z: 35 },
+        ];
+        createRoad(ewRoad2, 4).forEach(m => this.scene.add(m));
+        
+        const ewRoad3 = [
+            { x: 55, z: 35 }, { x: 85, z: 35 },
+        ];
+        createRoad(ewRoad3, 4).forEach(m => this.scene.add(m));
+        
+        const ewRoad4 = [
+            { x: -10, z: 65 }, { x: 85, z: 65 },
+        ];
+        createRoad(ewRoad4, 4).forEach(m => this.scene.add(m));
+        
+        // ===== SCENIC AVENUE ALONG OCEAN BEACH =====
+        const scenicAvenue = [
+            { x: -40, z: 87.5 }, { x: -20, z: 87.5 }, { x: 0, z: 87.5 },
+            { x: 20, z: 87.5 }, { x: 40, z: 87.5 }, { x: 60, z: 87.5 },
+            { x: 70, z: 87.5 }, { x: 100, z: 87.5 },
+        ];
+        createRoad(scenicAvenue, 5).forEach(m => this.scene.add(m));
+        
+        // Walking paths
+        const paths = [
+            { x: -30, z: -45 }, { x: -30, z: -35 },
+            { x: -40, z: -30 }, { x: -40, z: -20 },
+            { x: -35, z: -10 }, { x: -35, z: 0 },
+        ];
+        paths.forEach(p => {
+            this.scene.add(createPath([p, { x: p.x + 5, z: p.z + 12 }], 1.5));
+        });
+        
+        console.log('[WorldBuilder] Roads built');
+    }
     
-    // 底座
-    const base = new THREE.Mesh(new THREE.BoxGeometry(10, 0.5, 10), roofMat);
-    base.position.y = 0.25;
-    group.add(base);
+    buildBuildings() {
+        // ===== SKILL ACADEMY (NW) =====
+        this.scene.add(createTower(-45, -50, 12, 0x8b4513));
+        this.scene.add(createSuburbanHouse(-52, -55, 0xdeb887));
+        this.scene.add(createSuburbanHouse(-38, -55, 0xd2b48c));
+        
+        // ===== SUBURBAN HOUSES (around lake + NW) =====
+        // Around lake (east side, x: 28-45, z: -65 to -15)
+        const lakeEastHouses = [
+            { x: rand(30, 42), z: rand(-65, -55), color: 0xdeb887 },
+            { x: rand(32, 42), z: rand(-50, -42), color: 0xd2b48c },
+            { x: rand(30, 40), z: rand(-38, -30), color: 0xf5deb3 },
+            { x: rand(32, 42), z: rand(-28, -20), color: 0xe6e6fa },
+            { x: rand(30, 40), z: rand(-18, -12), color: 0xffa07a },
+        ];
+        lakeEastHouses.forEach(h => this.scene.add(createSuburbanHouse(h.x, h.z, h.color)));
+        
+        // Around lake (west side, x: -20 to 5, z: -65 to -15)
+        const lakeWestHouses = [
+            { x: rand(-18, 3), z: rand(-65, -55), color: 0xd2691e },
+            { x: rand(-16, 3), z: rand(-50, -42), color: 0xdeb887 },
+            { x: rand(-18, 2), z: rand(-38, -30), color: 0xf5f5dc },
+            { x: rand(-15, 3), z: rand(-28, -20), color: 0xffd700 },
+            { x: rand(-16, 2), z: rand(-18, -12), color: 0xd2b48c },
+        ];
+        lakeWestHouses.forEach(h => this.scene.add(createSuburbanHouse(h.x, h.z, h.color)));
+        
+        // NW quadrant (x: -65 to -40, z: -65 to 25)
+        const nwHouses = [
+            { x: rand(-62, -52), z: rand(-62, -50), color: 0xdeb887 },
+            { x: rand(-60, -50), z: rand(-45, -35), color: 0xd2b48c },
+            { x: rand(-62, -52), z: rand(-30, -20), color: 0xf5deb3 },
+            { x: rand(-58, -48), z: rand(-15, -5), color: 0xe6e6fa },
+            { x: rand(-55, -45), z: rand(5, 15), color: 0xffa07a },
+            { x: rand(-50, -42), z: rand(-55, -45), color: 0xd2691e },
+            { x: rand(-52, -44), z: rand(-35, -25), color: 0xdeb887 },
+            { x: rand(-48, -40), z: rand(-18, -8), color: 0xf5f5dc },
+            { x: rand(-55, -45), z: rand(0, 10), color: 0xffd700 },
+            { x: rand(-50, -42), z: rand(15, 25), color: 0xd2b48c },
+        ];
+        nwHouses.forEach(h => this.scene.add(createSuburbanHouse(h.x, h.z, h.color)));
+        
+        // ===== SKILL ACADEMY (NW) - Tower school with clock =====
+        const skillAcademy = createSkillAcademyBuilding(-30, -35);
+        skillAcademy.add(createLabel('技能学院', { height: 22, fontSize: 24, color: '#ffd700' }));
+        this.scene.add(skillAcademy);
+        
+        // ===== URBAN FUNCTIONAL BUILDINGS (optimized, off roads) =====
+        // Roads: N-S at x=15,40,65; E-W at z=5,35,65
+        // Plaza area: x=25~55, z=20~50
+        
+        // Library (classic monument style)
+        const library = createLibraryBuilding(0, 50);
+        library.add(createLabel('图书馆', { height: 18, fontSize: 28, color: '#ffd700' }));
+        this.scene.add(library);
+        
+        // Workshop (industrial with chimney)
+        const workshop = createWorkshopBuilding(27, 74);
+        workshop.add(createLabel('工坊', { height: 14, fontSize: 28, color: '#ffd700' }));
+        this.scene.add(workshop);
+        
+        // Message Station (communication tower)
+        const messageStation = createMessageStationBuilding(78, 50);
+        messageStation.add(createLabel('消息驿站', { height: 22, fontSize: 24, color: '#ffd700' }));
+        this.scene.add(messageStation);
+        
+        // Art Gallery (modern glass pavilion)
+        const artGallery = createArtGalleryBuilding(0, 75);
+        artGallery.add(createLabel('艺术展厅', { height: 14, fontSize: 28, color: '#87ceeb' }));
+        this.scene.add(artGallery);
+        
+        // Archive (monumental stone)
+        const archive = createArchiveBuilding(50, 72);
+        archive.add(createLabel('档案馆', { height: 20, fontSize: 28, color: '#ffd700' }));
+        this.scene.add(archive);
+        
+        // ===== LANDMARK BUILDINGS (with labels, off roads) =====
+        // Task Center (modern office)
+        const taskCenter = createTaskCenterBuilding(74, 72);
+        taskCenter.add(createLabel('任务中心', { height: 18, fontSize: 28, color: '#ffffff' }));
+        this.scene.add(taskCenter);
+        this.scene.add(createDiverseUrbanBuilding(79, 10));
+        
+        // Data Center (tech server)
+        const dataCenter = createDataCenterBuilding(0, 20);
+        dataCenter.add(createLabel('数据中心', { height: 16, fontSize: 24, color: '#90EE90' }));
+        this.scene.add(dataCenter);
+        this.scene.add(createDiverseUrbanBuilding(71, 10));
+        
+        // Reputation Tower (golden landmark)
+        const repTower = createReputationTower(-75, 72);
+        repTower.add(createLabel('声誉塔', { height: 38, fontSize: 28, color: '#ffd700' }));
+        this.scene.add(repTower);
+        
+        // ===== URBAN BUILDINGS ALONG GRID (off roads) =====
+        this.scene.add(createDiverseUrbanBuilding(5, -2));
+        this.scene.add(createDiverseUrbanBuilding(80, 28));
+        this.scene.add(createDiverseUrbanBuilding(22, -2));
+        this.scene.add(createDiverseUrbanBuilding(47, -2));
+        this.scene.add(createDiverseUrbanBuilding(72, 28));
+        this.scene.add(createDiverseUrbanBuilding(32, -2));
+        this.scene.add(createDiverseUrbanBuilding(58, -2));
+        this.scene.add(createDiverseUrbanBuilding(73, -2));
+        
+        // ===== CITIZEN PLAZA (city center at x=40, z=35) =====
+        // Town Hall (dome)
+        const townHall = createDomeBuilding(40, 35, 0x3366aa, 10, 15);
+        townHall.add(createLabel('市政厅', { height: 25, fontSize: 32, color: '#ffd700' }));
+        this.scene.add(townHall);
+        
+        // Plaza buildings around Town Hall
+        const plaza1 = createBuilding(28, 28, 7, 5, 0x8b7355);
+        plaza1.add(createLabel('市民中心', { height: 10, fontSize: 22, color: '#ffffff' }));
+        this.scene.add(plaza1);
+        
+        const plaza2 = createBuilding(52, 28, 7, 5, 0x8b7355);
+        plaza2.add(createLabel('市民中心', { height: 10, fontSize: 22, color: '#ffffff' }));
+        this.scene.add(plaza2);
+        
+        const plaza3 = createBuilding(28, 42, 7, 5, 0x8b7355);
+        plaza3.add(createLabel('市民中心', { height: 10, fontSize: 22, color: '#ffffff' }));
+        this.scene.add(plaza3);
+        
+        const plaza4 = createBuilding(52, 42, 7, 5, 0x8b7355);
+        plaza4.add(createLabel('市民中心', { height: 10, fontSize: 22, color: '#ffffff' }));
+        this.scene.add(plaza4);
+        
+        // Plaza fountain with label
+        const fountain = createBuilding(40, 35, 5, 3, 0x696969);
+        fountain.add(createLabel('广场喷泉', { height: 8, fontSize: 20, color: '#87ceeb' }));
+        this.scene.add(fountain);
+        
+        console.log('[WorldBuilder] Buildings built');
+    }
     
-    // 墙体
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 8), wallMat);
-    wall.position.y = 2.5;
-    group.add(wall);
-    
-    // 屋顶
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(6, 2, 4), roofMat);
-    roof.rotation.y = Math.PI / 4;
-    roof.position.y = 5.5;
-    group.add(roof);
-    
-    // 画架图标
-    const easel = new THREE.Mesh(
-        new THREE.BoxGeometry(2, 2.5, 0.2),
-        new THREE.MeshLambertMaterial({ color: 0x795548 })
-    );
-    easel.position.set(0, 3, 4.1);
-    group.add(easel);
-    
-    // 画布
-    const canvas = new THREE.Mesh(
-        new THREE.BoxGeometry(1.5, 2, 0.05),
-        new THREE.MeshBasicMaterial({ color: 0xffffff })
-    );
-    canvas.position.set(0, 3, 4.25);
-    group.add(canvas);
-    
-    group.position.set(x, 0, z);
-    scene.add(group);
-}
-
-// ============ 建筑悬停提示 ============
-
-let raycaster = null;
-let mouse = null;
-
-/**
- * 设置建筑悬停检测
- */
-function setupBuildingHover(scene) {
-    raycaster = new THREE.Raycaster();
-    mouse = new THREE.Vector2();
-    
-    // 事件监听需要在外部设置，这里只记录需要的功能
-    console.log('[WorldBuilder] Building hover system ready');
-}
-
-/**
- * 获取建筑悬停信息
- */
-export function getBuildingHover(scene, camera, mouseX, mouseY) {
-    if (!raycaster || !scene) return null;
-    
-    mouse.x = mouseX;
-    mouse.y = mouseY;
-    
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(scene.children, true);
-    
-    if (intersects.length > 0) {
-        // 返回第一个相交的建筑
-        for (const hit of intersects) {
-            // 简单检测是否为建筑的一部分
-            if (hit.object.geometry && hit.distance < 100) {
-                return {
-                    distance: hit.distance,
-                    point: hit.point
-                };
-            }
+    buildParks() {
+        // ===== MOUNTAIN PINE TREES =====
+        // Far west (highest, most trees)
+        for (let i = 0; i < 12; i++) {
+            this.scene.add(createPineTree(rand(-90, -50), rand(-98, -85), rand(2, 3.5)));
         }
+        
+        // Center-west (high)
+        for (let i = 0; i < 10; i++) {
+            this.scene.add(createPineTree(rand(-50, -10), rand(-98, -85), rand(1.8, 3)));
+        }
+        
+        // Center (medium)
+        for (let i = 0; i < 8; i++) {
+            this.scene.add(createPineTree(rand(-5, 40), rand(-98, -85), rand(1.5, 2.5)));
+        }
+        
+        // East (lower, fewer trees)
+        for (let i = 0; i < 6; i++) {
+            this.scene.add(createPineTree(rand(45, 80), rand(-95, -80), rand(1, 2)));
+        }
+        
+        // ===== RIVERSIDE TREES =====
+        for (let i = 0; i < 15; i++) {
+            this.scene.add(createTree(rand(-55, 65), rand(-55, 55), 'willow', rand(0.9, 1.3)));
+        }
+        
+        // ===== LAKE TREES =====
+        for (let i = 0; i < 8; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 25 + Math.random() * 12;
+            this.scene.add(createTree(10 + Math.cos(angle) * dist, -55 + Math.sin(angle) * dist * 0.5, 'willow', rand(0.9, 1.2)));
+        }
+        
+        // ===== SCENIC AVENUE PALM TREES (along z=84, on both sides of road) =====
+        // Avenue at z=87.5, width 5, north edge at z=85
+        // Palm trees at z=84 (north side, not on road) and z=91 (south side, not on road)
+        for (let x = -60; x <= 80; x += 10) {
+            this.scene.add(createPalmTree(x + rand(-2, 2), 84, rand(1.8, 2.5)));
+            this.scene.add(createPalmTree(x + rand(-2, 2), 91, rand(1.8, 2.5)));
+        }
+        
+        // ===== BEACH PALM FOREST (z=80~85, x=-40~-80, near lake, not in ocean) =====
+        for (let i = 0; i < 25; i++) {
+            const x = rand(-80, -40);
+            const z = rand(80, 85);
+            this.scene.add(createPalmTree(x, z, rand(1.5, 2.5)));
+        }
+        
+        // ===== PLAZA TREES (around fountain) =====
+        this.scene.add(createTree(48, 28, 'maple', 1.2));
+        this.scene.add(createTree(62, 28, 'maple', 1.2));
+        this.scene.add(createTree(48, 38, 'maple', 1.2));
+        this.scene.add(createTree(62, 38, 'maple', 1.2));
+        
+        // ===== BENCHES =====
+        this.scene.add(createBench(-40, -45));
+        this.scene.add(createBench(-50, -15));
+        this.scene.add(createBench(50, 5));
+        this.scene.add(createBench(68, 35));
+        
+        // Citizen plaza benches (around Town Hall at 40, 35)
+        this.scene.add(createBench(32, 30));
+        this.scene.add(createBench(48, 30));
+        this.scene.add(createBench(32, 40));
+        this.scene.add(createBench(48, 40));
+        this.scene.add(createBench(36, 35));
+        this.scene.add(createBench(44, 35));
+        
+        console.log('[WorldBuilder] Parks built');
     }
-    return null;
+    
+    buildLamps() {
+        // Urban lamps (SE grid)
+        const urbanLamps = [
+            { x: 40, z: 0 }, { x: 55, z: 0 }, { x: 70, z: 0 },
+            { x: 40, z: 15 }, { x: 55, z: 15 }, { x: 70, z: 15 },
+            { x: 40, z: 30 }, { x: 55, z: 30 }, { x: 70, z: 30 },
+            { x: 40, z: 45 }, { x: 55, z: 45 }, { x: 70, z: 45 },
+            { x: 40, z: 60 }, { x: 55, z: 60 }, { x: 70, z: 60 },
+            { x: 47, z: 10 }, { x: 62, z: 10 },
+            { x: 47, z: 25 }, { x: 62, z: 25 },
+            { x: 47, z: 40 }, { x: 62, z: 40 },
+        ];
+        urbanLamps.forEach(pos => {
+            this.scene.add(createLamp(pos.x, pos.z));
+        });
+        
+        // Suburban lamps (NW)
+        const suburbanLamps = [
+            { x: -42, z: -48 }, { x: -52, z: -38 },
+            { x: -42, z: -28 }, { x: -52, z: -18 },
+            { x: -42, z: -8 }, { x: -52, z: 2 },
+            { x: -42, z: 12 }, { x: -52, z: 22 },
+        ];
+        
+        // Citizen plaza lamps (around Town Hall at 40, 35)
+        const plazaLamps = [
+            { x: 30, z: 28 }, { x: 50, z: 28 },
+            { x: 30, z: 42 }, { x: 50, z: 42 },
+            { x: 30, z: 35 }, { x: 50, z: 35 },
+        ];
+        suburbanLamps.forEach(pos => {
+            this.scene.add(createLamp(pos.x, pos.z));
+        });
+        
+        plazaLamps.forEach(pos => {
+            this.scene.add(createLamp(pos.x, pos.z));
+        });
+        
+        console.log('[WorldBuilder] Lamps built');
+    }
 }
 
-export default {
-    LANDMARKS,
-    buildWorld,
-    createLake,
-    createTree,
-    createLamp,
-    createFlower,
-    createBench,
-    createBush,
-    createFountain,
-    createSocialPlaza,
-    createTaskCenter,
-    createReputationTower,
-    createTradingCenter,
-    createArchive,
-    createMessageStation,
-    createDataCenter,
-    createCreativeWorkshop,
-    getBuildingHover
+let _builder = null;
+let _scene = null;
+
+export const worldBuilder = {
+    init(scene) {
+        _scene = scene;
+    },
+    build() {
+        if (!_builder) {
+            _builder = new WorldBuilder();
+            _builder.init(_scene);
+        }
+        _builder.build();
+    }
 };
+
+export default { WorldBuilder, worldBuilder, LANDMARKS };

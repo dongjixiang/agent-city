@@ -1,78 +1,104 @@
 /**
- * Road - 道路
- *
- * 创建路径/道路
- *
- * @module objects/terrain/road
+ * Road - Simple road network
  */
 
 import * as THREE from 'three';
 
-class Road {
-    /**
-     * 创建道路
-     * @param {Array<{x,z}>} points - 路径点
-     * @param {number} width - 宽度
-     */
-    constructor(points, width = 2) {
-        this.points = points;
-        this.width = width;
-        this.mesh = null;
-    }
+const ROAD_COLOR = 0x3d3d3d;
+const LINE_COLOR = 0xffff00;
 
-    createMesh() {
-        if (this.points.length < 2) return null;
-
-        const group = new THREE.Group();
-
-        // 创建道路形状
-        const shape = new THREE.Shape();
-        shape.moveTo(this.points[0].x - this.width / 2, this.points[0].z);
-
-        // 右边缘
-        for (let i = 1; i < this.points.length; i++) {
-            shape.lineTo(this.points[i].x - this.width / 2, this.points[i].z);
-        }
-
-        // 左边缘（反向）
-        for (let i = this.points.length - 1; i >= 0; i--) {
-            shape.lineTo(this.points[i].x + this.width / 2, this.points[i].z);
-        }
-
-        shape.closePath();
-
-        const geometry = new THREE.ShapeGeometry(shape);
-        const material = new THREE.MeshLambertMaterial({
-            color: 0x3a3a5a,
-            side: THREE.DoubleSide
-        });
-
+export function createRoad(points, width) {
+    if (!points || points.length < 2) return [];
+    
+    const meshes = [];
+    const halfWidth = width / 2;
+    
+    for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        
+        const dx = p2.x - p1.x;
+        const dz = p2.z - p1.z;
+        const len = Math.sqrt(dx * dx + dz * dz) || 1;
+        
+        const perpX = -dz / len;
+        const perpZ = dx / len;
+        
+        const vertices = [];
+        
+        const x1 = p1.x + perpX * halfWidth;
+        const z1 = p1.z + perpZ * halfWidth;
+        const x2 = p1.x - perpX * halfWidth;
+        const z2 = p1.z - perpZ * halfWidth;
+        const x3 = p2.x + perpX * halfWidth;
+        const z3 = p2.z + perpZ * halfWidth;
+        const x4 = p2.x - perpX * halfWidth;
+        const z4 = p2.z - perpZ * halfWidth;
+        
+        vertices.push(x1, 0.2, z1, x2, 0.2, z2, x3, 0.2, z3);
+        vertices.push(x2, 0.2, z2, x4, 0.2, z4, x3, 0.2, z3);
+        
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        geometry.computeVertexNormals();
+        
+        const material = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.9, side: THREE.DoubleSide });
         const road = new THREE.Mesh(geometry, material);
-        road.rotation.x = -Math.PI / 2;
-        road.position.y = 0.01;
-        group.add(road);
-
-        // 中心线
-        const lineMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa });
-        for (let i = 0; i < this.points.length - 1; i++) {
-            const p1 = this.points[i];
-            const p2 = this.points[i + 1];
-            const dx = p2.x - p1.x;
-            const dz = p2.z - p1.z;
-            const length = Math.sqrt(dx * dx + dz * dz);
-            const angle = Math.atan2(dz, dx);
-
-            const lineGeo = new THREE.PlaneGeometry(length, 0.1);
-            const line = new THREE.Mesh(lineGeo, lineMat);
-            line.rotation.x = -Math.PI / 2;
-            line.rotation.z = -angle;
-            line.position.set((p1.x + p2.x) / 2, 0.02, (p1.z + p2.z) / 2);
-            group.add(line);
-        }
-
-        this.mesh = group;
-        return group;
+        meshes.push(road);
+        
+        // Center line (flat on ground, parallel to road)
+        const midX = (p1.x + p2.x) / 2;
+        const midZ = (p1.z + p2.z) / 2;
+        const lineGeo = new THREE.PlaneGeometry(len * 0.8, 0.3);
+        const lineMat = new THREE.MeshBasicMaterial({ color: LINE_COLOR });
+        const line = new THREE.Mesh(lineGeo, lineMat);
+        line.position.set(midX, 0.25, midZ);
+        line.rotation.x = -Math.PI / 2;
+        line.rotation.y = Math.atan2(dz, dx);
+        meshes.push(line);
     }
+    
+    return meshes;
 }
 
-export { Road };
+export function createPath(points, width) {
+    if (!points || points.length < 2) return null;
+    
+    const group = new THREE.Group();
+    const halfWidth = width / 2;
+    
+    for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        
+        const dx = p2.x - p1.x;
+        const dz = p2.z - p1.z;
+        const len = Math.sqrt(dx * dx + dz * dz) || 1;
+        
+        const perpX = -dz / len;
+        const perpZ = dx / len;
+        
+        const vertices = [];
+        const x1 = p1.x + perpX * halfWidth;
+        const z1 = p1.z + perpZ * halfWidth;
+        const x2 = p1.x - perpX * halfWidth;
+        const z2 = p1.z - perpZ * halfWidth;
+        const x3 = p2.x + perpX * halfWidth;
+        const z3 = p2.z + perpZ * halfWidth;
+        const x4 = p2.x - perpX * halfWidth;
+        const z4 = p2.z - perpZ * halfWidth;
+        
+        vertices.push(x1, 0.15, z1, x2, 0.15, z2, x3, 0.15, z3);
+        vertices.push(x2, 0.15, z2, x4, 0.15, z4, x3, 0.15, z3);
+        
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        geometry.computeVertexNormals();
+        
+        const material = new THREE.MeshStandardMaterial({ color: 0x9a8a7a, roughness: 0.95, side: THREE.DoubleSide });
+        const path = new THREE.Mesh(geometry, material);
+        group.add(path);
+    }
+    
+    return group;
+}

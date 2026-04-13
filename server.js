@@ -5,7 +5,7 @@
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const AgentStore = require('./agent-store');
-const TaskStore = require('./task-store');
+const TaskStore = require('./server/stores/task-store');
 
 const PORT = process.env.PORT || 9876;
 

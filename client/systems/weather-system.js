@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @fileoverview 天气系统
  * 
  * 职责：
@@ -283,3 +283,7 @@ export default {
     toggleWeather,
     updateWeatherParticles
 };
+
+
+// WeatherSystem wrapper class
+export class WeatherSystem { start() { this.scene = this._scene; } init(scene, options) { this._scene = scene; initWeather(scene, options); } update(deltaTime) { updateWeatherParticles(deltaTime); } getCurrent() { return getCurrentWeather(); } toggle() { toggleWeather(); } }

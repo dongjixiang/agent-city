@@ -11,6 +11,10 @@ class DashboardPanel {
     this.createPanel();
   }
   
+  init() {
+    // Panel already created in constructor
+  }
+  
   createPanel() {
     this.panel = document.createElement('div');
     this.panel.id = 'dashboard-panel';
@@ -204,3 +208,6 @@ setTimeout(function() {
     window.dashboardPanel = new DashboardPanel();
   }
 }, 1500);
+
+// Export alias for ES modules
+export { DashboardPanel as Dashboard };

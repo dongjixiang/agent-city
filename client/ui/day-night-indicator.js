@@ -112,9 +112,8 @@ class DayNightIndicator {
     }
     
     update() {
-        // Virtual time: 10 minutes = 24 virtual hours
-        const now = Date.now();
-        const virtualHour = ((now / 10000) % 24);
+        // 使用daynight-system的虚拟时间
+        const virtualHour = window.virtualHour ?? 6;
         const hour = Math.floor(virtualHour);
         const minutes = Math.floor((virtualHour % 1) * 60);
         

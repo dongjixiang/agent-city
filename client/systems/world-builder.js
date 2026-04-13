@@ -152,32 +152,32 @@ export class WorldBuilder {
         // Plaza center at (40, 35), plaza area is x=25~55, z=20~50
         // N-S vertical roads at x=15, x=40, x=65
         const nsRoad1 = [
-            { x: 15, z: -10 }, { x: 15, z: 20 },
+            { x: 15, z: -10 }, { x: 15, z: 35 },
         ];
         createRoad(nsRoad1, 4).forEach(m => this.scene.add(m));
         
         const nsRoad2 = [
-            { x: 15, z: 50 }, { x: 15, z: 80 },
+            { x: 15, z: 37 }, { x: 15, z: 80 },
         ];
         createRoad(nsRoad2, 4).forEach(m => this.scene.add(m));
         
         const nsRoad3 = [
-            { x: 40, z: -10 }, { x: 40, z: 20 },
+            { x: 40, z: -10 }, { x: 40, z: 5 },
         ];
         createRoad(nsRoad3, 4).forEach(m => this.scene.add(m));
         
         const nsRoad4 = [
-            { x: 40, z: 50 }, { x: 40, z: 80 },
+            { x: 40, z: 65 }, { x: 40, z: 80 },
         ];
         createRoad(nsRoad4, 4).forEach(m => this.scene.add(m));
         
         const nsRoad5 = [
-            { x: 65, z: -10 }, { x: 65, z: 20 },
+            { x: 65, z: -10 }, { x: 65, z: 35 },
         ];
         createRoad(nsRoad5, 4).forEach(m => this.scene.add(m));
         
         const nsRoad6 = [
-            { x: 65, z: 50 }, { x: 65, z: 80 },
+            { x: 65, z: 37 }, { x: 65, z: 80 },
         ];
         createRoad(nsRoad6, 4).forEach(m => this.scene.add(m));
         
@@ -188,12 +188,12 @@ export class WorldBuilder {
         createRoad(ewRoad1, 4).forEach(m => this.scene.add(m));
         
         const ewRoad2 = [
-            { x: -10, z: 35 }, { x: 25, z: 35 },
+            { x: -10, z: 35 }, { x: 17, z: 35 },
         ];
         createRoad(ewRoad2, 4).forEach(m => this.scene.add(m));
         
         const ewRoad3 = [
-            { x: 55, z: 35 }, { x: 85, z: 35 },
+            { x: 63, z: 35 }, { x: 85, z: 35 },
         ];
         createRoad(ewRoad3, 4).forEach(m => this.scene.add(m));
         

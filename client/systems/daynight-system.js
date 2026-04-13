@@ -171,6 +171,10 @@ class DayNightSystem {
         
         // 更新太阳和月亮位置
         this.updateSunAndMoon();
+        
+        // 暴露虚拟时间给UI
+        window.virtualHour = this.currentHour;
+        window.dayNumber = this.dayNumber;
     }
 
     /**
@@ -186,6 +190,13 @@ class DayNightSystem {
         if (this.currentHour >= 17 && this.currentHour < 19) return 'evening';
         if (this.currentHour >= 19 && this.currentHour < 21) return 'sunset';
         return 'noon';
+    }
+    
+    /**
+     * 获取虚拟小时 (0-23.99)
+     */
+    getVirtualHour() {
+        return this.currentHour;
     }
 
     /**

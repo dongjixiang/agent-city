@@ -84,13 +84,15 @@ class DayNightSystem {
      * 获取当前阶段
      */
     getCurrentPhase() {
-        if (this.currentHour >= 21 || this.currentHour < 6) return 'night';
-        if (this.currentHour >= 6 && this.currentHour < 8) return 'dawn';
-        if (this.currentHour >= 8 && this.currentHour < 12) return 'morning';
-        if (this.currentHour >= 12 && this.currentHour < 14) return 'noon';
-        if (this.currentHour >= 14 && this.currentHour < 18) return 'afternoon';
-        if (this.currentHour >= 18 && this.currentHour < 21) return 'evening';
-        return 'morning';
+        if (this.currentHour >= 21 || this.currentHour < 5) return 'night';
+        if (this.currentHour >= 5 && this.currentHour < 6) return 'dawn';
+        if (this.currentHour >= 6 && this.currentHour < 7) return 'morning';
+        if (this.currentHour >= 7 && this.currentHour < 9) return 'forenoon';
+        if (this.currentHour >= 9 && this.currentHour < 12) return 'noon';
+        if (this.currentHour >= 12 && this.currentHour < 17) return 'afternoon';
+        if (this.currentHour >= 17 && this.currentHour < 19) return 'evening';
+        if (this.currentHour >= 19 && this.currentHour < 21) return 'sunset';
+        return 'noon';
     }
 
     /**

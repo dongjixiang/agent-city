@@ -65,15 +65,11 @@ export function initWeather(sceneRef, options = {}) {
     createWeatherParticles(scene);
     initWeatherSounds();
 
-    // 应用初始天气
+    // 应用初始天气（不再设置scene.background，由daynight-system的天空球处理）
     const config = weatherConfigs[currentWeather];
     if (scene && config) {
-        if (config.skyColor) {
-            scene.background = new THREE.Color(config.skyColor);
-        }
-        if (config.fogColor) {
-            scene.fog = new THREE.Fog(config.fogColor, 50, 200);
-        }
+        // Weather only controls particles, not sky color
+        // Sky color is controlled by daynight-system
     }
 
     console.log('[Weather] Weather system ready');
@@ -180,16 +176,7 @@ export function setWeather(weather) {
 
     console.log('[Weather] Weather set to:', weather);
 
-    // 应用天空和雾颜色
-    const config = weatherConfigs[weather];
-    if (scene && config) {
-        if (config.skyColor) {
-            scene.background = new THREE.Color(config.skyColor);
-        }
-        if (config.fogColor) {
-            scene.fog = new THREE.Fog(config.fogColor, 50, 200);
-        }
-    }
+    // Weather only controls particles, sky color is handled by daynight-system
 
     // 更新粒子
     if (weatherParticles) {

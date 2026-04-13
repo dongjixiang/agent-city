@@ -41,6 +41,7 @@ const weatherConfigs = {
 let currentWeather = WeatherType.SUNNY;
 let weatherTransitioning = false;
 let weatherAlpha = 1;
+let scene = null;  // Three.js scene reference
 
 // 粒子对象
 let raindrops = null;
@@ -57,14 +58,23 @@ let currentWeatherSound = null;
  * @param {THREE.Scene} scene - Three.js 场景
  * @param {Object} options - 配置选项
  */
-export function initWeather(scene, options = {}) {
+export function initWeather(sceneRef, options = {}) {
     console.log('[Weather] Initializing weather system...');
+    scene = sceneRef;
 
     createWeatherParticles(scene);
     initWeatherSounds();
 
-    // 默认天气
-    setWeather(WeatherType.SUNNY);
+    // 应用初始天气
+    const config = weatherConfigs[currentWeather];
+    if (scene && config) {
+        if (config.skyColor) {
+            scene.background = new THREE.Color(config.skyColor);
+        }
+        if (config.fogColor) {
+            scene.fog = new THREE.Fog(config.fogColor, 50, 200);
+        }
+    }
 
     console.log('[Weather] Weather system ready');
 }
@@ -169,6 +179,17 @@ export function setWeather(weather) {
     weatherAlpha = 1;
 
     console.log('[Weather] Weather set to:', weather);
+
+    // 应用天空和雾颜色
+    const config = weatherConfigs[weather];
+    if (scene && config) {
+        if (config.skyColor) {
+            scene.background = new THREE.Color(config.skyColor);
+        }
+        if (config.fogColor) {
+            scene.fog = new THREE.Fog(config.fogColor, 50, 200);
+        }
+    }
 
     // 更新粒子
     if (weatherParticles) {

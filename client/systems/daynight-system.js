@@ -10,7 +10,9 @@ import { eventBus, Events } from '../core/event-bus.js';
 
 class DayNightSystem {
     constructor() {
-        this.timeScale = 60; // 1秒 = 1分钟游戏时间
+        // 1 real second = 0.04 virtual hours = 2.4 virtual minutes
+        // Full day cycle (24 hours) in 10 real minutes
+        this.timeScale = 144;
         this.currentHour = 6; // 6:00 开始
         this.dayNumber = 1;
         

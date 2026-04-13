@@ -251,9 +251,9 @@ export class WorldBuilder {
             this.scene.add(createFruitTree(fx, fz, fruitType, rand(0.8, 1.2)));
         }
         
-        // ===== FLOWER FIELD (east of east suburban village) =====
-        // X: 75~95, Z: -90~-50
-        this.scene.add(createFlowerField(75, -90, 20, 40, 250));
+        // ===== FLOWER FIELD (covering east suburban village) =====
+        // X: 45~95, Z: -95~-35, 400 flowers
+        this.scene.add(createFlowerField(45, -95, 50, 60, 400));
         
         // NW quadrant (x: -65 to -40, z: -65 to 25)
         const nwHouses = [

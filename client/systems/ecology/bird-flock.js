@@ -337,8 +337,8 @@ export class BirdFlock {
         console.log(`[Birds] Spawned ${additionalCount} additional birds, total: ${birds.length}`);
     }
 
-    update(time) {
-        updateBirds(time);
+    update(deltaTime) {
+        updateBirds(Date.now());
     }
 }
 

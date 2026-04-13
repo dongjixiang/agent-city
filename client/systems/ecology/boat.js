@@ -195,7 +195,7 @@ export class BoatSystem {
     
     init() {
         // Sailboats - spawn in the sea area (z=96-101)
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 2; i++) {
             const boat = new Sailboat(
                 -80 + Math.random() * 160,
                 96 + Math.random() * 5,
@@ -206,7 +206,7 @@ export class BoatSystem {
         }
         
         // Yachts
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 1; i++) {
             const yacht = new Yacht(
                 -70 + Math.random() * 140,
                 95 + Math.random() * 4,

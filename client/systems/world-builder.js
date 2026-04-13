@@ -228,26 +228,18 @@ export class WorldBuilder {
         this.scene.add(createSuburbanHouse(-52, -55, 0xdeb887));
         this.scene.add(createSuburbanHouse(-38, -55, 0xd2b48c));
         
-        // ===== SUBURBAN HOUSES (around lake + NW) =====
-        // Around lake (east side, x: 28-45, z: -65 to -15)
-        const lakeEastHouses = [
-            { x: rand(30, 42), z: rand(-65, -55), color: 0xdeb887 },
-            { x: rand(32, 42), z: rand(-50, -42), color: 0xd2b48c },
-            { x: rand(30, 40), z: rand(-38, -30), color: 0xf5deb3 },
-            { x: rand(32, 42), z: rand(-28, -20), color: 0xe6e6fa },
-            { x: rand(30, 40), z: rand(-18, -12), color: 0xffa07a },
+        // ===== SUBURBAN HOUSES (east side of lake) =====
+        // Moved to east side of lake (X: 50-70, Z: -95~-50)
+        const lakeEastNewHouses = [
+            { x: rand(52, 58), z: rand(-92, -85), color: 0xdeb887 },
+            { x: rand(55, 62), z: rand(-82, -75), color: 0xd2b48c },
+            { x: rand(58, 65), z: rand(-72, -65), color: 0xf5deb3 },
+            { x: rand(52, 60), z: rand(-65, -58), color: 0xe6e6fa },
+            { x: rand(56, 62), z: rand(-55, -48), color: 0xffa07a },
+            { x: rand(50, 55), z: rand(-80, -72), color: 0xd2691e },
+            { x: rand(62, 68), z: rand(-88, -80), color: 0xf5f5dc },
         ];
-        lakeEastHouses.forEach(h => this.scene.add(createSuburbanHouse(h.x, h.z, h.color)));
-        
-        // Around lake (west side, x: -20 to 5, z: -65 to -15)
-        const lakeWestHouses = [
-            { x: rand(-18, 3), z: rand(-65, -55), color: 0xd2691e },
-            { x: rand(-16, 3), z: rand(-50, -42), color: 0xdeb887 },
-            { x: rand(-18, 2), z: rand(-38, -30), color: 0xf5f5dc },
-            { x: rand(-15, 3), z: rand(-28, -20), color: 0xffd700 },
-            { x: rand(-16, 2), z: rand(-18, -12), color: 0xd2b48c },
-        ];
-        lakeWestHouses.forEach(h => this.scene.add(createSuburbanHouse(h.x, h.z, h.color)));
+        lakeEastNewHouses.forEach(h => this.scene.add(createSuburbanHouse(h.x, h.z, h.color)));
         
         // NW quadrant (x: -65 to -40, z: -65 to 25)
         const nwHouses = [
@@ -333,7 +325,7 @@ export class WorldBuilder {
         // Town Hall (white dome, center)
         const townHall = createDomeBuilding(40, 33, 0x4169e1, 8, 18);
         townHall.add(createLabel('市政厅', { height: 28, fontSize: 32, color: '#ffd700' }));
-        this.scene.add(townHall);
+        //this.scene.add(townHall);
         
         // North Civic Center (市民中心A)
         const civicNorth = createCivicCenterNorth(40, 23);

@@ -69,6 +69,41 @@ class DayNightSystem {
         const moonMat = new THREE.MeshBasicMaterial({ color: 0xeeeeee });
         this.moonMesh = new THREE.Mesh(moonGeo, moonMat);
         this.scene.add(this.moonMesh);
+        
+        // 创建星空
+        this.createStars();
+    }
+    
+    /**
+     * 创建星空
+     */
+    createStars() {
+        const starCount = 500;
+        const starPositions = new Float32Array(starCount * 3);
+        
+        for (let i = 0; i < starCount; i++) {
+            // 分布在上半球
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.random() * Math.PI * 0.5;
+            const r = 400 + Math.random() * 50;
+            
+            starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+            starPositions[i * 3 + 1] = r * Math.cos(phi) + 50;
+            starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+        }
+        
+        const starGeo = new THREE.BufferGeometry();
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        
+        const starMat = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 2,
+            sizeAttenuation: true
+        });
+        
+        this.stars = new THREE.Points(starGeo, starMat);
+        this.scene.add(this.stars);
+        console.log('[DayNight] Stars created');
     }
     
     /**
@@ -102,6 +137,11 @@ class DayNightSystem {
             this.moonMesh.visible = true;
         } else {
             this.moonMesh.visible = false;
+        }
+        
+        // 星空：夜间可见，白天隐藏
+        if (this.stars) {
+            this.stars.visible = (sunY <= 0);
         }
     }
 

@@ -82,13 +82,14 @@ export function initWeather(sceneRef, options = {}) {
  */
 function createWeatherParticles(scene) {
     // 雨滴粒子
-    const rainCount = 800;
+    const rainCount = 1500;
     const rainPos = new Float32Array(rainCount * 3);
 
     for (let i = 0; i < rainCount; i++) {
-        rainPos[i * 3] = Math.random() * 60 - 30;
-        rainPos[i * 3 + 1] = Math.random() * 40 + 10;
-        rainPos[i * 3 + 2] = Math.random() * 60 - 30;
+        // 扩大范围覆盖整个城市区域
+        rainPos[i * 3] = Math.random() * 200 - 100;
+        rainPos[i * 3 + 1] = Math.random() * 100 + 20;
+        rainPos[i * 3 + 2] = Math.random() * 200 - 100;
     }
 
     const rainGeo = new THREE.BufferGeometry();
@@ -108,13 +109,13 @@ function createWeatherParticles(scene) {
     scene.add(raindrops);
 
     // 雪花粒子
-    const snowCount = 600;
+    const snowCount = 1000;
     const snowPos = new Float32Array(snowCount * 3);
 
     for (let i = 0; i < snowCount; i++) {
-        snowPos[i * 3] = Math.random() * 60 - 30;
-        snowPos[i * 3 + 1] = Math.random() * 40 + 10;
-        snowPos[i * 3 + 2] = Math.random() * 60 - 30;
+        snowPos[i * 3] = Math.random() * 200 - 100;
+        snowPos[i * 3 + 1] = Math.random() * 100 + 20;
+        snowPos[i * 3 + 2] = Math.random() * 200 - 100;
     }
 
     const snowGeo = new THREE.BufferGeometry();
@@ -197,6 +198,7 @@ export function toggleWeather() {
     const weathers = Object.values(WeatherType);
     const idx = weathers.indexOf(currentWeather);
     const nextIdx = (idx + 1) % weathers.length;
+    console.log('[Weather] Toggling weather from', currentWeather, 'to', weathers[nextIdx]);
     setWeather(weathers[nextIdx]);
 }
 
@@ -229,9 +231,9 @@ export function updateWeatherParticles(deltaTime) {
             positions[i * 3] += (2 + wind) * dt;
 
             if (positions[i * 3 + 1] < 0) {
-                positions[i * 3 + 1] = 35 + Math.random() * 15;
-                positions[i * 3] = Math.random() * 60 - 30;
-                positions[i * 3 + 2] = Math.random() * 60 - 30;
+                positions[i * 3 + 1] = 100 + Math.random() * 20;
+                positions[i * 3] = Math.random() * 200 - 100;
+                positions[i * 3 + 2] = Math.random() * 200 - 100;
             }
         }
 
@@ -255,9 +257,9 @@ export function updateWeatherParticles(deltaTime) {
             positions[i * 3] += Math.sin(now * 0.001 + i) * 1.5 * dt;
 
             if (positions[i * 3 + 1] < 0) {
-                positions[i * 3 + 1] = 35 + Math.random() * 15;
-                positions[i * 3] = Math.random() * 60 - 30;
-                positions[i * 3 + 2] = Math.random() * 60 - 30;
+                positions[i * 3 + 1] = 100 + Math.random() * 20;
+                positions[i * 3] = Math.random() * 200 - 100;
+                positions[i * 3 + 2] = Math.random() * 200 - 100;
             }
         }
 

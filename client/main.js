@@ -63,6 +63,7 @@ import { connection } from './websocket/connection.js';
 import { WorldWindow } from './ui/world-window.js';
 import { Dashboard } from './ui/dashboard.js';
 import { Notifications } from './ui/notifications.js';
+import { DayNightIndicator } from './ui/day-night-indicator.js';
 
 class AgentCityApp {
     constructor() {
@@ -110,7 +111,8 @@ class AgentCityApp {
         this.ui = {
             worldWindow: null,
             dashboard: null,
-            notifications: null
+            notifications: null,
+            dayNightIndicator: null
         };
     }
 
@@ -391,6 +393,9 @@ class AgentCityApp {
 
         this.ui.notifications = new Notifications();
         this.ui.notifications.init();
+        
+        // Day/Night and Weather indicator
+        this.ui.dayNightIndicator = new DayNightIndicator();
 
         console.log('[App] UI initialized');
     }

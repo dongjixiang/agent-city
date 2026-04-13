@@ -313,5 +313,105 @@ export function createFarmlandArea() {
     group.add(createScarecrow(-75, -48));  // 玉米田边缘
     group.add(createScarecrow(-90, -55));  // 入口处
     
+    // 农田四周的树木
+    group.add(createFarmlandTrees());
+    
+    return group;
+}
+
+/**
+ * 创建农田四周的树木
+ */
+function createFarmlandTrees() {
+    const group = new THREE.Group();
+    
+    // 农田边界范围
+    const farmX1 = -95, farmX2 = -70;  // X: -95 ~ -70
+    const farmZ1 = -60, farmZ2 = -5;   // Z: -60 ~ -5
+    
+    // 树距农田的间距
+    const treeSpacing = 4;
+    const treeOffset = 2;  // 树离农田边界的距离
+    
+    // 北边 (Z = farmZ2 + treeOffset)
+    const northZ = farmZ2 + treeOffset;
+    for (let x = farmX1 - 3; x <= farmX2 + 3; x += treeSpacing) {
+        group.add(createSimpleTree(x, northZ + (Math.random() - 0.5)));
+    }
+    
+    // 南边 (Z = farmZ1 - treeOffset)
+    const southZ = farmZ1 - treeOffset;
+    for (let x = farmX1 - 3; x <= farmX2 + 3; x += treeSpacing) {
+        group.add(createSimpleTree(x, southZ + (Math.random() - 0.5)));
+    }
+    
+    // 西边 (X = farmX1 - treeOffset)
+    const westX = farmX1 - treeOffset;
+    for (let z = farmZ1; z <= farmZ2; z += treeSpacing) {
+        group.add(createSimpleTree(westX + (Math.random() - 0.5), z));
+    }
+    
+    // 东边 (X = farmX2 + treeOffset)
+    const eastX = farmX2 + treeOffset;
+    for (let z = farmZ1; z <= farmZ2; z += treeSpacing) {
+        group.add(createSimpleTree(eastX + (Math.random() - 0.5), z));
+    }
+    
+    // 角落加强
+    group.add(createSimpleTree(farmX1 - 2, farmZ1 - 2));
+    group.add(createSimpleTree(farmX2 + 2, farmZ1 - 2));
+    group.add(createSimpleTree(farmX1 - 2, farmZ2 + 2));
+    group.add(createSimpleTree(farmX2 + 2, farmZ2 + 2));
+    
+    return group;
+}
+
+/**
+ * 创建简单的树（用于农田装饰）
+ */
+function createSimpleTree(x, z) {
+    const group = new THREE.Group();
+    
+    // 树干
+    const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15, 0.2, 2, 6),
+        new THREE.MeshStandardMaterial({ color: 0x8B4513 })
+    );
+    trunk.position.y = 1;
+    group.add(trunk);
+    
+    // 树叶（随机选择类型）
+    const treeType = Math.random();
+    if (treeType < 0.4) {
+        // 圆形树冠
+        const foliage = new THREE.Mesh(
+            new THREE.SphereGeometry(1.5, 8, 6),
+            new THREE.MeshStandardMaterial({ color: 0x228B22 })
+        );
+        foliage.position.y = 3;
+        group.add(foliage);
+    } else if (treeType < 0.7) {
+        // 锥形松树
+        for (let i = 0; i < 3; i++) {
+            const cone = new THREE.Mesh(
+                new THREE.ConeGeometry(1.3 - i * 0.3, 1.2, 8),
+                new THREE.MeshStandardMaterial({ color: 0x228B22 })
+            );
+            cone.position.y = 2 + i * 0.8;
+            group.add(cone);
+        }
+    } else {
+        // 阔叶树
+        const foliage = new THREE.Mesh(
+            new THREE.SphereGeometry(1.2, 8, 6),
+            new THREE.MeshStandardMaterial({ color: 0x32CD32 })
+        );
+        foliage.position.y = 3;
+        foliage.scale.y = 0.7;
+        group.add(foliage);
+    }
+    
+    group.position.set(x, 0, z);
+    group.scale.setScalar(0.8 + Math.random() * 0.4);
     return group;
 }

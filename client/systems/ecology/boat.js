@@ -66,13 +66,17 @@ export class Sailboat {
             this.turnInterval = 60 + Math.random() * 120;
         }
         
-        // Ocean bounds: x=-100 to 100, z=-105 to -95
+        // Ocean bounds: keep sailboats in the sea area
         const pos = this.group.position;
         if (pos.x < -95 || pos.x > 95) {
             this.direction = Math.PI - this.direction;
+            // Clamp to prevent getting stuck at boundary
+            pos.x = Math.max(-93, Math.min(93, pos.x));
         }
-        if (pos.z > 102 || pos.z < 98) {
+        if (pos.z > 102 || pos.z < 95) {
             this.direction = -this.direction;
+            // Clamp to prevent getting stuck at boundary
+            pos.z = Math.max(96, Math.min(101, pos.z));
         }
         
         // Bob on water
@@ -156,13 +160,17 @@ export class Yacht {
             this.turnInterval = 120 + Math.random() * 180;
         }
         
-        // Ocean bounds
+        // Ocean bounds: keep yachts in the positive Z ocean area
         const pos = this.group.position;
         if (pos.x < -90 || pos.x > 90) {
             this.direction = Math.PI - this.direction;
+            // Clamp to prevent getting stuck
+            pos.x = Math.max(-88, Math.min(88, pos.x));
         }
-        if (pos.z < -100 || pos.z > -95) {
+        if (pos.z > 102 || pos.z < 95) {
             this.direction = -this.direction;
+            // Clamp to prevent getting stuck  
+            pos.z = Math.max(96, Math.min(101, pos.z));
         }
         
         // Bob on water
@@ -186,11 +194,11 @@ export class BoatSystem {
     }
     
     init() {
-        // Sailboats
+        // Sailboats - spawn in the sea area (z=96-101)
         for (let i = 0; i < 5; i++) {
             const boat = new Sailboat(
                 -80 + Math.random() * 160,
-                90 + Math.random() * 6,
+                96 + Math.random() * 5,
                 0.008 + Math.random() * 0.006
             );
             this.boats.push(boat);

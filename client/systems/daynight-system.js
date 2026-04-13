@@ -53,6 +53,52 @@ class DayNightSystem {
         });
         this.sky = new THREE.Mesh(skyGeo, skyMat);
         this.scene.add(this.sky);
+        
+        // 创建太阳
+        const sunGeo = new THREE.SphereGeometry(8, 32, 32);
+        const sunMat = new THREE.MeshBasicMaterial({ color: 0xffdd00 });
+        this.sunMesh = new THREE.Mesh(sunGeo, sunMat);
+        this.scene.add(this.sunMesh);
+        
+        // 创建月亮
+        const moonGeo = new THREE.SphereGeometry(5, 32, 32);
+        const moonMat = new THREE.MeshBasicMaterial({ color: 0xeeeeee });
+        this.moonMesh = new THREE.Mesh(moonGeo, moonMat);
+        this.scene.add(this.moonMesh);
+    }
+    
+    /**
+     * 更新太阳和月亮位置
+     */
+    updateSunAndMoon() {
+        if (!this.sunMesh || !this.moonMesh) return;
+        
+        const radius = 200;
+        
+        // 太阳角度：6点在地平线，12点在天顶，18点在地平线
+        const sunAngle = ((this.currentHour - 6) / 12) * Math.PI;
+        const sunX = Math.cos(sunAngle) * radius;
+        const sunY = Math.sin(sunAngle) * radius;
+        
+        // 月亮与太阳相差12小时
+        const moonAngle = sunAngle + Math.PI;
+        const moonX = Math.cos(moonAngle) * radius;
+        const moonY = Math.sin(moonAngle) * radius;
+        
+        // 只显示在地平线以上的
+        if (sunY > 0) {
+            this.sunMesh.position.set(sunX, sunY, 0);
+            this.sunMesh.visible = true;
+        } else {
+            this.sunMesh.visible = false;
+        }
+        
+        if (moonY > 0) {
+            this.moonMesh.position.set(moonX, moonY, 0);
+            this.moonMesh.visible = true;
+        } else {
+            this.moonMesh.visible = false;
+        }
     }
 
     /**
@@ -78,6 +124,9 @@ class DayNightSystem {
             eventBus.emit(Events.DAY_NIGHT_CHANGE, { phase: newPhase, hour: this.currentHour });
             this.updateForPhase(newPhase);
         }
+        
+        // 更新太阳和月亮位置
+        this.updateSunAndMoon();
     }
 
     /**

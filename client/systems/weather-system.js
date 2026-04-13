@@ -65,12 +65,13 @@ export function initWeather(sceneRef, options = {}) {
     createWeatherParticles(scene);
     initWeatherSounds();
 
-    // 应用初始天气（不再设置scene.background，由daynight-system的天空球处理）
-    const config = weatherConfigs[currentWeather];
-    if (scene && config) {
-        // Weather only controls particles, not sky color
-        // Sky color is controlled by daynight-system
-    }
+    // 应用初始天气
+    setWeather(WeatherType.SUNNY);
+    
+    // 启动天气自动变化（每30-60秒变化一次）
+    setInterval(() => {
+        toggleWeather();
+    }, 30000 + Math.random() * 30000);
 
     console.log('[Weather] Weather system ready');
 }

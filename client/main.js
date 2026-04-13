@@ -37,7 +37,7 @@ import { BirdFlock } from './systems/ecology/bird-flock.js';
 import { ButterflySwarm } from './systems/ecology/butterfly-swarm.js';
 import { FishSystem } from './systems/ecology/fish.js';
 import { BoatSystem } from './systems/ecology/boat.js';
-import { AnimalSystem } from './systems/ecology/animals.js';
+import { Cow, Dog } from './systems/ecology/farm-animals.js';
 
 // Interaction - 交互系统
 import { AnimalBehaviors } from './systems/interaction/animal-behaviors.js';
@@ -83,7 +83,8 @@ class AgentCityApp {
         this.ecology = {};
         this.fishSystem = null;
         this.boatSystem = null;
-        this.animalSystem = null;
+        this.cows = [];
+        this.dogs = [];
 
         // 系统实例
         this.systems = {
@@ -346,8 +347,34 @@ class AgentCityApp {
         this.boatSystem = new BoatSystem(this.scene);
         this.boatSystem.init();
         
-        this.animalSystem = new AnimalSystem(this.scene);
-        this.animalSystem.init();
+        // Cows in farmland
+        const cowPositions = [
+            { x: -85, z: -40 },
+            { x: -78, z: -50 },
+            { x: -88, z: -20 },
+            { x: -72, z: -35 },
+        ];
+        cowPositions.forEach(pos => {
+            const cow = new Cow(pos.x, pos.z);
+            this.cows.push(cow);
+            this.scene.add(cow.group);
+        });
+        
+        // Dogs near suburban houses
+        const dogPositions = [
+            { x: -50, z: -30 },
+            { x: -55, z: -45 },
+            { x: -40, z: 0 },
+            { x: 55, z: -50 },
+            { x: 45, z: -60 },
+        ];
+        dogPositions.forEach(pos => {
+            const dog = new Dog(pos.x, pos.z);
+            this.dogs.push(dog);
+            this.scene.add(dog.group);
+        });
+        
+        console.log(`[App] Created ${this.cows.length} cows and ${this.dogs.length} dogs`);
 
         console.log('[App] Ecology initialized');
     }
@@ -452,7 +479,8 @@ class AgentCityApp {
             this.ecology.butterflies?.update(deltaTime);
             this.fishSystem?.update(deltaTime);
             this.boatSystem?.update(deltaTime);
-            this.animalSystem?.update(deltaTime);
+            this.cows.forEach(cow => cow.update(deltaTime));
+            this.dogs.forEach(dog => dog.update(deltaTime));
 
             // 更新可移动物体
             this.systems.movableObjects?.update(deltaTime);

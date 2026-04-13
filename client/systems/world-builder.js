@@ -241,6 +241,15 @@ export class WorldBuilder {
         ];
         lakeEastNewHouses.forEach(h => this.scene.add(createSuburbanHouse(h.x, h.z, h.color)));
         
+        // ===== FRUIT TREES around east side houses =====
+        const eastFruitTypes = ['apple', 'pear', 'peach'];
+        for (let i = 0; i < 12; i++) {
+            const fx = rand(30, 70);
+            const fz = rand(-80, -40);
+            const fruitType = eastFruitTypes[i % 3];
+            this.scene.add(createFruitTree(fx, fz, fruitType, rand(0.8, 1.2)));
+        }
+        
         // NW quadrant (x: -65 to -40, z: -65 to 25)
         const nwHouses = [
             { x: rand(-62, -52), z: rand(-62, -50), color: 0xdeb887 },

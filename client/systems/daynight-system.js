@@ -15,12 +15,14 @@ class DayNightSystem {
         this.dayNumber = 1;
         
         this.phases = {
-            night: { start: 21, end: 6, color: 0x0a0a20, intensity: 0.1 },
-            dawn: { start: 6, end: 8, color: 0xff9966, intensity: 0.4 },
-            morning: { start: 8, end: 12, color: 0xffffee, intensity: 0.7 },
-            noon: { start: 12, end: 14, color: 0xffffcc, intensity: 1.0 },
-            afternoon: { start: 14, end: 18, color: 0xffffee, intensity: 0.8 },
-            evening: { start: 18, end: 21, color: 0xff6633, intensity: 0.4 }
+            night: { start: 21, end: 5, color: 0x0a0a20, intensity: 0.1 },
+            dawn: { start: 5, end: 6, color: 0xff7043, intensity: 0.4 },
+            morning: { start: 6, end: 7, color: 0xffa726, intensity: 0.5 },
+            forenoon: { start: 7, end: 9, color: 0x87ceeb, intensity: 0.7 },
+            noon: { start: 9, end: 12, color: 0xffeb3b, intensity: 1.0 },
+            afternoon: { start: 12, end: 17, color: 0x4fc3f7, intensity: 0.8 },
+            evening: { start: 17, end: 19, color: 0xff9800, intensity: 0.5 },
+            sunset: { start: 19, end: 21, color: 0xe65100, intensity: 0.3 }
         };
 
         this.lighting = null;
@@ -97,13 +99,15 @@ class DayNightSystem {
     getPhaseColor(phase) {
         const colors = {
             night: 0x0a0a20,
-            dawn: 0xff9966,
-            morning: 0xffffee,
-            noon: 0xffffcc,
-            afternoon: 0xffffee,
-            evening: 0xff6633
+            dawn: 0xff7043,
+            morning: 0xffa726,
+            forenoon: 0x87ceeb,
+            noon: 0xffeb3b,
+            afternoon: 0x4fc3f7,
+            evening: 0xff9800,
+            sunset: 0xe65100
         };
-        return colors[phase] || colors.morning;
+        return colors[phase] || colors.noon;
     }
 
     /**

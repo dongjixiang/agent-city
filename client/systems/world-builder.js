@@ -13,7 +13,7 @@ import { createSimpleBridge, createLightBridge, createArchBridge, createGlassBri
 import { createTree, createPineTree, createPalmTree } from '../objects/decorations/tree.js';
 import { createBench, createLamp } from '../objects/decorations/bench.js';
 import { createFarmlandArea } from '../objects/decorations/farm.js';
-import { createBuilding, createDomeBuilding, createTower, createGlassBuilding, createSuburbanHouse, createUrbanBuilding, createLibraryBuilding, createWorkshopBuilding, createMessageStationBuilding, createArtGalleryBuilding, createArchiveBuilding, createTaskCenterBuilding, createDataCenterBuilding, createReputationTower, createSkillAcademyBuilding, createDiverseUrbanBuilding, createCivicCenterNorth, createPlazaFountain, createFlagpole, createPlazaTiles } from '../objects/buildings/minecraft-buildings.js';
+import { createBuilding, createDomeBuilding, createTower, createGlassBuilding, createSuburbanHouse, createUrbanBuilding, createLibraryBuilding, createWorkshopBuilding, createMessageStationBuilding, createArtGalleryBuilding, createArchiveBuilding, createTaskCenterBuilding, createDataCenterBuilding, createReputationTower, createSkillAcademyBuilding, createDiverseUrbanBuilding, createCivicCenterNorth, createCivicCenterWing, createPlazaFountain, createFlagpole, createPlazaTiles } from '../objects/buildings/minecraft-buildings.js';
 import { createLabel } from '../objects/buildings/label.js';
 
 function rand(min, max) { return min + Math.random() * (max - min); }
@@ -340,14 +340,14 @@ export class WorldBuilder {
         civicNorth.add(createLabel('市民中心', { height: 14, fontSize: 24, color: '#ffd700' }));
         this.scene.add(civicNorth);
         
-        // East Civic Center (市民中心B)
-        const civicEast = createBuilding(28, 42, 9, 6, 0xf5f5f5);
-        civicEast.add(createLabel('市民中心', { height: 10, fontSize: 20, color: '#ffffff' }));
+        // East Civic Center (市民中心B) - facing right
+        const civicEast = createCivicCenterWing(25, 42, true);
+        civicEast.add(createLabel('市民中心', { height: 12, fontSize: 18, color: '#ffd700' }));
         this.scene.add(civicEast);
         
-        // West Civic Center (市民中心C)
-        const civicWest = createBuilding(52, 42, 9, 6, 0xf5f5f5);
-        civicWest.add(createLabel('市民中心', { height: 10, fontSize: 20, color: '#ffffff' }));
+        // West Civic Center (市民中心C) - facing left
+        const civicWest = createCivicCenterWing(55, 42, false);
+        civicWest.add(createLabel('市民中心', { height: 12, fontSize: 18, color: '#ffd700' }));
         this.scene.add(civicWest);
         
         // Plaza fountain (center south, not overlapping)

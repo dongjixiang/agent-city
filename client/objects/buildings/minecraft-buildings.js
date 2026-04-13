@@ -1032,62 +1032,220 @@ export function createCottage(x, z, roofColor) {
     return createSuburbanHouse(x, z, roofColor);
 }
 
-// ============ CIVIC CENTER NORTH - North entrance hall ============
+// ============ CIVIC CENTER NORTH - Grand entrance hall ============
 export function createCivicCenterNorth(x, z) {
     const group = new THREE.Group();
     
-    // Main building - elegant entrance hall
-    const base = new THREE.Mesh(
-        new THREE.BoxGeometry(14, 1, 10),
-        new THREE.MeshStandardMaterial({ color: 0xe8e8e8 })
+    // Stone platform base
+    const platform = new THREE.Mesh(
+        new THREE.BoxGeometry(18, 0.8, 14),
+        new THREE.MeshStandardMaterial({ color: 0xa0a0a0 })
     );
-    base.position.y = 0.5;
-    group.add(base);
+    platform.position.y = 0.4;
+    group.add(platform);
     
-    // Main body
+    // Main building body (wide and low)
     const body = new THREE.Mesh(
-        new THREE.BoxGeometry(12, 8, 8),
-        new THREE.MeshStandardMaterial({ color: 0xf5f5f5 })
+        new THREE.BoxGeometry(16, 5, 12),
+        new THREE.MeshStandardMaterial({ color: 0xf8f8f0 })
     );
-    body.position.y = 5;
+    body.position.y = 3.4;
     group.add(body);
     
-    // Columned entrance portico (front)
-    const columnMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-    for (let i = -2; i <= 2; i++) {
+    // Columned colonnade (front - 6 columns)
+    const columnMat = new THREE.MeshStandardMaterial({ color: 0xfafaf5 });
+    for (let i = -2.5; i <= 2.5; i++) {
         const col = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.4, 0.4, 5, 8),
+            new THREE.CylinderGeometry(0.45, 0.5, 4, 12),
             columnMat
         );
-        col.position.set(i * 2.5, 4.5, 4);
+        col.position.set(i * 2.5, 5.4, 6.5);
         group.add(col);
     }
     
-    // Triangle pediment
-    const pediment = new THREE.Mesh(
-        new THREE.ConeGeometry(8, 2.5, 3),
-        new THREE.MeshStandardMaterial({ color: 0x4169e1 })
+    // Column bases
+    for (let i = -2.5; i <= 2.5; i++) {
+        const base = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.55, 0.6, 0.3, 12),
+            new THREE.MeshStandardMaterial({ color: 0xd0d0c0 })
+        );
+        base.position.set(i * 2.5, 3.55, 6.5);
+        group.add(base);
+    }
+    
+    // Column capitals
+    for (let i = -2.5; i <= 2.5; i++) {
+        const capital = new THREE.Mesh(
+            new THREE.BoxGeometry(0.9, 0.3, 0.9),
+            new THREE.MeshStandardMaterial({ color: 0xe0e0d0 })
+        );
+        capital.position.set(i * 2.5, 7.55, 6.5);
+        group.add(capital);
+    }
+    
+    // Entablature (beam above columns)
+    const entablature = new THREE.Mesh(
+        new THREE.BoxGeometry(16, 0.8, 1),
+        new THREE.MeshStandardMaterial({ color: 0xe8e8e0 })
     );
-    pediment.position.set(0, 8, 4);
-    pediment.rotation.x = Math.PI;
+    entablature.position.set(0, 7.9, 6.5);
+    group.add(entablature);
+    
+    // Triangular pediment
+    const pedimentGeo = new THREE.BufferGeometry();
+    const vertices = new Float32Array([
+        -8, 0, 0,   // left
+        8, 0, 0,    // right
+        0, 3, 0     // top
+    ]);
+    pedimentGeo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    pedimentGeo.computeVertexNormals();
+    const pediment = new THREE.Mesh(
+        pedimentGeo,
+        new THREE.MeshStandardMaterial({ color: 0x4169e1, side: THREE.DoubleSide })
+    );
+    pediment.position.set(0, 8.3, 6.5);
     group.add(pediment);
     
-    // Flat roof
-    const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(12, 0.3, 8),
-        new THREE.MeshStandardMaterial({ color: 0x696969 })
+    // Hip roof (pyramid style, lower)
+    const roofBase = new THREE.Mesh(
+        new THREE.BoxGeometry(16.5, 0.3, 12.5),
+        new THREE.MeshStandardMaterial({ color: 0x2f4f4f })
     );
-    roof.position.y = 9;
+    roofBase.position.y = 8.6;
+    group.add(roofBase);
+    
+    // Roof dome (small center dome)
+    const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(1.5, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: 0x4169e1 })
+    );
+    dome.position.set(0, 8.6, 0);
+    group.add(dome);
+    
+    // Side wings (extensions)
+    const wingMat = new THREE.MeshStandardMaterial({ color: 0xf5f5f0 });
+    
+    // Left wing
+    const wingLeft = new THREE.Mesh(
+        new THREE.BoxGeometry(4, 4, 10),
+        wingMat
+    );
+    wingLeft.position.set(-10, 2.8, 0);
+    group.add(wingLeft);
+    
+    // Right wing
+    const wingRight = new THREE.Mesh(
+        new THREE.BoxGeometry(4, 4, 10),
+        wingMat
+    );
+    wingRight.position.set(10, 2.8, 0);
+    group.add(wingRight);
+    
+    // Steps (grand entrance)
+    for (let i = 0; i < 4; i++) {
+        const step = new THREE.Mesh(
+            new THREE.BoxGeometry(14 - i * 0.5, 0.25, 1),
+            new THREE.MeshStandardMaterial({ color: 0xb0b0a0 })
+        );
+        step.position.set(0, 0.15 + i * 0.25, 8 + i * 0.5);
+        group.add(step);
+    }
+    
+    // Decorative urns on roof corners
+    const urnMat = new THREE.MeshStandardMaterial({ color: 0xd0d0c0 });
+    const urnPositions = [[-7, 8.8, 6], [7, 8.8, 6], [-7, 8.8, -6], [7, 8.8, -6]];
+    urnPositions.forEach(pos => {
+        const urn = new THREE.Mesh(
+            new THREE.SphereGeometry(0.4, 8, 8),
+            urnMat
+        );
+        urn.position.set(...pos);
+        group.add(urn);
+    });
+    
+    group.position.set(x, 0, z);
+    return group;
+}
+
+// ============ CIVIC CENTER WING - East/West wings ============
+export function createCivicCenterWing(x, z, facingRight = true) {
+    const group = new THREE.Group();
+    
+    // Stone base
+    const base = new THREE.Mesh(
+        new THREE.BoxGeometry(10, 0.5, 8),
+        new THREE.MeshStandardMaterial({ color: 0xa0a0a0 })
+    );
+    base.position.y = 0.25;
+    group.add(base);
+    
+    // Main building
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(9, 4, 7),
+        new THREE.MeshStandardMaterial({ color: 0xf8f8f0 })
+    );
+    body.position.y = 2.8;
+    group.add(body);
+    
+    // Colonnade on facing side
+    const colCount = 3;
+    const colSpacing = 2.5;
+    for (let i = 0; i < colCount; i++) {
+        const col = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.35, 0.4, 3.5, 10),
+            new THREE.MeshStandardMaterial({ color: 0xfafaf5 })
+        );
+        const offsetX = facingRight ? 4.6 : -4.6;
+        col.position.set(offsetX, 4.35, -2 + i * colSpacing);
+        group.add(col);
+    }
+    
+    // Entablature
+    const entablature = new THREE.Mesh(
+        new THREE.BoxGeometry(0.6, 0.6, 7),
+        new THREE.MeshStandardMaterial({ color: 0xe8e8e0 })
+    );
+    const entX = facingRight ? 4.6 : -4.6;
+    entablature.position.set(entX, 6.1, 0);
+    group.add(entablature);
+    
+    // Flat roof with slight slope
+    const roof = new THREE.Mesh(
+        new THREE.BoxGeometry(10.5, 0.4, 8),
+        new THREE.MeshStandardMaterial({ color: 0x2f4f4f })
+    );
+    roof.position.y = 6.4;
     group.add(roof);
+    
+    // Small dome on top
+    const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 10, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: 0x4169e1 })
+    );
+    dome.position.set(0, 6.6, 0);
+    group.add(dome);
     
     // Steps
     for (let i = 0; i < 2; i++) {
         const step = new THREE.Mesh(
-            new THREE.BoxGeometry(10 - i * 0.5, 0.25, 0.8),
-            new THREE.MeshStandardMaterial({ color: 0xcccccc })
+            new THREE.BoxGeometry(8 - i * 0.3, 0.2, 0.8),
+            new THREE.MeshStandardMaterial({ color: 0xb0b0a0 })
         );
-        step.position.set(0, 0.15 + i * 0.25, 5 + i * 0.4);
+        const stepZ = facingRight ? 5 + i * 0.4 : -5 - i * 0.4;
+        step.position.set(0, 0.1 + i * 0.2, stepZ);
         group.add(step);
+    }
+    
+    // Decorative windows
+    const winMat = new THREE.MeshStandardMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.6 });
+    for (let i = -1; i <= 1; i++) {
+        const win = new THREE.Mesh(
+            new THREE.BoxGeometry(1.2, 1.8, 0.1),
+            winMat
+        );
+        win.position.set(i * 2.5, 3.5, 3.55);
+        group.add(win);
     }
     
     group.position.set(x, 0, z);

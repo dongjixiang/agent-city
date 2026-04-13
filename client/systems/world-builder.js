@@ -13,6 +13,7 @@ import { createSimpleBridge, createLightBridge, createArchBridge, createGlassBri
 import { createTree, createPineTree, createPalmTree, createFruitTree } from '../objects/decorations/tree.js';
 import { createBench, createLamp } from '../objects/decorations/bench.js';
 import { createFarmlandArea } from '../objects/decorations/farm.js';
+import { createFlowerField } from '../objects/decorations/flowers.js';
 import { createBuilding, createDomeBuilding, createTower, createGlassBuilding, createSuburbanHouse, createUrbanBuilding, createLibraryBuilding, createWorkshopBuilding, createMessageStationBuilding, createArtGalleryBuilding, createArchiveBuilding, createTaskCenterBuilding, createDataCenterBuilding, createReputationTower, createSkillAcademyBuilding, createDiverseUrbanBuilding, createCivicCenterNorth, createCivicCenterWing, createPlazaFountain, createFlagpole, createPlazaTiles } from '../objects/buildings/minecraft-buildings.js';
 import { createLabel } from '../objects/buildings/label.js';
 
@@ -249,6 +250,10 @@ export class WorldBuilder {
             const fruitType = eastFruitTypes[i % 3];
             this.scene.add(createFruitTree(fx, fz, fruitType, rand(0.8, 1.2)));
         }
+        
+        // ===== FLOWER FIELD (east of east suburban village) =====
+        // X: 75~95, Z: -90~-50
+        this.scene.add(createFlowerField(75, -90, 20, 40, 250));
         
         // NW quadrant (x: -65 to -40, z: -65 to 25)
         const nwHouses = [

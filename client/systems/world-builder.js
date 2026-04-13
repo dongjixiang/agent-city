@@ -13,7 +13,7 @@ import { createSimpleBridge, createLightBridge, createArchBridge, createGlassBri
 import { createTree, createPineTree, createPalmTree } from '../objects/decorations/tree.js';
 import { createBench, createLamp } from '../objects/decorations/bench.js';
 import { createFarmlandArea } from '../objects/decorations/farm.js';
-import { createBuilding, createDomeBuilding, createTower, createGlassBuilding, createSuburbanHouse, createUrbanBuilding, createLibraryBuilding, createWorkshopBuilding, createMessageStationBuilding, createArtGalleryBuilding, createArchiveBuilding, createTaskCenterBuilding, createDataCenterBuilding, createReputationTower, createSkillAcademyBuilding, createDiverseUrbanBuilding } from '../objects/buildings/minecraft-buildings.js';
+import { createBuilding, createDomeBuilding, createTower, createGlassBuilding, createSuburbanHouse, createUrbanBuilding, createLibraryBuilding, createWorkshopBuilding, createMessageStationBuilding, createArtGalleryBuilding, createArchiveBuilding, createTaskCenterBuilding, createDataCenterBuilding, createReputationTower, createSkillAcademyBuilding, createDiverseUrbanBuilding, createCivicCenterNorth, createPlazaFountain, createFlagpole, createPlazaTiles } from '../objects/buildings/minecraft-buildings.js';
 import { createLabel } from '../objects/buildings/label.js';
 
 function rand(min, max) { return min + Math.random() * (max - min); }
@@ -327,32 +327,36 @@ export class WorldBuilder {
         this.scene.add(createDiverseUrbanBuilding(73, -2));
         
         // ===== CITIZEN PLAZA (city center at x=40, z=35) =====
-        // Town Hall (dome)
-        const townHall = createDomeBuilding(40, 35, 0x3366aa, 10, 15);
-        townHall.add(createLabel('市政厅', { height: 25, fontSize: 32, color: '#ffd700' }));
+        // Plaza ground tiles
+        this.scene.add(createPlazaTiles(40, 36, 28, 30));
+        
+        // Town Hall (white dome, center)
+        const townHall = createDomeBuilding(40, 33, 0x4169e1, 8, 18);
+        townHall.add(createLabel('市政厅', { height: 28, fontSize: 32, color: '#ffd700' }));
         this.scene.add(townHall);
         
-        // Plaza buildings around Town Hall
-        const plaza1 = createBuilding(28, 28, 7, 5, 0x8b7355);
-        plaza1.add(createLabel('市民中心', { height: 10, fontSize: 22, color: '#ffffff' }));
-        this.scene.add(plaza1);
+        // North Civic Center (市民中心A)
+        const civicNorth = createCivicCenterNorth(40, 23);
+        civicNorth.add(createLabel('市民中心', { height: 14, fontSize: 24, color: '#ffd700' }));
+        this.scene.add(civicNorth);
         
-        const plaza2 = createBuilding(52, 28, 7, 5, 0x8b7355);
-        plaza2.add(createLabel('市民中心', { height: 10, fontSize: 22, color: '#ffffff' }));
-        this.scene.add(plaza2);
+        // East Civic Center (市民中心B)
+        const civicEast = createBuilding(28, 42, 9, 6, 0xf5f5f5);
+        civicEast.add(createLabel('市民中心', { height: 10, fontSize: 20, color: '#ffffff' }));
+        this.scene.add(civicEast);
         
-        const plaza3 = createBuilding(28, 42, 7, 5, 0x8b7355);
-        plaza3.add(createLabel('市民中心', { height: 10, fontSize: 22, color: '#ffffff' }));
-        this.scene.add(plaza3);
+        // West Civic Center (市民中心C)
+        const civicWest = createBuilding(52, 42, 9, 6, 0xf5f5f5);
+        civicWest.add(createLabel('市民中心', { height: 10, fontSize: 20, color: '#ffffff' }));
+        this.scene.add(civicWest);
         
-        const plaza4 = createBuilding(52, 42, 7, 5, 0x8b7355);
-        plaza4.add(createLabel('市民中心', { height: 10, fontSize: 22, color: '#ffffff' }));
-        this.scene.add(plaza4);
-        
-        // Plaza fountain with label
-        const fountain = createBuilding(40, 35, 5, 3, 0x696969);
-        fountain.add(createLabel('广场喷泉', { height: 8, fontSize: 20, color: '#87ceeb' }));
+        // Plaza fountain (center south, not overlapping)
+        const fountain = createPlazaFountain(40, 40);
         this.scene.add(fountain);
+        
+        // Flagpoles
+        this.scene.add(createFlagpole(30, 23));
+        this.scene.add(createFlagpole(50, 23));
         
         console.log('[WorldBuilder] Buildings built');
     }

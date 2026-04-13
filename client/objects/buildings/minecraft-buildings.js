@@ -1031,3 +1031,185 @@ export function createUrbanBuilding(x, z, color) {
 export function createCottage(x, z, roofColor) {
     return createSuburbanHouse(x, z, roofColor);
 }
+
+// ============ CIVIC CENTER NORTH - North entrance hall ============
+export function createCivicCenterNorth(x, z) {
+    const group = new THREE.Group();
+    
+    // Main building - elegant entrance hall
+    const base = new THREE.Mesh(
+        new THREE.BoxGeometry(14, 1, 10),
+        new THREE.MeshStandardMaterial({ color: 0xe8e8e8 })
+    );
+    base.position.y = 0.5;
+    group.add(base);
+    
+    // Main body
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(12, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0xf5f5f5 })
+    );
+    body.position.y = 5;
+    group.add(body);
+    
+    // Columned entrance portico (front)
+    const columnMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    for (let i = -2; i <= 2; i++) {
+        const col = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.4, 0.4, 5, 8),
+            columnMat
+        );
+        col.position.set(i * 2.5, 4.5, 4);
+        group.add(col);
+    }
+    
+    // Triangle pediment
+    const pediment = new THREE.Mesh(
+        new THREE.ConeGeometry(8, 2.5, 3),
+        new THREE.MeshStandardMaterial({ color: 0x4169e1 })
+    );
+    pediment.position.set(0, 8, 4);
+    pediment.rotation.x = Math.PI;
+    group.add(pediment);
+    
+    // Flat roof
+    const roof = new THREE.Mesh(
+        new THREE.BoxGeometry(12, 0.3, 8),
+        new THREE.MeshStandardMaterial({ color: 0x696969 })
+    );
+    roof.position.y = 9;
+    group.add(roof);
+    
+    // Steps
+    for (let i = 0; i < 2; i++) {
+        const step = new THREE.Mesh(
+            new THREE.BoxGeometry(10 - i * 0.5, 0.25, 0.8),
+            new THREE.MeshStandardMaterial({ color: 0xcccccc })
+        );
+        step.position.set(0, 0.15 + i * 0.25, 5 + i * 0.4);
+        group.add(step);
+    }
+    
+    group.position.set(x, 0, z);
+    return group;
+}
+
+// ============ PLAZA FOUNTAIN - Circular plaza fountain ============
+export function createPlazaFountain(x, z) {
+    const group = new THREE.Group();
+    
+    // Stone base
+    const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(5, 5.5, 0.8, 16),
+        new THREE.MeshStandardMaterial({ color: 0x888888 })
+    );
+    base.position.y = 0.4;
+    group.add(base);
+    
+    // Water basin
+    const basin = new THREE.Mesh(
+        new THREE.CylinderGeometry(4.5, 4.5, 0.5, 16),
+        new THREE.MeshStandardMaterial({ color: 0x4169e1, transparent: true, opacity: 0.7 })
+    );
+    basin.position.y = 0.9;
+    group.add(basin);
+    
+    // Center pillar
+    const pillar = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.4, 0.5, 3, 8),
+        new THREE.MeshStandardMaterial({ color: 0xcccccc })
+    );
+    pillar.position.y = 2;
+    group.add(pillar);
+    
+    // Top water spout
+    const spout = new THREE.Mesh(
+        new THREE.SphereGeometry(0.6, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0x4169e1, transparent: true, opacity: 0.8 })
+    );
+    spout.position.y = 3.5;
+    group.add(spout);
+    
+    // Decorative rim
+    const rim = new THREE.Mesh(
+        new THREE.TorusGeometry(4.5, 0.2, 8, 16),
+        new THREE.MeshStandardMaterial({ color: 0xaaaaaa })
+    );
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 1.15;
+    group.add(rim);
+    
+    group.position.set(x, 0, z);
+    return group;
+}
+
+// ============ FLAGPOLE - Plaza flagpole ============
+export function createFlagpole(x, z) {
+    const group = new THREE.Group();
+    
+    // Pole
+    const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.1, 0.12, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0xcccccc })
+    );
+    pole.position.y = 4;
+    group.add(pole);
+    
+    // Base
+    const poleBase = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.3, 0.4, 0.5, 8),
+        new THREE.MeshStandardMaterial({ color: 0x888888 })
+    );
+    poleBase.position.y = 0.25;
+    group.add(poleBase);
+    
+    // Flag (red)
+    const flagPole = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 0.08, 2),
+        new THREE.MeshStandardMaterial({ color: 0xcccccc })
+    );
+    flagPole.position.set(0.08, 7.5, 1);
+    group.add(flagPole);
+    
+    // Flag fabric
+    const flag = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.8, 1),
+        new THREE.MeshStandardMaterial({ color: 0xdc143c, side: THREE.DoubleSide })
+    );
+    flag.position.set(0.9, 7.3, 1);
+    group.add(flag);
+    
+    group.position.set(x, 0, z);
+    return group;
+}
+
+// ============ PLAZA TILES - Ground decoration ============
+export function createPlazaTiles(x, z, width, depth) {
+    const group = new THREE.Group();
+    
+    const tiles = new THREE.Mesh(
+        new THREE.PlaneGeometry(width, depth),
+        new THREE.MeshStandardMaterial({ color: 0xb8b8b8 })
+    );
+    tiles.rotation.x = -Math.PI / 2;
+    tiles.position.y = 0.02;
+    group.add(tiles);
+    
+    // Border
+    const borderMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
+    const borderN = new THREE.Mesh(new THREE.BoxGeometry(width + 0.5, 0.1, 0.5), borderMat);
+    borderN.position.set(0, 0.05, -depth/2 - 0.25);
+    group.add(borderN);
+    const borderS = borderN.clone();
+    borderS.position.z = depth/2 + 0.25;
+    group.add(borderS);
+    const borderE = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, depth), borderMat);
+    borderE.position.set(width/2 + 0.25, 0.05, 0);
+    group.add(borderE);
+    const borderW = borderE.clone();
+    borderW.position.x = -width/2 - 0.25;
+    group.add(borderW);
+    
+    group.position.set(x, 0, z);
+    return group;
+}

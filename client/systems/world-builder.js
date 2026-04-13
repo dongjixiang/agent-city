@@ -12,6 +12,7 @@ import { createRoad, createPath } from '../objects/terrain/road.js';
 import { createSimpleBridge, createLightBridge, createArchBridge, createGlassBridge } from '../objects/terrain/bridge.js';
 import { createTree, createPineTree, createPalmTree } from '../objects/decorations/tree.js';
 import { createBench, createLamp } from '../objects/decorations/bench.js';
+import { createFarmlandArea } from '../objects/decorations/farm.js';
 import { createBuilding, createDomeBuilding, createTower, createGlassBuilding, createSuburbanHouse, createUrbanBuilding, createLibraryBuilding, createWorkshopBuilding, createMessageStationBuilding, createArtGalleryBuilding, createArchiveBuilding, createTaskCenterBuilding, createDataCenterBuilding, createReputationTower, createSkillAcademyBuilding, createDiverseUrbanBuilding } from '../objects/buildings/minecraft-buildings.js';
 import { createLabel } from '../objects/buildings/label.js';
 
@@ -424,6 +425,9 @@ export class WorldBuilder {
         this.scene.add(createBench(48, 40));
         this.scene.add(createBench(36, 35));
         this.scene.add(createBench(44, 35));
+        
+        // ===== FARMLAND (X:-95~-70, Z:-60~0) =====
+        this.scene.add(createFarmlandArea());
         
         console.log('[WorldBuilder] Parks built');
     }

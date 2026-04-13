@@ -10,7 +10,7 @@ import { createHill } from '../objects/terrain/hill.js';
 import { createRiver, createLake, createBeach, createOcean, createOceanBeach } from '../objects/terrain/river.js';
 import { createRoad, createPath } from '../objects/terrain/road.js';
 import { createSimpleBridge, createLightBridge, createArchBridge, createGlassBridge } from '../objects/terrain/bridge.js';
-import { createTree, createPineTree, createPalmTree } from '../objects/decorations/tree.js';
+import { createTree, createPineTree, createPalmTree, createFruitTree } from '../objects/decorations/tree.js';
 import { createBench, createLamp } from '../objects/decorations/bench.js';
 import { createFarmlandArea } from '../objects/decorations/farm.js';
 import { createBuilding, createDomeBuilding, createTower, createGlassBuilding, createSuburbanHouse, createUrbanBuilding, createLibraryBuilding, createWorkshopBuilding, createMessageStationBuilding, createArtGalleryBuilding, createArchiveBuilding, createTaskCenterBuilding, createDataCenterBuilding, createReputationTower, createSkillAcademyBuilding, createDiverseUrbanBuilding, createCivicCenterNorth, createCivicCenterWing, createPlazaFountain, createFlagpole, createPlazaTiles } from '../objects/buildings/minecraft-buildings.js';
@@ -235,8 +235,8 @@ export class WorldBuilder {
             { x: 65, z: -55, color: 0xd2b48c },   // 东岸北段
             { x: 60, z: -65, color: 0xf5deb3 },   // 东岸中段（临湖）
             { x: 55, z: -75, color: 0xe6e6fa },   // 东岸南段（临湖）
-            { x: 58, z: -85, color: 0xffa07a },   // 东南深入区
-            { x: 52, z: -60, color: 0xd2691e },   // 东南翼
+            { x: 40, z: -45, color: 0xffa07a },   // 东南深入区
+            { x: 32, z: -50, color: 0xd2691e },   // 东南翼
             { x: 50, z: -50, color: 0xf5f5dc },  // 东侧远端
         ];
         lakeEastNewHouses.forEach(h => this.scene.add(createSuburbanHouse(h.x, h.z, h.color)));
@@ -255,6 +255,16 @@ export class WorldBuilder {
             { x: rand(-50, -42), z: rand(15, 25), color: 0xd2b48c },
         ];
         nwHouses.forEach(h => this.scene.add(createSuburbanHouse(h.x, h.z, h.color)));
+        
+        // ===== FRUIT TREES around NW suburban houses =====
+        // NW area: x: -65 to -40, z: -65 to 25
+        const fruitTypes = ['apple', 'pear', 'peach'];
+        for (let i = 0; i < 15; i++) {
+            const fx = rand(-65, -40);
+            const fz = rand(-65, 25);
+            const fruitType = fruitTypes[i % 3];
+            this.scene.add(createFruitTree(fx, fz, fruitType, rand(0.8, 1.2)));
+        }
         
         // ===== SKILL ACADEMY (NW) - Tower school with clock =====
         const skillAcademy = createSkillAcademyBuilding(-30, -35);

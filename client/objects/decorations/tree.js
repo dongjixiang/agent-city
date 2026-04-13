@@ -110,3 +110,46 @@ export function createPalmTree(x, z, scale = 1) {
     group.position.set(x, 0, z);
     return group;
 }
+
+// Fruit tree - apple/pear style with fruits
+export function createFruitTree(x, z, fruitType = 'apple', scale = 1) {
+    const group = new THREE.Group();
+    
+    // Trunk
+    const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.2 * scale, 0.25 * scale, 2 * scale, 6),
+        new THREE.MeshStandardMaterial({ color: 0x8B4513 })
+    );
+    trunk.position.y = scale;
+    group.add(trunk);
+    
+    // Foliage (round canopy)
+    const foliageColor = fruitType === 'apple' ? 0x228B22 : (fruitType === 'pear' ? 0x32CD32 : 0xffb7c5);
+    const foliage = new THREE.Mesh(
+        new THREE.SphereGeometry(1.5 * scale, 8, 8),
+        new THREE.MeshStandardMaterial({ color: foliageColor })
+    );
+    foliage.position.y = 3 * scale;
+    group.add(foliage);
+    
+    // Fruits
+    const fruitColor = fruitType === 'apple' ? 0xdc143c : (fruitType === 'pear' ? 0xffd700 : 0xffa07a);
+    const fruitMat = new THREE.MeshStandardMaterial({ color: fruitColor });
+    for (let i = 0; i < 5; i++) {
+        const fruit = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15 * scale, 6, 6),
+            fruitMat
+        );
+        const angle = (i / 5) * Math.PI * 2;
+        const r = 0.8 * scale;
+        fruit.position.set(
+            Math.cos(angle) * r,
+            3 * scale + (Math.random() - 0.5) * 0.5 * scale,
+            Math.sin(angle) * r
+        );
+        group.add(fruit);
+    }
+    
+    group.position.set(x, 0, z);
+    return group;
+}

@@ -173,9 +173,8 @@ class AgentCityApp {
         }
         this._threeInitialized = true;
         
-        // Scene
+        // Scene - 背景由daynight-system的天空球控制，不设置固定背景
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x1a1a2e);
 
         // Camera - 调整以适应新地图（南湖北山格局）
         this.camera = new THREE.PerspectiveCamera(

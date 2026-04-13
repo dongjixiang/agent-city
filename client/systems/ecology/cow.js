@@ -23,14 +23,37 @@ export class Cow {
     }
     
     _buildMesh() {
+        // Random cow color pattern
+        const isSpotted = Math.random() > 0.5;
+        const baseColor = isSpotted ? 0xffffff : (Math.random() > 0.5 ? 0x8b4513 : 0x4a4a4a);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: baseColor });
+        this.bodyMat = bodyMat;
+        
         // Body
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xf5f5dc });
         const body = new THREE.Mesh(
-            new THREE.BoxGeometry(2, 1.2, 3),
+            new THREE.BoxGeometry(2, 1.4, 3.5),
             bodyMat
         );
-        body.position.y = 1.2;
+        body.position.y = 1.3;
         this.group.add(body);
+        
+        // Spots on body
+        if (isSpotted) {
+            const spotMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+            for (let i = 0; i < 3; i++) {
+                const spot = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.3 + Math.random() * 0.2, 6, 6),
+                    spotMat
+                );
+                spot.position.set(
+                    (Math.random() - 0.5) * 1.2,
+                    1.3 + (Math.random() - 0.5) * 0.5,
+                    (Math.random() - 0.5) * 2
+                );
+                spot.scale.y = 0.3;
+                this.group.add(spot);
+            }
+        }
         
         // Head
         const head = new THREE.Mesh(

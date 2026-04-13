@@ -23,84 +23,83 @@ export class Dog {
     }
     
     _buildMesh() {
-        const isSmall = Math.random() > 0.5;
-        const scale = isSmall ? 0.5 : 0.7;
+        // Dogs should be smaller than cows but still visible
+        const isSmall = Math.random() > 0.7;  // Most dogs are normal size
+        const scale = isSmall ? 0.7 : 1.2;  // Normal dogs larger
         
         const bodyColor = Math.random() > 0.5 ? 0x8b4513 : 0xd2691e;
         const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor });
         
         // Body
         const body = new THREE.Mesh(
-            new THREE.BoxGeometry(0.8 * scale, 0.8 * scale, 1.5 * scale),
+            new THREE.BoxGeometry(0.6 * scale, 0.5 * scale, 1.2 * scale),
             bodyMat
         );
-        body.position.y = 0.8 * scale;
+        body.position.y = 0.5 * scale;
         this.group.add(body);
         
         // Head
         const head = new THREE.Mesh(
-            new THREE.BoxGeometry(0.6 * scale, 0.6 * scale, 0.7 * scale),
+            new THREE.BoxGeometry(0.45 * scale, 0.45 * scale, 0.5 * scale),
             bodyMat
         );
-        head.position.set(0, 1.1 * scale, 0.9 * scale);
+        head.position.set(0, 0.75 * scale, 0.7 * scale);
         this.group.add(head);
         
         // Snout
         const snout = new THREE.Mesh(
-            new THREE.BoxGeometry(0.3 * scale, 0.3 * scale, 0.4 * scale),
+            new THREE.BoxGeometry(0.25 * scale, 0.2 * scale, 0.3 * scale),
             new THREE.MeshStandardMaterial({ color: 0xffccaa })
         );
-        snout.position.set(0, 0.95 * scale, 1.3 * scale);
+        snout.position.set(0, 0.6 * scale, 1.0 * scale);
         this.group.add(snout);
         
         // Nose
         const nose = new THREE.Mesh(
-            new THREE.SphereGeometry(0.08 * scale, 6, 6),
+            new THREE.SphereGeometry(0.06 * scale, 6, 6),
             new THREE.MeshStandardMaterial({ color: 0x333333 })
         );
-        nose.position.set(0, 1 * scale, 1.5 * scale);
+        nose.position.set(0, 0.65 * scale, 1.15 * scale);
         this.group.add(nose);
         
         // Eyes
         const eyeMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-        const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.08 * scale, 6, 6), eyeMat);
-        leftEye.position.set(-0.2 * scale, 1.25 * scale, 1.2 * scale);
+        const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.06 * scale, 6, 6), eyeMat);
+        leftEye.position.set(-0.15 * scale, 0.85 * scale, 0.9 * scale);
         this.group.add(leftEye);
         const rightEye = leftEye.clone();
-        rightEye.position.x = 0.2 * scale;
+        rightEye.position.x = 0.15 * scale;
         this.group.add(rightEye);
         
-        // Ears
+        // Ears (pointy)
         const earMat = new THREE.MeshStandardMaterial({ color: bodyColor });
         const leftEar = new THREE.Mesh(
-            new THREE.BoxGeometry(0.2 * scale, 0.35 * scale, 0.15 * scale),
+            new THREE.ConeGeometry(0.12 * scale, 0.25 * scale, 4),
             earMat
         );
-        leftEar.position.set(-0.35 * scale, 1.35 * scale, 0.7 * scale);
-        leftEar.rotation.z = 0.3;
+        leftEar.position.set(-0.25 * scale, 1.0 * scale, 0.5 * scale);
         this.group.add(leftEar);
         const rightEar = leftEar.clone();
-        rightEar.position.x = 0.35 * scale;
-        rightEar.rotation.z = -0.3;
+        rightEar.position.x = 0.25 * scale;
         this.group.add(rightEar);
         
         // Legs
-        const legPositions = [[-0.25, 0.5], [0.25, 0.5], [-0.25, -0.5], [0.25, -0.5]];
+        const legPositions = [[-0.18, 0.4], [0.18, 0.4], [-0.18, -0.3], [0.18, -0.3]];
         legPositions.forEach(pos => {
             const leg = new THREE.Mesh(
-                new THREE.BoxGeometry(0.15 * scale, 0.5 * scale, 0.15 * scale),
+                new THREE.BoxGeometry(0.12 * scale, 0.4 * scale, 0.12 * scale),
                 bodyMat
             );
-            leg.position.set(pos[0] * scale, 0.25 * scale, pos[1] * scale);
+            leg.position.set(pos[0] * scale, 0.2 * scale, pos[1] * scale);
             this.group.add(leg);
         });
         
         // Tail
         const tail = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.06 * scale, 0.1 * scale, 0.6 * scale, 4),
+            new THREE.CylinderGeometry(0.04 * scale, 0.07 * scale, 0.5 * scale, 4),
             bodyMat
         );
-        tail.position.set(0, 1 * scale, -0.9 * scale);
+        tail.position.set(0, 0.55 * scale, -0.7 * scale);
         tail.rotation.x = Math.PI / 3;
         this.group.add(tail);
         

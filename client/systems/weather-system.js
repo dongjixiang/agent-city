@@ -29,6 +29,8 @@ export const WeatherType = {
     SNOWY: 'snowy'
 };
 
+let camera = null;
+
 // 天气配置
 const weatherConfigs = {
     sunny: { skyColor: 0x87ceeb, fogColor: 0x87ceeb, particleColor: null },
@@ -61,6 +63,7 @@ let currentWeatherSound = null;
 export function initWeather(sceneRef, options = {}) {
     console.log('[Weather] Initializing weather system...');
     scene = sceneRef;
+    camera = options.camera || null;
 
     createWeatherParticles(scene);
     initWeatherSounds();
@@ -217,6 +220,13 @@ export function updateWeatherParticles(deltaTime) {
     window._weatherLastTime = now;
     if (dt > 0.1) dt = 0.016;
 
+    // 获取相机位置作为粒子系统的中心
+    let offsetX = 0, offsetZ = 0;
+    if (camera) {
+        offsetX = camera.position.x;
+        offsetZ = camera.position.z;
+    }
+
     // 更新雨滴
     if (currentWeather === WeatherType.RAINY || (weatherTransitioning && currentWeather === WeatherType.RAINY)) {
         if (!raindrops.visible) {
@@ -230,10 +240,11 @@ export function updateWeatherParticles(deltaTime) {
             positions[i * 3 + 1] -= (15 + Math.random() * 5) * dt;
             positions[i * 3] += (2 + wind) * dt;
 
-            if (positions[i * 3 + 1] < 0) {
-                positions[i * 3 + 1] = 100 + Math.random() * 20;
-                positions[i * 3] = Math.random() * 200 - 100;
-                positions[i * 3 + 2] = Math.random() * 200 - 100;
+            // 粒子落到地面后，在相机附近重新生成
+            if (positions[i * 3 + 1] < camera?.position.y - 10 || positions[i * 3 + 1] < 0) {
+                positions[i * 3 + 1] = (camera?.position.y || 50) + 50 + Math.random() * 30;
+                positions[i * 3] = offsetX + Math.random() * 200 - 100;
+                positions[i * 3 + 2] = offsetZ + Math.random() * 200 - 100;
             }
         }
 
@@ -256,10 +267,11 @@ export function updateWeatherParticles(deltaTime) {
             positions[i * 3 + 1] -= (2 + Math.random() * 2) * dt;
             positions[i * 3] += Math.sin(now * 0.001 + i) * 1.5 * dt;
 
-            if (positions[i * 3 + 1] < 0) {
-                positions[i * 3 + 1] = 100 + Math.random() * 20;
-                positions[i * 3] = Math.random() * 200 - 100;
-                positions[i * 3 + 2] = Math.random() * 200 - 100;
+            // 粒子落到地面后，在相机附近重新生成
+            if (positions[i * 3 + 1] < camera?.position.y - 10 || positions[i * 3 + 1] < 0) {
+                positions[i * 3 + 1] = (camera?.position.y || 50) + 50 + Math.random() * 30;
+                positions[i * 3] = offsetX + Math.random() * 200 - 100;
+                positions[i * 3 + 2] = offsetZ + Math.random() * 200 - 100;
             }
         }
 
@@ -297,4 +309,4 @@ export default {
 
 
 // WeatherSystem wrapper class
-export class WeatherSystem { start() { this.scene = this._scene; } init(scene, options) { this._scene = scene; initWeather(scene, options); } update(deltaTime) { updateWeatherParticles(deltaTime); } getCurrent() { return getCurrentWeather(); } toggle() { toggleWeather(); } }
+export class WeatherSystem { start() { this.scene = this._scene; } init(scene, options) { this._scene = scene; initWeather(scene, options); } update(deltaTime) { updateWeatherParticles(deltaTime); } getCurrent() { return getCurrentWeather(); } toggle() { toggleWeather(); } setCamera(cam) { camera = cam; } }

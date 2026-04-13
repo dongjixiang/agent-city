@@ -276,7 +276,7 @@ class AgentCityApp {
 
         // 初始化天气系统
         this.systems.weather = new WeatherSystem();
-        this.systems.weather.init(this.scene);
+        this.systems.weather.init(this.scene, { camera: this.camera });
         this.systems.weather.start();
 
         // 初始化昼夜系统

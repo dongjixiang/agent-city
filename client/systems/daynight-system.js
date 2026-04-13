@@ -49,10 +49,12 @@ class DayNightSystem {
         const skyGeo = new THREE.SphereGeometry(500, 32, 32);
         const skyMat = new THREE.MeshBasicMaterial({
             color: this.getPhaseColor('morning'),
-            side: THREE.BackSide
+            side: THREE.BackSide,
+            depthWrite: false  // 确保天空始终在后面
         });
         this.sky = new THREE.Mesh(skyGeo, skyMat);
         this.scene.add(this.sky);
+        console.log('[DayNight] Sky created, position:', this.sky.position);
         
         // 创建太阳
         const sunGeo = new THREE.SphereGeometry(8, 32, 32);
@@ -167,10 +169,15 @@ class DayNightSystem {
     updateForPhase(phase) {
         const phaseConfig = this.phases[phase];
         const color = new THREE.Color(phaseConfig.color);
+        
+        console.log('[DayNight] updateForPhase called, phase:', phase, 'color:', phaseConfig.color.toString(16));
 
         // 更新天空
         if (this.sky) {
             this.sky.material.color.copy(color);
+            console.log('[DayNight] Sky color updated to:', this.sky.material.color.getHexString());
+        } else {
+            console.log('[DayNight] ERROR: sky is null!');
         }
 
         // 更新灯光

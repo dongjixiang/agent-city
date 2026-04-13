@@ -229,15 +229,15 @@ export class WorldBuilder {
         this.scene.add(createSuburbanHouse(-38, -55, 0xd2b48c));
         
         // ===== SUBURBAN HOUSES (east side of lake) =====
-        // Moved to east side of lake (X: 50-70, Z: -95~-50)
+        // Scattered along east lake shore
         const lakeEastNewHouses = [
-            { x: rand(52, 58), z: rand(-92, -85), color: 0xdeb887 },
-            { x: rand(55, 62), z: rand(-82, -75), color: 0xd2b48c },
-            { x: rand(58, 65), z: rand(-72, -65), color: 0xf5deb3 },
-            { x: rand(52, 60), z: rand(-65, -58), color: 0xe6e6fa },
-            { x: rand(56, 62), z: rand(-55, -48), color: 0xffa07a },
-            { x: rand(50, 55), z: rand(-80, -72), color: 0xd2691e },
-            { x: rand(62, 68), z: rand(-88, -80), color: 0xf5f5dc },
+            { x: 62, z: -45, color: 0xdeb887 },   // 湖东北角
+            { x: 65, z: -55, color: 0xd2b48c },   // 东岸北段
+            { x: 60, z: -65, color: 0xf5deb3 },   // 东岸中段（临湖）
+            { x: 55, z: -75, color: 0xe6e6fa },   // 东岸南段（临湖）
+            { x: 58, z: -85, color: 0xffa07a },   // 东南深入区
+            { x: 52, z: -60, color: 0xd2691e },   // 东南翼
+            { x: 50, z: -50, color: 0xf5f5dc },  // 东侧远端
         ];
         lakeEastNewHouses.forEach(h => this.scene.add(createSuburbanHouse(h.x, h.z, h.color)));
         

@@ -37,6 +37,7 @@ import { BirdFlock } from './systems/ecology/bird-flock.js';
 import { ButterflySwarm } from './systems/ecology/butterfly-swarm.js';
 import { FishSystem } from './systems/ecology/fish.js';
 import { BoatSystem } from './systems/ecology/boat.js';
+import { AnimalSystem } from './systems/ecology/animals.js';
 
 // Interaction - 交互系统
 import { AnimalBehaviors } from './systems/interaction/animal-behaviors.js';
@@ -82,6 +83,7 @@ class AgentCityApp {
         this.ecology = {};
         this.fishSystem = null;
         this.boatSystem = null;
+        this.animalSystem = null;
 
         // 系统实例
         this.systems = {
@@ -343,6 +345,9 @@ class AgentCityApp {
         // 船只系统
         this.boatSystem = new BoatSystem(this.scene);
         this.boatSystem.init();
+        
+        this.animalSystem = new AnimalSystem(this.scene);
+        this.animalSystem.init();
 
         console.log('[App] Ecology initialized');
     }
@@ -447,6 +452,7 @@ class AgentCityApp {
             this.ecology.butterflies?.update(deltaTime);
             this.fishSystem?.update(deltaTime);
             this.boatSystem?.update(deltaTime);
+            this.animalSystem?.update(deltaTime);
 
             // 更新可移动物体
             this.systems.movableObjects?.update(deltaTime);

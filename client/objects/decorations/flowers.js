@@ -152,7 +152,7 @@ export function createFlower(x, z, type = 'tulip') {
 }
 
 /**
- * Create a flower field
+ * Create a flower field (flowers only, no ground rendering)
  * @param {number} x - Left edge X
  * @param {number} z - Bottom edge Z
  * @param {number} width - Field width
@@ -161,15 +161,6 @@ export function createFlower(x, z, type = 'tulip') {
  */
 export function createFlowerField(x, z, width, depth, density = 200) {
     const group = new THREE.Group();
-    
-    // Ground
-    const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(width, depth),
-        new THREE.MeshStandardMaterial({ color: 0x90EE90, transparent: true, opacity: 0.8 })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.set(x + width / 2, 0.01, z + depth / 2);
-    group.add(ground);
     
     // Flower types
     const types = Object.keys(FLOWER_TYPES);

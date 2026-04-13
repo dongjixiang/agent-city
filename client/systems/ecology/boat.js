@@ -7,7 +7,7 @@ import * as THREE from 'three';
 export class Sailboat {
     constructor(x, z, speed) {
         this.group = new THREE.Group();
-        this.speed = speed || 0.01;
+        this.speed = speed || 0.5;
         this.direction = Math.random() * Math.PI * 2;
         this.turnTimer = 0;
         this.turnInterval = 60 + Math.random() * 120;
@@ -96,7 +96,7 @@ export class Sailboat {
 export class Yacht {
     constructor(x, z, speed) {
         this.group = new THREE.Group();
-        this.speed = speed || 0.015;
+        this.speed = speed || 0.8;
         this.direction = Math.random() * Math.PI * 2;
         this.turnTimer = 0;
         this.turnInterval = 120 + Math.random() * 180;

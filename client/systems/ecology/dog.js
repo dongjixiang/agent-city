@@ -9,7 +9,6 @@ import * as THREE from 'three';
 export class Dog {
     constructor(x, z) {
         this.group = new THREE.Group();
-        this.speed = 0.008 + Math.random() * 0.004;
         this.direction = Math.random() * Math.PI * 2;
         this.turnTimer = 0;
         this.turnInterval = 50 + Math.random() * 100;
@@ -26,6 +25,9 @@ export class Dog {
         // Dogs should be smaller than cows but still visible
         const isSmall = Math.random() > 0.7;  // Most dogs are normal size
         const scale = isSmall ? 0.7 : 1.2;  // Normal dogs larger
+        
+        // Speed for movement (units per second)
+        this.speed = (isSmall ? 0.3 : 0.5) + Math.random() * 0.2;
         
         const bodyColor = Math.random() > 0.5 ? 0x8b4513 : 0xd2691e;
         const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor });

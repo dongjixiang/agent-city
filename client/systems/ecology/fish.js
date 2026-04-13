@@ -8,7 +8,7 @@ export class Fish {
     constructor(x, z, waterBody) {
         this.group = new THREE.Group();
         this.waterBody = waterBody; // 'lake', 'river', 'ocean'
-        this.speed = 0.02 + Math.random() * 0.03;
+        this.speed = 1 + Math.random() * 1;
         this.direction = Math.random() * Math.PI * 2;
         this.turnTimer = 0;
         this.turnInterval = 30 + Math.random() * 60;

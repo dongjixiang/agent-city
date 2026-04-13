@@ -9,7 +9,7 @@ import * as THREE from 'three';
 export class Cow {
     constructor(x, z) {
         this.group = new THREE.Group();
-        this.speed = 0.003 + Math.random() * 0.002;
+        this.speed = 0.2 + Math.random() * 0.2;
         this.direction = Math.random() * Math.PI * 2;
         this.turnTimer = 0;
         this.turnInterval = 100 + Math.random() * 150;

@@ -38,6 +38,7 @@ def deploy():
     files = [
         ('client/systems/daynight-system.js', 'client/systems/daynight-system.js'),
         ('client/systems/weather-system.js', 'client/systems/weather-system.js'),
+        ('client/systems/world-builder.js', 'client/systems/world-builder.js'),
         ('client/objects/terrain/road.js', 'client/objects/terrain/road.js'),
     ]
     

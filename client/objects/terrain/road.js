@@ -56,9 +56,9 @@ export function createRoad(points, width) {
         const lineMat = new THREE.MeshBasicMaterial({ color: LINE_COLOR });
         const line = new THREE.Mesh(lineGeo, lineMat);
         line.position.set(midX, 0.25, midZ);
-        line.rotation.x = -Math.PI / 2;
+        line.rotation.x = -Math.PI/ 2;
         // Use atan2(dz, dx) to get angle in XZ plane - road direction is (dx, dz)
-        line.rotation.y = Math.atan2(dz, dx);
+        line.rotation.z = Math.atan2(dz, dx);
         meshes.push(line);
     }
     

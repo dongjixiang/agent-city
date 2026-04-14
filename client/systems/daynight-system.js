@@ -205,12 +205,14 @@ class DayNightSystem {
             eventBus.emit('day:new', { dayNumber: this.dayNumber });
         }
 
-        // 检查阶段变化
+        // 每帧都更新颜色（实现平滑渐变）
+        this.applySmoothColors();
+        
+        // 检查阶段变化（用于事件通知）
         const newPhase = this.getCurrentPhase();
         if (this._lastPhase !== newPhase) {
             this._lastPhase = newPhase;
             eventBus.emit(Events.DAY_NIGHT_CHANGE, { phase: newPhase, hour: this.currentHour });
-            this.updateForPhase(newPhase);
         }
         
         // 更新太阳和月亮位置
@@ -219,6 +221,32 @@ class DayNightSystem {
         // 暴露虚拟时间给UI
         window.virtualHour = this.currentHour;
         window.dayNumber = this.dayNumber;
+    }
+    
+    /**
+     * 平滑应用颜色（每帧调用）
+     */
+    applySmoothColors() {
+        const colors = this.calculateColorsForHour(this.currentHour);
+
+        // 更新天空
+        if (this.sky) {
+            this.sky.material.color.setHex(colors.skyColor);
+        }
+
+        // 更新场景背景
+        if (this.scene && this.scene.background) {
+            this.scene.background.setHex(colors.skyColor);
+        }
+
+        // 更新灯光
+        if (this.ambientLight) {
+            this.ambientLight.color.setHex(colors.ambientColor);
+            this.ambientLight.intensity = colors.ambientIntensity;
+        }
+        if (this.directionalLight) {
+            this.directionalLight.intensity = colors.sunIntensity;
+        }
     }
 
     /**
@@ -316,32 +344,9 @@ class DayNightSystem {
     }
 
     /**
-     * 更新阶段
+     * 更新阶段（仅用于日志记录）
      */
     updateForPhase(phase) {
-        const colors = this.calculateColorsForHour(this.currentHour);
-        
-        console.log('[DayNight] Phase:', phase, 'hour:', this.currentHour.toFixed(1), 'sky:', colors.skyColor.toString(16));
-
-        // 更新天空
-        if (this.sky) {
-            this.sky.material.color.setHex(colors.skyColor);
-        }
-
-        // 更新场景背景
-        if (this.scene && this.scene.background) {
-            this.scene.background.setHex(colors.skyColor);
-        }
-
-        // 更新灯光
-        if (this.ambientLight) {
-            this.ambientLight.color.setHex(colors.ambientColor);
-            this.ambientLight.intensity = colors.ambientIntensity;
-        }
-        if (this.directionalLight) {
-            this.directionalLight.intensity = colors.sunIntensity;
-        }
-
         console.log(`[DayNight] Phase changed to ${phase} (${this.currentHour.toFixed(1)}h)`);
     }
 

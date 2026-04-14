@@ -45,6 +45,7 @@ def deploy():
         ('client/main.js', 'client/main.js'),
         ('client/objects/decorations/bench.js', 'client/objects/decorations/bench.js'),
         ('client/objects/terrain/road.js', 'client/objects/terrain/road.js'),
+        ('client/ui/world-window.js', 'client/ui/world-window.js'),
     ]
     
     for local_path, remote_path in files:

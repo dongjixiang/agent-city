@@ -397,11 +397,8 @@ class WorldWindow {
   
 
   connect() {
-
-    var host = window.location.hostname || 'localhost';
-
-    var wsUrl = 'ws://' + host + ':9876';
-
+    // 连接到生产服务器
+    var wsUrl = 'ws://47.77.238.56:9876';
     
 
     try {

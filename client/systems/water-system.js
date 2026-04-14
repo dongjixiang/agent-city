@@ -72,14 +72,6 @@ class WaterSystem {
             if (mat.opacity !== undefined && mesh.userData.originalOpacity !== undefined) {
                 mat.opacity = mesh.userData.originalOpacity + Math.sin(this.time * 1.5 + index) * 0.05;
             }
-            
-            // 模拟水面反光闪烁
-            if (mat.emissive && mesh.userData.originalEmissive) {
-                const sparkle = Math.sin(this.time * 4 + index * 1.2) * 0.02;
-                mat.emissive.r = mesh.userData.originalEmissive.r + sparkle;
-                mat.emissive.g = mesh.userData.originalEmissive.g + sparkle;
-                mat.emissive.b = mesh.userData.originalEmissive.b + sparkle * 2;
-            }
         });
     }
 }

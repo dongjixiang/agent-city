@@ -39,6 +39,11 @@ def deploy():
         ('client/systems/daynight-system.js', 'client/systems/daynight-system.js'),
         ('client/systems/weather-system.js', 'client/systems/weather-system.js'),
         ('client/systems/world-builder.js', 'client/systems/world-builder.js'),
+        ('client/systems/water-system.js', 'client/systems/water-system.js'),
+        ('client/systems/ecology/cow.js', 'client/systems/ecology/cow.js'),
+        ('client/systems/ecology/dog.js', 'client/systems/ecology/dog.js'),
+        ('client/main.js', 'client/main.js'),
+        ('client/objects/decorations/bench.js', 'client/objects/decorations/bench.js'),
         ('client/objects/terrain/road.js', 'client/objects/terrain/road.js'),
     ]
     

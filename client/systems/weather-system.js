@@ -157,18 +157,27 @@ function createClouds(scene) {
     cloudGroup.name = 'clouds';
     cloudGroup.visible = false;
     
-    // 创建多个云朵分布在天空
+    // 创建多个云朵分布在天空 - 提高高度到100-150
     const cloudPositions = [
-        { x: -80, y: 60, z: -60 },
-        { x: 60, y: 70, z: -40 },
-        { x: -40, y: 55, z: 50 },
-        { x: 90, y: 65, z: 30 },
-        { x: 0, y: 75, z: -80 },
-        { x: -70, y: 68, z: 20 },
-        { x: 50, y: 58, z: 70 },
-        { x: 30, y: 72, z: -20 },
-        { x: -30, y: 62, z: -50 },
-        { x: 80, y: 78, z: -60 }
+        { x: -80, y: 120, z: -60 },
+        { x: 60, y: 130, z: -40 },
+        { x: -40, y: 110, z: 50 },
+        { x: 90, y: 125, z: 30 },
+        { x: 0, y: 140, z: -80 },
+        { x: -70, y: 115, z: 20 },
+        { x: 50, y: 135, z: 70 },
+        { x: 30, y: 145, z: -20 },
+        { x: -30, y: 120, z: -50 },
+        { x: 80, y: 130, z: -60 },
+        // 额外的云（雨雪天更密集）
+        { x: -50, y: 125, z: 30 },
+        { x: 70, y: 140, z: 50 },
+        { x: -20, y: 115, z: -30 },
+        { x: 40, y: 135, z: 80 },
+        { x: -60, y: 145, z: -20 },
+        { x: 100, y: 120, z: 10 },
+        { x: -100, y: 130, z: 40 },
+        { x: 20, y: 110, z: 60 },
     ];
     
     cloudPositions.forEach((pos, index) => {
@@ -262,9 +271,9 @@ export function setWeather(weather) {
 
     console.log('[Weather] Weather set to:', weather);
 
-    // 更新云朵可见性
+    // 更新云朵可见性（多云、雨天、雪天都显示云）
     if (clouds) {
-        clouds.visible = (weather === WeatherType.CLOUDY);
+        clouds.visible = (weather !== WeatherType.SUNNY);
     }
 
     // 更新粒子

@@ -47,6 +47,9 @@ export function createRoad(points, width) {
         meshes.push(road);
         
         // Center line (flat on ground, parallel to road)
+        // PlaneGeometry lies in XY plane, so we need to rotate it to lay flat in XZ plane
+        // rotation.x = -PI/2 makes it horizontal (normal pointing up)
+        // Then rotation.y aligns it with the road direction
         const midX = (p1.x + p2.x) / 2;
         const midZ = (p1.z + p2.z) / 2;
         const lineGeo = new THREE.PlaneGeometry(len * 0.8, 0.3);
@@ -54,8 +57,8 @@ export function createRoad(points, width) {
         const line = new THREE.Mesh(lineGeo, lineMat);
         line.position.set(midX, 0.25, midZ);
         line.rotation.x = -Math.PI / 2;
-        // Use atan2(-dx, dz) to get correct angle for Z-direction roads
-        line.rotation.y = Math.atan2(-dx, dz);
+        // Use atan2(dz, dx) to get angle in XZ plane - road direction is (dx, dz)
+        line.rotation.y = Math.atan2(dz, dx);
         meshes.push(line);
     }
     

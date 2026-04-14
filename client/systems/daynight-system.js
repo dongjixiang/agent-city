@@ -8,23 +8,45 @@
 import * as THREE from 'three';
 import { eventBus, Events } from '../core/event-bus.js';
 
+/**
+ * 线性插值颜色
+ */
+function lerpColor(color1, color2, t) {
+    const c1 = new THREE.Color(color1);
+    const c2 = new THREE.Color(color2);
+    c1.lerp(c2, Math.max(0, Math.min(1, t)));
+    return c1.getHex();
+}
+
 class DayNightSystem {
     constructor() {
-        // 1 real second = 0.04 virtual hours = 2.4 virtual minutes
-        // Full day cycle (24 hours) in 10 real minutes
+        // 10 real minutes = 24 virtual hours
         this.timeScale = 144;
-        this.currentHour = 6; // 6:00 开始
+        
+        // 根据实际当前时间计算虚拟时间
+        // 把当前10分钟窗口映射到虚拟24小时
+        const now = new Date();
+        const minute = now.getMinutes();
+        const second = now.getSeconds();
+        
+        // 计算当前10分钟窗口内过了多少秒
+        const secondsInBlock = (minute % 10) * 60 + second;
+        const blockTotalSeconds = 10 * 60; // 10分钟 = 600秒
+        
+        // 在10分钟窗口内的比例映射到24小时
+        // 0秒 → 0:00, 300秒 → 12:00, 600秒 → 24:00
+        this.currentHour = (secondsInBlock / blockTotalSeconds) * 24;
         this.dayNumber = 1;
         
         this.phases = {
-            night: { start: 21, end: 5, color: 0x0a0a20, intensity: 0.1 },
-            dawn: { start: 5, end: 6, color: 0xff7043, intensity: 0.4 },
-            morning: { start: 6, end: 7, color: 0xffa726, intensity: 0.5 },
-            forenoon: { start: 7, end: 9, color: 0x87ceeb, intensity: 0.7 },
-            noon: { start: 9, end: 12, color: 0xffeb3b, intensity: 1.0 },
-            afternoon: { start: 12, end: 17, color: 0x4fc3f7, intensity: 0.8 },
-            evening: { start: 17, end: 19, color: 0xff9800, intensity: 0.5 },
-            sunset: { start: 19, end: 21, color: 0xe65100, intensity: 0.3 }
+            night: { start: 21, end: 5, sky: 0x1a237e, ambient: 0x3949ab, sunIntensity: 0.05, ambientIntensity: 0.2 },
+            dawn: { start: 5, end: 6, sky: 0xff7043, ambient: 0xffcc80, sunIntensity: 0.5, ambientIntensity: 0.5 },
+            sunrise: { start: 6, end: 7, sky: 0xffa726, ambient: 0xffeb3b, sunIntensity: 0.8, ambientIntensity: 0.7 },
+            morning: { start: 7, end: 9, sky: 0x87ceeb, ambient: 0xffffff, sunIntensity: 1.0, ambientIntensity: 0.8 },
+            forenoon: { start: 9, end: 12, sky: 0x87ceeb, ambient: 0xffffff, sunIntensity: 1.0, ambientIntensity: 0.8 },
+            afternoon: { start: 12, end: 17, sky: 0x87ceeb, ambient: 0xffffff, sunIntensity: 1.0, ambientIntensity: 0.8 },
+            evening: { start: 17, end: 19, sky: 0xffa726, ambient: 0xffcc80, sunIntensity: 0.7, ambientIntensity: 0.6 },
+            dusk: { start: 19, end: 21, sky: 0xffa726, ambient: 0x3949ab, sunIntensity: 0.05, ambientIntensity: 0.2 }
         };
 
         this.lighting = null;
@@ -37,7 +59,23 @@ class DayNightSystem {
      */
     init(scene, lighting) {
         this.scene = scene;
-        this.lighting = lighting;
+        
+        // 如果没有提供 lighting 对象，尝试从场景中找到现有灯光
+        if (lighting) {
+            this.lighting = lighting;
+        } else {
+            // 从场景中查找灯光
+            this.ambientLight = null;
+            this.directionalLight = null;
+            scene.traverse((obj) => {
+                if (obj.type === 'AmbientLight' && !this.ambientLight) {
+                    this.ambientLight = obj;
+                } else if (obj.type === 'DirectionalLight' && !this.directionalLight) {
+                    this.directionalLight = obj;
+                }
+            });
+        }
+        
         this.createSky();
         this.updateForHour(this.currentHour);
         return this;
@@ -139,6 +177,12 @@ class DayNightSystem {
             this.moonMesh.visible = false;
         }
         
+        // 更新方向光位置（模拟太阳位置）
+        if (this.directionalLight) {
+            this.directionalLight.position.x = Math.cos(sunAngle) * 50;
+            this.directionalLight.position.y = Math.max(5, Math.sin(sunAngle) * 80);
+        }
+        
         // 星空：夜间可见，白天隐藏
         if (this.stars) {
             this.stars.visible = (sunY <= 0);
@@ -183,13 +227,13 @@ class DayNightSystem {
     getCurrentPhase() {
         if (this.currentHour >= 21 || this.currentHour < 5) return 'night';
         if (this.currentHour >= 5 && this.currentHour < 6) return 'dawn';
-        if (this.currentHour >= 6 && this.currentHour < 7) return 'morning';
-        if (this.currentHour >= 7 && this.currentHour < 9) return 'forenoon';
-        if (this.currentHour >= 9 && this.currentHour < 12) return 'noon';
+        if (this.currentHour >= 6 && this.currentHour < 7) return 'sunrise';
+        if (this.currentHour >= 7 && this.currentHour < 9) return 'morning';
+        if (this.currentHour >= 9 && this.currentHour < 12) return 'forenoon';
         if (this.currentHour >= 12 && this.currentHour < 17) return 'afternoon';
         if (this.currentHour >= 17 && this.currentHour < 19) return 'evening';
-        if (this.currentHour >= 19 && this.currentHour < 21) return 'sunset';
-        return 'noon';
+        if (this.currentHour >= 19 && this.currentHour < 21) return 'dusk';
+        return 'night';
     }
     
     /**
@@ -203,40 +247,99 @@ class DayNightSystem {
      * 获取阶段颜色
      */
     getPhaseColor(phase) {
-        const colors = {
-            night: 0x0a0a20,
-            dawn: 0xff7043,
-            morning: 0xffa726,
-            forenoon: 0x87ceeb,
-            noon: 0xffeb3b,
-            afternoon: 0x4fc3f7,
-            evening: 0xff9800,
-            sunset: 0xe65100
-        };
-        return colors[phase] || colors.noon;
+        return this.phases[phase]?.sky || 0x87ceeb;
+    }
+
+    /**
+     * 计算当前小时的颜色（带插值）
+     */
+    calculateColorsForHour(hour) {
+        let skyColor, ambientColor, sunIntensity, ambientIntensity;
+        
+        if (hour >= 21 || hour < 5) {
+            // 深夜 - 深蓝色
+            const t = hour >= 21 ? (hour - 21) / 6 : (hour + 3) / 6;
+            skyColor = lerpColor(0x1a237e, 0x1a237e, t);
+            ambientColor = lerpColor(0x3949ab, 0x3949ab, t);
+            sunIntensity = 0.05;
+            ambientIntensity = 0.2;
+        } else if (hour >= 5 && hour < 6) {
+            // 黎明 - 深蓝过渡到橙红
+            const t = (hour - 5);
+            skyColor = lerpColor(0x1a237e, 0xff7043, t);
+            ambientColor = lerpColor(0x3949ab, 0xffcc80, t);
+            sunIntensity = 0.1 + t * 0.4;
+            ambientIntensity = 0.2 + t * 0.3;
+        } else if (hour >= 6 && hour < 7) {
+            // 日出 - 橙红到橙黄
+            const t = (hour - 6);
+            skyColor = lerpColor(0xff7043, 0xffa726, t);
+            ambientColor = lerpColor(0xffcc80, 0xffeb3b, t);
+            sunIntensity = 0.5 + t * 0.3;
+            ambientIntensity = 0.5 + t * 0.2;
+        } else if (hour >= 7 && hour < 9) {
+            // 早晨 - 橙黄过渡到蓝色
+            const t = (hour - 7) / 2;
+            skyColor = lerpColor(0xffa726, 0x87ceeb, t);
+            ambientColor = lerpColor(0xffeb3b, 0xffffff, t);
+            sunIntensity = 0.8 + t * 0.2;
+            ambientIntensity = 0.7 + t * 0.1;
+        } else if (hour >= 9 && hour < 12) {
+            // 上午 - 蓝色
+            skyColor = 0x87ceeb;
+            ambientColor = 0xffffff;
+            sunIntensity = 1.0;
+            ambientIntensity = 0.8;
+        } else if (hour >= 12 && hour < 17) {
+            // 下午 - 蓝色
+            skyColor = 0x87ceeb;
+            ambientColor = 0xffffff;
+            sunIntensity = 1.0;
+            ambientIntensity = 0.8;
+        } else if (hour >= 17 && hour < 19) {
+            // 傍晚 - 蓝色过渡到橙色
+            const t = (hour - 17) / 2;
+            skyColor = lerpColor(0x87ceeb, 0xffa726, t);
+            ambientColor = lerpColor(0xffffff, 0xffcc80, t);
+            sunIntensity = 1.0 - t * 0.3;
+            ambientIntensity = 0.8 - t * 0.2;
+        } else {
+            // 黄昏 19:00-21:00 - 橙色过渡到深蓝
+            const t = (hour - 19) / 2;
+            skyColor = lerpColor(0xffa726, 0x1a237e, t);
+            ambientColor = lerpColor(0xffcc80, 0x3949ab, t);
+            sunIntensity = 0.7 - t * 0.65;
+            ambientIntensity = 0.6 - t * 0.4;
+        }
+        
+        return { skyColor, ambientColor, sunIntensity, ambientIntensity };
     }
 
     /**
      * 更新阶段
      */
     updateForPhase(phase) {
-        const phaseConfig = this.phases[phase];
-        const color = new THREE.Color(phaseConfig.color);
+        const colors = this.calculateColorsForHour(this.currentHour);
         
-        console.log('[DayNight] updateForPhase called, phase:', phase, 'color:', phaseConfig.color.toString(16));
+        console.log('[DayNight] Phase:', phase, 'hour:', this.currentHour.toFixed(1), 'sky:', colors.skyColor.toString(16));
 
         // 更新天空
         if (this.sky) {
-            this.sky.material.color.copy(color);
-            console.log('[DayNight] Sky color updated to:', this.sky.material.color.getHexString());
-        } else {
-            console.log('[DayNight] ERROR: sky is null!');
+            this.sky.material.color.setHex(colors.skyColor);
+        }
+
+        // 更新场景背景
+        if (this.scene && this.scene.background) {
+            this.scene.background.setHex(colors.skyColor);
         }
 
         // 更新灯光
-        if (this.lighting) {
-            this.lighting.setAmbientIntensity(phaseConfig.intensity * 0.4);
-            this.lighting.setSunIntensity(phaseConfig.intensity);
+        if (this.ambientLight) {
+            this.ambientLight.color.setHex(colors.ambientColor);
+            this.ambientLight.intensity = colors.ambientIntensity;
+        }
+        if (this.directionalLight) {
+            this.directionalLight.intensity = colors.sunIntensity;
         }
 
         console.log(`[DayNight] Phase changed to ${phase} (${this.currentHour.toFixed(1)}h)`);
@@ -266,12 +369,14 @@ class DayNightSystem {
     getPhaseDescription() {
         const phase = this.getCurrentPhase();
         const descriptions = {
-            night: '🌙 夜晚 - 万家灯火',
+            night: '🌙 深夜 - 万家灯火',
             dawn: '🌅 黎明 - 朝霞满天',
-            morning: '☀️ 上午 - 精神饱满',
-            noon: '☀️ 正午 - 阳光明媚',
-            afternoon: '🌤️ 下午 - 慵懒时光',
-            evening: '🌆 傍晚 - 华灯初上'
+            sunrise: '🌄 日出 - 旭日东升',
+            morning: '☀️ 早晨 - 温暖橙黄',
+            forenoon: '🌤️ 上午 - 蓝天白云',
+            afternoon: '☀️ 下午 - 阳光明媚',
+            evening: '🌆 傍晚 - 夕阳西下',
+            dusk: '🌃 黄昏 - 暮色渐浓'
         };
         return descriptions[phase] || descriptions.morning;
     }

@@ -34,7 +34,7 @@ let camera = null;
 // 天气配置
 const weatherConfigs = {
     sunny: { skyColor: 0x87ceeb, fogColor: 0x87ceeb, particleColor: null },
-    cloudy: { skyColor: 0x666666, fogColor: 0x555555, particleColor: null },
+    cloudy: { skyColor: 0x778899, fogColor: 0x667788, particleColor: null },
     rainy: { skyColor: 0x334455, fogColor: 0x334455, particleColor: 0x6688aa },
     snowy: { skyColor: 0x8899aa, fogColor: 0x8899aa, particleColor: 0xffffff }
 };
@@ -49,6 +49,9 @@ let scene = null;  // Three.js scene reference
 let raindrops = null;
 let snowflakes = null;
 let weatherParticles = null;
+
+// 云朵对象
+let clouds = null;
 
 // 音频相关
 let weatherAudioContext = null;
@@ -84,8 +87,8 @@ export function initWeather(sceneRef, options = {}) {
  * @param {THREE.Scene} scene
  */
 function createWeatherParticles(scene) {
-    // 雨滴粒子
-    const rainCount = 1500;
+    // 雨滴粒子 - 大幅增加密度
+    const rainCount = 8000;
     const rainPos = new Float32Array(rainCount * 3);
 
     for (let i = 0; i < rainCount; i++) {
@@ -100,9 +103,9 @@ function createWeatherParticles(scene) {
 
     const rainMat = new THREE.PointsMaterial({
         color: 0x6688aa,
-        size: 0.3,
+        size: 0.25,
         transparent: true,
-        opacity: 0.6,
+        opacity: 0.5,
         sizeAttenuation: true
     });
 
@@ -111,8 +114,8 @@ function createWeatherParticles(scene) {
     raindrops.name = 'rain';
     scene.add(raindrops);
 
-    // 雪花粒子
-    const snowCount = 1000;
+    // 雪花粒子 - 大幅增加密度
+    const snowCount = 4000;
     const snowPos = new Float32Array(snowCount * 3);
 
     for (let i = 0; i < snowCount; i++) {
@@ -126,9 +129,9 @@ function createWeatherParticles(scene) {
 
     const snowMat = new THREE.PointsMaterial({
         color: 0xffffff,
-        size: 0.4,
+        size: 0.35,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.8,
         sizeAttenuation: true
     });
 
@@ -137,9 +140,87 @@ function createWeatherParticles(scene) {
     snowflakes.name = 'snow';
     scene.add(snowflakes);
 
+    // 创建云朵
+    clouds = createClouds(scene);
+
     weatherParticles = { rain: raindrops, snow: snowflakes };
 
     console.log('[Weather] Weather particles created');
+}
+
+/**
+ * 创建云朵
+ * @param {THREE.Scene} scene
+ */
+function createClouds(scene) {
+    const cloudGroup = new THREE.Group();
+    cloudGroup.name = 'clouds';
+    cloudGroup.visible = false;
+    
+    // 创建多个云朵分布在天空
+    const cloudPositions = [
+        { x: -80, y: 60, z: -60 },
+        { x: 60, y: 70, z: -40 },
+        { x: -40, y: 55, z: 50 },
+        { x: 90, y: 65, z: 30 },
+        { x: 0, y: 75, z: -80 },
+        { x: -70, y: 68, z: 20 },
+        { x: 50, y: 58, z: 70 },
+        { x: 30, y: 72, z: -20 },
+        { x: -30, y: 62, z: -50 },
+        { x: 80, y: 78, z: -60 }
+    ];
+    
+    cloudPositions.forEach((pos, index) => {
+        const cloud = createSingleCloud();
+        cloud.position.set(pos.x, pos.y, pos.z);
+        cloud.scale.setScalar(1.5 + Math.random() * 1);
+        cloudGroup.add(cloud);
+    });
+    
+    scene.add(cloudGroup);
+    return cloudGroup;
+}
+
+/**
+ * 创建单朵云（由多个球体组成）
+ */
+function createSingleCloud() {
+    const cloud = new THREE.Group();
+    
+    // 云的材质
+    const cloudMat = new THREE.MeshLambertMaterial({
+        color: 0xeeeeee,
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false
+    });
+    
+    // 中心大球
+    const centerGeo = new THREE.SphereGeometry(8, 8, 8);
+    const center = new THREE.Mesh(centerGeo, cloudMat);
+    cloud.add(center);
+    
+    // 周围小球
+    const puffPositions = [
+        { x: 8, y: 2, z: 0, s: 5 },
+        { x: -8, y: 1, z: 2, s: 6 },
+        { x: 4, y: 4, z: 5, s: 5 },
+        { x: -5, y: 3, z: -4, s: 4 },
+        { x: 2, y: -1, z: -6, s: 5 },
+        { x: -3, y: -2, z: 5, s: 4 },
+        { x: 10, y: 0, z: 3, s: 4 },
+        { x: -10, y: 2, z: -2, s: 3 }
+    ];
+    
+    puffPositions.forEach(puff => {
+        const geo = new THREE.SphereGeometry(puff.s, 7, 7);
+        const mesh = new THREE.Mesh(geo, cloudMat);
+        mesh.position.set(puff.x, puff.y, puff.z);
+        cloud.add(mesh);
+    });
+    
+    return cloud;
 }
 
 /**
@@ -181,7 +262,10 @@ export function setWeather(weather) {
 
     console.log('[Weather] Weather set to:', weather);
 
-    // Weather only controls particles, sky color is handled by daynight-system
+    // 更新云朵可见性
+    if (clouds) {
+        clouds.visible = (weather === WeatherType.CLOUDY);
+    }
 
     // 更新粒子
     if (weatherParticles) {

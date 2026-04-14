@@ -157,52 +157,31 @@ function createClouds(scene) {
     cloudGroup.name = 'clouds';
     cloudGroup.visible = false;
     
-    // 雨雪天时云层需要覆盖整个城市，分布在100x100的范围内
+    // 多云时少量云朵，雨雪天更多更密
+    // 晴天无云
     const cloudPositions = [
-        // 第一层：覆盖城市中心区域
-        { x: 0, y: 120, z: 0 },
-        { x: 40, y: 125, z: 0 },
-        { x: -40, y: 120, z: 0 },
-        { x: 0, y: 125, z: 40 },
-        { x: 0, y: 120, z: -40 },
-        { x: 40, y: 130, z: 40 },
-        { x: -40, y: 130, z: 40 },
-        { x: 40, y: 130, z: -40 },
-        { x: -40, y: 130, z: -40 },
-        // 第二层：覆盖城市边缘
-        { x: 80, y: 120, z: 0 },
-        { x: -80, y: 120, z: 0 },
-        { x: 0, y: 125, z: 80 },
-        { x: 0, y: 120, z: -80 },
-        { x: 80, y: 130, z: 60 },
-        { x: -80, y: 130, z: 60 },
-        { x: 80, y: 130, z: -60 },
-        { x: -80, y: 130, z: -60 },
-        // 第三层：填补间隙，更大更密
-        { x: 40, y: 115, z: 20 },
-        { x: -40, y: 115, z: 20 },
-        { x: 40, y: 115, z: -20 },
-        { x: -40, y: 115, z: -20 },
-        { x: 60, y: 140, z: 30 },
-        { x: -60, y: 140, z: 30 },
-        { x: 60, y: 140, z: -30 },
-        { x: -60, y: 140, z: -30 },
-        // 第四层：全覆盖
-        { x: 30, y: 135, z: 60 },
-        { x: -30, y: 135, z: 60 },
-        { x: 30, y: 135, z: -60 },
-        { x: -30, y: 135, z: -60 },
-        { x: 100, y: 125, z: 40 },
-        { x: -100, y: 125, z: 40 },
-        { x: 100, y: 125, z: -40 },
-        { x: -100, y: 125, z: -40 },
+        // 中心区域
+        { x: 0, y: 120, z: 0, s: 1.5 },
+        { x: 50, y: 125, z: 30, s: 2 },
+        { x: -50, y: 120, z: -30, s: 1.8 },
+        { x: 30, y: 130, z: -50, s: 2.2 },
+        { x: -30, y: 125, z: 50, s: 1.6 },
+        // 边缘区域
+        { x: 80, y: 115, z: 60, s: 2.5 },
+        { x: -80, y: 120, z: 40, s: 2 },
+        { x: 60, y: 130, z: -70, s: 1.8 },
+        { x: -60, y: 115, z: -60, s: 2.2 },
+        // 远距离
+        { x: 100, y: 125, z: 0, s: 2 },
+        { x: -100, y: 120, z: 20, s: 2.5 },
+        { x: 0, y: 135, z: 90, s: 1.8 },
+        { x: 20, y: 115, z: -90, s: 2 },
     ];
     
-    cloudPositions.forEach((pos, index) => {
+    cloudPositions.forEach((pos) => {
         const cloud = createSingleCloud();
         cloud.position.set(pos.x, pos.y, pos.z);
-        // 雨雪天的云更大
-        cloud.scale.setScalar(2 + Math.random() * 1.5);
+        cloud.scale.setScalar(pos.s);
         cloudGroup.add(cloud);
     });
     
@@ -211,42 +190,54 @@ function createClouds(scene) {
 }
 
 /**
- * 创建单朵云（由多个球体组成）
+ * 创建单朵云（使用扁平化椭圆球体，更自然）
  */
 function createSingleCloud() {
     const cloud = new THREE.Group();
     
-    // 云的材质
+    // 云的整体形状更扁平宽大
     const cloudMat = new THREE.MeshLambertMaterial({
-        color: 0xeeeeee,
+        color: 0xffffff,
         transparent: true,
-        opacity: 0.9,
-        depthWrite: false
+        opacity: 0.85,
+        depthWrite: false,
+        side: THREE.DoubleSide
     });
     
-    // 中心大球
-    const centerGeo = new THREE.SphereGeometry(8, 8, 8);
-    const center = new THREE.Mesh(centerGeo, cloudMat);
-    cloud.add(center);
+    // 使用椭球体创建更自然的云形
+    // 底层 - 扁平椭圆
+    const baseGeo = new THREE.SphereGeometry(10, 12, 8);
+    baseGeo.scale(2, 0.5, 1.5);
+    const base = new THREE.Mesh(baseGeo, cloudMat);
+    cloud.add(base);
     
-    // 周围小球
-    const puffPositions = [
-        { x: 8, y: 2, z: 0, s: 5 },
-        { x: -8, y: 1, z: 2, s: 6 },
-        { x: 4, y: 4, z: 5, s: 5 },
-        { x: -5, y: 3, z: -4, s: 4 },
-        { x: 2, y: -1, z: -6, s: 5 },
-        { x: -3, y: -2, z: 5, s: 4 },
-        { x: 10, y: 0, z: 3, s: 4 },
-        { x: -10, y: 2, z: -2, s: 3 }
-    ];
+    // 中层 - 左侧
+    const leftGeo = new THREE.SphereGeometry(7, 10, 7);
+    leftGeo.scale(1.5, 0.6, 1.2);
+    const left = new THREE.Mesh(leftGeo, cloudMat);
+    left.position.set(-8, 1, 2);
+    cloud.add(left);
     
-    puffPositions.forEach(puff => {
-        const geo = new THREE.SphereGeometry(puff.s, 7, 7);
-        const mesh = new THREE.Mesh(geo, cloudMat);
-        mesh.position.set(puff.x, puff.y, puff.z);
-        cloud.add(mesh);
-    });
+    // 中层 - 右侧
+    const rightGeo = new THREE.SphereGeometry(6, 10, 7);
+    rightGeo.scale(1.3, 0.5, 1.1);
+    const right = new THREE.Mesh(rightGeo, cloudMat);
+    right.position.set(7, 0.5, -2);
+    cloud.add(right);
+    
+    // 顶层 - 中心隆起
+    const topGeo = new THREE.SphereGeometry(5, 10, 8);
+    topGeo.scale(1.2, 0.7, 1);
+    const top = new THREE.Mesh(topGeo, cloudMat);
+    top.position.set(-2, 2.5, 0);
+    cloud.add(top);
+    
+    // 前部凸起
+    const frontGeo = new THREE.SphereGeometry(4, 8, 6);
+    frontGeo.scale(1, 0.4, 0.8);
+    const front = new THREE.Mesh(frontGeo, cloudMat);
+    front.position.set(4, 1.5, 5);
+    cloud.add(front);
     
     return cloud;
 }
@@ -290,9 +281,18 @@ export function setWeather(weather) {
 
     console.log('[Weather] Weather set to:', weather);
 
-    // 更新云朵可见性（多云、雨天、雪天都显示云）
+    // 更新云朵可见性
+    // 晴天：无云
+    // 多云：少量云
+    // 雨天/雪天：云较密
     if (clouds) {
         clouds.visible = (weather !== WeatherType.SUNNY);
+        // 多云时云朵较淡，雨雪时更明显
+        clouds.traverse((obj) => {
+            if (obj.material) {
+                obj.material.opacity = (weather === WeatherType.CLOUDY) ? 0.6 : 0.85;
+            }
+        });
     }
 
     // 更新粒子

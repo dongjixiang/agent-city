@@ -21,6 +21,7 @@ import { DayNightSystem } from './systems/daynight-system.js';
 import { ReputationSystem } from './systems/reputation-system.js';
 import { TaskSystem } from './systems/task-system.js';
 import { RelationshipSystem } from './systems/relationship-system.js';
+import { WaterSystem } from './systems/water-system.js';
 
 // Buildings - 建筑功能系统
 import { TaskCenter } from './systems/buildings/task-center.js';
@@ -284,6 +285,10 @@ class AgentCityApp {
         this.systems.dayNight.init(this.scene);
         this.systems.dayNight.start();
 
+        // 初始化水面动画系统
+        this.systems.water = new WaterSystem();
+        this.systems.water.init(this.scene);
+
         // 初始化社交系统
         this.systems.reputation = new ReputationSystem();
         this.systems.task = new TaskSystem();
@@ -474,6 +479,7 @@ class AgentCityApp {
             // 更新系统
             this.systems.weather?.update(deltaTime);
             this.systems.dayNight?.update(deltaTime);
+            this.systems.water?.update(deltaTime);
 
             // 更新智能体
             this.systems.agent.update(deltaTime);

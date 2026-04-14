@@ -18,6 +18,10 @@ export class Cow {
         this.boundZ1 = z - 10;
         this.boundZ2 = z + 10;
         
+        // 回家点（夜间返回的位置）
+        this.homeX = x;
+        this.homeZ = z;
+        
         this._buildMesh();
         this.group.position.set(x, 0, z);
     }
@@ -135,6 +139,20 @@ export class Cow {
     }
     
     update(deltaTime) {
+        // 检查是否夜间（21:00-5:00）
+        const hour = window.virtualHour || 12;
+        const isNight = hour >= 21 || hour < 5;
+        
+        if (isNight) {
+            // 夜间：缓慢返回家
+            this.returnHome(deltaTime);
+        } else {
+            // 白天：正常游荡
+            this.wander(deltaTime);
+        }
+    }
+    
+    wander(deltaTime) {
         this.turnTimer += deltaTime;
         
         if (this.turnTimer > this.turnInterval) {
@@ -156,5 +174,25 @@ export class Cow {
         
         this.group.rotation.y = this.direction;
         this.group.position.y = Math.sin(Date.now() * 0.003) * 0.05;
+    }
+    
+    returnHome(deltaTime) {
+        const pos = this.group.position;
+        const dx = this.homeX - pos.x;
+        const dz = this.homeZ - pos.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        
+        if (dist > 0.5) {
+            // 缓慢移动回家
+            const speed = 0.3;
+            pos.x += (dx / dist) * speed * deltaTime;
+            pos.z += (dz / dist) * speed * deltaTime;
+            
+            // 面向回家方向
+            this.group.rotation.y = Math.atan2(dx, dz);
+        }
+        
+        // 轻微的呼吸动画
+        this.group.position.y = Math.sin(Date.now() * 0.002) * 0.02;
     }
 }

@@ -51,6 +51,9 @@ class DayNightSystem {
         
         // 建筑窗户灯光数组
         this.buildingLights = [];
+        
+        // 路灯数组
+        this.streetLamps = [];
 
         this.lighting = null;
         this.sky = null;
@@ -81,6 +84,7 @@ class DayNightSystem {
         
         this.createSky();
         this.createBuildingLights(scene);
+        this.getStreetLamps();
         this.updateForHour(this.currentHour);
         return this;
     }
@@ -133,6 +137,20 @@ class DayNightSystem {
         });
         
         console.log('[DayNight] Building lights created:', this.buildingLights.length);
+    }
+    
+    /**
+     * 从worldBuilder获取路灯
+     */
+    getStreetLamps() {
+        if (this.streetLamps.length === 0) {
+            // 动态导入避免循环依赖
+            import('./world-builder.js').then(module => {
+                const lamps = module.worldBuilder.getLamps();
+                this.streetLamps = lamps;
+                console.log('[DayNight] Street lamps loaded:', this.streetLamps.length);
+            });
+        }
     }
     
     /**
@@ -310,8 +328,6 @@ class DayNightSystem {
      * 更新建筑灯光
      */
     updateBuildingLights() {
-        if (this.buildingLights.length === 0) return;
-        
         // 计算建筑灯光强度：夜间(21-5点)全亮，黄昏/黎明渐变，白天熄灭
         let lightIntensity;
         if (this.currentHour >= 21 || this.currentHour < 5) {
@@ -328,10 +344,25 @@ class DayNightSystem {
             lightIntensity = 0;
         }
         
+        // 更新建筑窗户灯光
         this.buildingLights.forEach(item => {
             item.light.intensity = item.baseIntensity * lightIntensity * 0.8;
             item.material.opacity = lightIntensity * 0.9;
         });
+        
+        // 更新路灯
+        if (this.streetLamps.length > 0) {
+            this.streetLamps.forEach(lamp => {
+                const lampMat = lamp.userData.lampMat;
+                const light = lamp.userData.light;
+                if (lampMat) {
+                    lampMat.emissiveIntensity = lightIntensity * 0.8;
+                }
+                if (light) {
+                    light.intensity = lightIntensity * 1.5;
+                }
+            });
+        }
     }
 
     /**

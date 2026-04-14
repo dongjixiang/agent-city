@@ -393,6 +393,44 @@ export function updateWeatherParticles(deltaTime) {
             snowflakes.visible = false;
         }
     }
+    
+    // 更新云朵飘动
+    updateCloudDrift(dt);
+}
+
+/**
+ * 更新云朵飘动动画
+ */
+function updateCloudDrift(dt) {
+    if (!clouds) return;
+    
+    const time = Date.now() * 0.0001; // 缓慢的飘动速度
+    
+    clouds.children.forEach((cloud, index) => {
+        // 每个云有不同的飘动速度和方向
+        const speed = 0.5 + (index % 3) * 0.3;
+        const dir = index % 4;
+        
+        // 轻微的水平飘动
+        if (dir === 0) {
+            cloud.position.x += Math.sin(time + index) * speed * dt;
+        } else if (dir === 1) {
+            cloud.position.x -= Math.sin(time + index) * speed * dt;
+        } else if (dir === 2) {
+            cloud.position.z += Math.cos(time + index) * speed * dt;
+        } else {
+            cloud.position.z -= Math.cos(time + index) * speed * dt;
+        }
+        
+        // 保持云在合理范围内（如果飘太远就重置）
+        if (cloud.position.x > 150) cloud.position.x = -150;
+        if (cloud.position.x < -150) cloud.position.x = 150;
+        if (cloud.position.z > 150) cloud.position.z = -150;
+        if (cloud.position.z < -150) cloud.position.z = 150;
+        
+        // 轻微的上下浮动
+        cloud.position.y += Math.sin(time * 2 + index * 0.5) * 0.02 * dt;
+    });
 }
 
 /**

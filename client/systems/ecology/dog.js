@@ -17,6 +17,10 @@ export class Dog {
         this.boundZ1 = z - 8;
         this.boundZ2 = z + 8;
         
+        // 回家点（夜间返回的位置）
+        this.homeX = x;
+        this.homeZ = z;
+        
         this._buildMesh();
         this.group.position.set(x, 0, z);
     }
@@ -109,6 +113,20 @@ export class Dog {
     }
     
     update(deltaTime) {
+        // 检查是否夜间（21:00-5:00）
+        const hour = window.virtualHour || 12;
+        const isNight = hour >= 21 || hour < 5;
+        
+        if (isNight) {
+            // 夜间：返回家中休息
+            this.goHome(deltaTime);
+        } else {
+            // 白天：正常活动
+            this.wander(deltaTime);
+        }
+    }
+    
+    wander(deltaTime) {
         this.turnTimer += deltaTime;
         
         if (this.turnTimer > this.turnInterval) {
@@ -130,5 +148,23 @@ export class Dog {
         
         this.group.rotation.y = this.direction;
         this.group.position.y = Math.sin(Date.now() * 0.005) * 0.03;
+    }
+    
+    goHome(deltaTime) {
+        const pos = this.group.position;
+        const dx = this.homeX - pos.x;
+        const dz = this.homeZ - pos.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        
+        if (dist > 0.3) {
+            // 回家休息
+            const speed = 0.4;
+            pos.x += (dx / dist) * speed * deltaTime;
+            pos.z += (dz / dist) * speed * deltaTime;
+            this.group.rotation.y = Math.atan2(dx, dz);
+        }
+        
+        // 轻微休息动画
+        this.group.position.y = Math.sin(Date.now() * 0.001) * 0.01;
     }
 }

@@ -39,7 +39,7 @@ export function createLamp(x, z, rotationY = 0) {
     const lampMat = new THREE.MeshStandardMaterial({
         color: 0xffffcc,
         emissive: 0xffffaa,
-        emissiveIntensity: 0.6,
+        emissiveIntensity: 0,
     });
     
     // Pole
@@ -52,7 +52,17 @@ export function createLamp(x, z, rotationY = 0) {
     lamp.position.y = 4.3;
     group.add(lamp);
     
+    // Point light for lamp
+    const light = new THREE.PointLight(0xffdd88, 0, 12);
+    light.position.y = 4.3;
+    group.add(light);
+    
     group.position.set(x, 0, z);
     group.rotation.y = rotationY;
+    
+    // Store references for on/off control
+    group.userData.lampMat = lampMat;
+    group.userData.light = light;
+    
     return group;
 }

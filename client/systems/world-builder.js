@@ -505,13 +505,20 @@ export class WorldBuilder {
             { x: 35, z: 55 }, { x: 45, z: 55 },
         ];
         
-        // Add all lamps
-        nsLampPositions.forEach(pos => this.scene.add(createLamp(pos.x, pos.z)));
-        ewLampPositions.forEach(pos => this.scene.add(createLamp(pos.x, pos.z)));
-        suburbanLamps.forEach(pos => this.scene.add(createLamp(pos.x, pos.z)));
-        plazaLamps.forEach(pos => this.scene.add(createLamp(pos.x, pos.z)));
+        // Add all lamps and track them
+        this.lamps = [];
+        const addLamp = (x, z) => {
+            const lamp = createLamp(x, z);
+            this.scene.add(lamp);
+            this.lamps.push(lamp);
+        };
         
-        console.log(`[WorldBuilder] Lamps built: ${nsLampPositions.length + ewLampPositions.length + suburbanLamps.length + plazaLamps.length}`);
+        nsLampPositions.forEach(pos => addLamp(pos.x, pos.z));
+        ewLampPositions.forEach(pos => addLamp(pos.x, pos.z));
+        suburbanLamps.forEach(pos => addLamp(pos.x, pos.z));
+        plazaLamps.forEach(pos => addLamp(pos.x, pos.z));
+        
+        console.log(`[WorldBuilder] Lamps built: ${this.lamps.length}`);
     }
 }
 
@@ -528,6 +535,9 @@ export const worldBuilder = {
             _builder.init(_scene);
         }
         _builder.build();
+    },
+    getLamps() {
+        return _builder ? _builder.lamps : [];
     }
 };
 

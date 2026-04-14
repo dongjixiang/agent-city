@@ -48,6 +48,9 @@ class DayNightSystem {
             evening: { start: 17, end: 19, sky: 0xffa726, ambient: 0xffcc80, sunIntensity: 0.7, ambientIntensity: 0.6 },
             dusk: { start: 19, end: 21, sky: 0xffa726, ambient: 0x3949ab, sunIntensity: 0.05, ambientIntensity: 0.2 }
         };
+        
+        // 建筑窗户灯光数组
+        this.buildingLights = [];
 
         this.lighting = null;
         this.sky = null;
@@ -77,10 +80,61 @@ class DayNightSystem {
         }
         
         this.createSky();
+        this.createBuildingLights(scene);
         this.updateForHour(this.currentHour);
         return this;
     }
 
+    /**
+     * 创建建筑窗户灯光
+     */
+    createBuildingLights(scene) {
+        // 在主要建筑位置创建窗户灯光
+        const lightPositions = [
+            // 城市中心建筑群
+            { x: 0, y: 8, z: 50, intensity: 1.0 },   // 图书馆
+            { x: 27, y: 6, z: 74, intensity: 0.8 },  //  workshop
+            { x: 0, y: 10, z: 75, intensity: 1.0 },  // 美术馆
+            { x: 50, y: 8, z: 72, intensity: 0.9 },   // 档案馆
+            { x: 74, y: 10, z: 72, intensity: 1.0 }, // 任务中心
+            // 标志建筑
+            { x: 40, y: 20, z: 35, intensity: 1.2 },  // 市政中心
+            { x: 30, y: 15, z: 35, intensity: 0.8 }, // 市政北翼
+            { x: 50, y: 15, z: 35, intensity: 0.8 }, // 市政南翼
+            // 郊区建筑
+            { x: -30, y: 6, z: -35, intensity: 0.7 }, // 技能学院
+            { x: -50, y: 5, z: -50, intensity: 0.6 }, // 郊区
+        ];
+        
+        lightPositions.forEach(pos => {
+            // 创建点光源模拟窗户灯光
+            const light = new THREE.PointLight(0xffaa44, 0, 15);
+            light.position.set(pos.x, pos.y, pos.z);
+            scene.add(light);
+            
+            // 创建窗户发光平面
+            const windowGeo = new THREE.PlaneGeometry(2, 3);
+            const windowMat = new THREE.MeshBasicMaterial({
+                color: 0xffdd88,
+                transparent: true,
+                opacity: 0,
+                side: THREE.DoubleSide
+            });
+            const windowMesh = new THREE.Mesh(windowGeo, windowMat);
+            windowMesh.position.set(pos.x, pos.y, pos.z);
+            windowMesh.rotation.y = Math.random() * Math.PI * 2;
+            scene.add(windowMesh);
+            
+            this.buildingLights.push({
+                light: light,
+                material: windowMat,
+                baseIntensity: pos.intensity
+            });
+        });
+        
+        console.log('[DayNight] Building lights created:', this.buildingLights.length);
+    }
+    
     /**
      * 创建天空
      */
@@ -247,6 +301,37 @@ class DayNightSystem {
         if (this.directionalLight) {
             this.directionalLight.intensity = colors.sunIntensity;
         }
+        
+        // 更新建筑灯光（夜间亮起，白天熄灭）
+        this.updateBuildingLights();
+    }
+    
+    /**
+     * 更新建筑灯光
+     */
+    updateBuildingLights() {
+        if (this.buildingLights.length === 0) return;
+        
+        // 计算建筑灯光强度：夜间(21-5点)全亮，黄昏/黎明渐变，白天熄灭
+        let lightIntensity;
+        if (this.currentHour >= 21 || this.currentHour < 5) {
+            // 深夜：全亮
+            lightIntensity = 1.0;
+        } else if (this.currentHour >= 19 && this.currentHour < 21) {
+            // 黄昏：渐变
+            lightIntensity = (this.currentHour - 19) / 2;
+        } else if (this.currentHour >= 5 && this.currentHour < 7) {
+            // 黎明：渐灭
+            lightIntensity = 1 - (this.currentHour - 5) / 2;
+        } else {
+            // 白天：熄灭
+            lightIntensity = 0;
+        }
+        
+        this.buildingLights.forEach(item => {
+            item.light.intensity = item.baseIntensity * lightIntensity * 0.8;
+            item.material.opacity = lightIntensity * 0.9;
+        });
     }
 
     /**

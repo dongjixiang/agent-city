@@ -453,44 +453,65 @@ export class WorldBuilder {
     }
     
     buildLamps() {
-        // Urban lamps (SE grid)
-        const urbanLamps = [
-            { x: 40, z: 0 }, { x: 55, z: 0 }, { x: 70, z: 0 },
-            { x: 40, z: 15 }, { x: 55, z: 15 }, { x: 70, z: 15 },
-            { x: 40, z: 30 }, { x: 55, z: 30 }, { x: 70, z: 30 },
-            { x: 40, z: 45 }, { x: 55, z: 45 }, { x: 70, z: 45 },
-            { x: 40, z: 60 }, { x: 55, z: 60 }, { x: 70, z: 60 },
-            { x: 47, z: 10 }, { x: 62, z: 10 },
-            { x: 47, z: 25 }, { x: 62, z: 25 },
-            { x: 47, z: 40 }, { x: 62, z: 40 },
-        ];
-        urbanLamps.forEach(pos => {
-            this.scene.add(createLamp(pos.x, pos.z));
-        });
+        // Main roads: N-S at x=15, x=40, x=65; E-W at z=5, z=35, z=65
+        // Lamps placed along roads at regular intervals (every 15 units)
         
-        // Suburban lamps (NW)
+        // ===== N-S Road lamps (x=15, x=40, x=65) =====
+        const nsRoadXLamps = [15, 40, 65];
+        const nsLampPositions = [];
+        
+        // N-S roads from z=-10 to z=80
+        for (const x of nsRoadXLamps) {
+            for (let z = -10; z <= 80; z += 15) {
+                // Skip z positions where E-W roads cross
+                if (Math.abs(z - 5) < 5 || Math.abs(z - 35) < 5 || Math.abs(z - 65) < 5) continue;
+                nsLampPositions.push({ x: x + 3, z }); // offset to one side of road
+                nsLampPositions.push({ x: x - 3, z }); // other side
+            }
+        }
+        
+        // ===== E-W Road lamps (z=5, z=35, z=65) =====
+        const ewRoadZLamps = [5, 35, 65];
+        const ewLampPositions = [];
+        
+        for (const z of ewRoadZLamps) {
+            for (let x = -10; x <= 85; x += 15) {
+                // Skip x positions where N-S roads cross
+                if (Math.abs(x - 15) < 5 || Math.abs(x - 40) < 5 || Math.abs(x - 65) < 5) continue;
+                ewLampPositions.push({ x, z: z + 3 });
+                ewLampPositions.push({ x, z: z - 3 });
+            }
+        }
+        
+        // ===== Suburban lamps (NW quadrant, along winding roads) =====
         const suburbanLamps = [
-            { x: -42, z: -48 }, { x: -52, z: -38 },
-            { x: -42, z: -28 }, { x: -52, z: -18 },
-            { x: -42, z: -8 }, { x: -52, z: 2 },
-            { x: -42, z: 12 }, { x: -52, z: 22 },
+            // Along x=-50 road
+            { x: -47, z: -55 }, { x: -47, z: -45 }, { x: -47, z: -35 }, { x: -47, z: -25 },
+            { x: -53, z: -55 }, { x: -53, z: -45 }, { x: -53, z: -35 }, { x: -53, z: -25 },
+            // Along x=-55 road
+            { x: -52, z: -40 }, { x: -52, z: -30 }, { x: -52, z: -20 }, { x: -52, z: -10 },
+            { x: -58, z: -40 }, { x: -58, z: -30 }, { x: -58, z: -20 }, { x: -58, z: -10 },
+            // Along z=-40 road
+            { x: -45, z: -37 }, { x: -35, z: -37 },
+            { x: -45, z: -43 }, { x: -35, z: -43 },
         ];
         
-        // Citizen plaza lamps (around Town Hall at 40, 35)
+        // ===== Plaza lamps (around Town Hall at 40, 35) =====
         const plazaLamps = [
-            { x: 30, z: 28 }, { x: 50, z: 28 },
-            { x: 30, z: 42 }, { x: 50, z: 42 },
-            { x: 30, z: 35 }, { x: 50, z: 35 },
+            { x: 28, z: 30 }, { x: 52, z: 30 },
+            { x: 28, z: 40 }, { x: 52, z: 40 },
+            { x: 28, z: 50 }, { x: 52, z: 50 },
+            { x: 35, z: 25 }, { x: 45, z: 25 },
+            { x: 35, z: 55 }, { x: 45, z: 55 },
         ];
-        suburbanLamps.forEach(pos => {
-            this.scene.add(createLamp(pos.x, pos.z));
-        });
         
-        plazaLamps.forEach(pos => {
-            this.scene.add(createLamp(pos.x, pos.z));
-        });
+        // Add all lamps
+        nsLampPositions.forEach(pos => this.scene.add(createLamp(pos.x, pos.z)));
+        ewLampPositions.forEach(pos => this.scene.add(createLamp(pos.x, pos.z)));
+        suburbanLamps.forEach(pos => this.scene.add(createLamp(pos.x, pos.z)));
+        plazaLamps.forEach(pos => this.scene.add(createLamp(pos.x, pos.z)));
         
-        console.log('[WorldBuilder] Lamps built');
+        console.log(`[WorldBuilder] Lamps built: ${nsLampPositions.length + ewLampPositions.length + suburbanLamps.length + plazaLamps.length}`);
     }
 }
 

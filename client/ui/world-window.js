@@ -27,6 +27,8 @@ class WorldWindow {
   
 
   init() {
+    // 先设置全局引用，让 HTML 中的 onclick 等可以正常工作
+    window.worldWindow = this;
 
     this.container = document.createElement('div');
 
@@ -398,7 +400,7 @@ class WorldWindow {
 
   connect() {
     // 连接到生产服务器
-    var wsUrl = 'ws://47.77.238.56:9876';
+    var wsUrl = 'ws://localhost:9876';
     
 
     try {
@@ -407,44 +409,26 @@ class WorldWindow {
 
       
 
-      this.ws.onopen = function() {
+      this.ws.onopen = () => {
 
         document.getElementById('ww-dot').classList.remove('offline');
-
-        window.worldWindow.addEvent('已连接智体城', '系统');
-
+        this.addEvent('已连接智体城', '系统');
         // 世界之窗只是一个查看工具，不注册为智能体
-
         // 只请求获取智能体列表
-
-        window.worldWindow.ws.send(JSON.stringify({ type: 'LIST' }));
-
+        this.ws.send(JSON.stringify({ type: 'LIST' }));
       };
 
-      
-
-      this.ws.onmessage = function(event) {
-
+      this.ws.onmessage = (event) => {
         var msg = JSON.parse(event.data);
-
-        window.worldWindow.handleMessage(msg);
-
+        this.handleMessage(msg);
       };
 
-      
-
-      this.ws.onclose = function() {
-
+      this.ws.onclose = () => {
         document.getElementById('ww-dot').classList.add('offline');
-
-        window.worldWindow.addEvent('与智体城断开连接', '系统');
-
-        setTimeout(function() {
-
-          window.worldWindow.connect();
-
+        this.addEvent('与智体城断开连接', '系统');
+        setTimeout(() => {
+          this.connect();
         }, 3000);
-
       };
 
       

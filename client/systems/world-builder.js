@@ -14,6 +14,7 @@ import { createTree, createPineTree, createPalmTree, createFruitTree } from '../
 import { createBench, createLamp } from '../objects/decorations/bench.js';
 import { createFarmlandArea } from '../objects/decorations/farm.js';
 import { createFlowerField } from '../objects/decorations/flowers.js';
+import { LotusLamp } from '../objects/decorations/lotus-lamp.js';
 import { createBuilding, createDomeBuilding, createTower, createGlassBuilding, createSuburbanHouse, createUrbanBuilding, createLibraryBuilding, createWorkshopBuilding, createMessageStationBuilding, createArtGalleryBuilding, createArchiveBuilding, createTaskCenterBuilding, createDataCenterBuilding, createReputationTower, createSkillAcademyBuilding, createDiverseUrbanBuilding, createCivicCenterNorth, createCivicCenterWing, createPlazaFountain, createFlagpole, createPlazaTiles } from '../objects/buildings/minecraft-buildings.js';
 import { createLabel } from '../objects/buildings/label.js';
 
@@ -36,6 +37,7 @@ export const LANDMARKS = {
 export class WorldBuilder {
     constructor() {
         this.scene = null;
+        this.lotusLamp = null;
     }
     
     init(scene) {
@@ -51,6 +53,7 @@ export class WorldBuilder {
         this.buildBuildings();
         this.buildParks();
         this.buildLamps();
+        this.buildLotusLamp();
         console.log('[WorldBuilder] World built successfully!');
     }
     
@@ -520,6 +523,16 @@ export class WorldBuilder {
         
         console.log(`[WorldBuilder] Lamps built: ${this.lamps.length}`);
     }
+    
+    /**
+     * 创建莲花灯 - 放在艺术展厅水池中央
+     */
+    buildLotusLamp() {
+        // 艺术展厅位置 (0, 75)，水池中央
+        this.lotusLamp = new LotusLamp(0, 75);
+        this.scene.add(this.lotusLamp.group);
+        console.log('[WorldBuilder] Lotus lamp built');
+    }
 }
 
 let _builder = null;
@@ -538,6 +551,9 @@ export const worldBuilder = {
     },
     getLamps() {
         return _builder ? _builder.lamps : [];
+    },
+    getLotusLamp() {
+        return _builder ? _builder.lotusLamp : null;
     }
 };
 

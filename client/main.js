@@ -65,6 +65,7 @@ import { WorldWindow } from './ui/world-window.js';
 import { Dashboard } from './ui/dashboard.js';
 import { Notifications } from './ui/notifications.js';
 import { DayNightIndicator } from './ui/day-night-indicator.js';
+import { InfoPanel } from './ui/info-panel.js';
 
 class AgentCityApp {
     constructor() {
@@ -113,7 +114,8 @@ class AgentCityApp {
             worldWindow: null,
             dashboard: null,
             notifications: null,
-            dayNightIndicator: null
+            dayNightIndicator: null,
+            infoPanel: null
         };
     }
 
@@ -147,7 +149,7 @@ class AgentCityApp {
             //this.initUI();
 
             // 6. 连接 WebSocket
-            //this.connectWebSocket();
+            this.connectWebSocket();
 
             // 7. 绑定事件
             this.bindEvents();
@@ -401,6 +403,10 @@ class AgentCityApp {
         // Day/Night and Weather indicator
         this.ui.dayNightIndicator = new DayNightIndicator();
 
+        // Info Panel - 右上角智能体在线列表
+        this.ui.infoPanel = new InfoPanel();
+        this.ui.infoPanel.init();
+
         console.log('[App] UI initialized');
     }
 
@@ -500,8 +506,11 @@ class AgentCityApp {
                 building.update(deltaTime);
             }
 
-            // 渲染
+            // 渲染 - 使用昼夜系统的天空颜色
             if (this.renderer) {
+                const colors = this.systems.dayNight?.calculateColorsForHour(this.systems.dayNight.currentHour);
+                const skyColor = colors?.skyColor || 0x87ceeb;
+                this.renderer.setClearColor(skyColor);
                 this.renderer.render(this.scene, this.camera);
             }
         } catch (err) {

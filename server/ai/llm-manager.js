@@ -25,8 +25,10 @@ class LLMManager {
         if (this.initialized) return;
 
         // 加载配置
-        const llmConfig = config.get('llm', {});
-        const localeModels = llmConfig.localeModels || {};
+        const llmData = config.get('llm', {});
+        // llm.yaml 结构: { llm: {...}, localeModels: {...}, prompts: {...}, skills: {...} }
+        const llmConfig = llmData.llm || llmData;
+        const localeModels = llmConfig.localeModels || llmData.localeModels || {};
 
         // 创建 MiniMax Provider
         if (llmConfig.minimax) {

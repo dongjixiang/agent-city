@@ -20,8 +20,9 @@ class ConfigLoader {
     /**
      * 加载配置目录
      */
-    async load(dir = '../config') {
-        const configDir = path.resolve(dir);
+    async load(dir = '../../config') {
+        // 使用 __dirname 确保路径相对于 config-loader.js 所在目录
+        const configDir = path.resolve(__dirname, dir);
         
         if (!fs.existsSync(configDir)) {
             console.warn(`[Config] 配置目录不存在: ${configDir}`);

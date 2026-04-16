@@ -55,6 +55,9 @@ class DayNightSystem {
         // 路灯数组
         this.streetLamps = [];
 
+        // 莲花灯
+        this.lotusLamp = null;
+
         this.lighting = null;
         this.sky = null;
         this.isRunning = false;
@@ -83,60 +86,23 @@ class DayNightSystem {
         }
         
         this.createSky();
-        this.createBuildingLights(scene);
         this.getStreetLamps();
+        this.getLotusLamp();
         this.updateForHour(this.currentHour);
         return this;
     }
 
+    
     /**
-     * 创建建筑窗户灯光
+     * 从worldBuilder获取莲花灯
      */
-    createBuildingLights(scene) {
-        // 在主要建筑位置创建窗户灯光
-        const lightPositions = [
-            // 城市中心建筑群
-            { x: 0, y: 8, z: 50, intensity: 1.0 },   // 图书馆
-            { x: 27, y: 6, z: 74, intensity: 0.8 },  //  workshop
-            { x: 0, y: 10, z: 75, intensity: 1.0 },  // 美术馆
-            { x: 50, y: 8, z: 72, intensity: 0.9 },   // 档案馆
-            { x: 74, y: 10, z: 72, intensity: 1.0 }, // 任务中心
-            // 标志建筑
-            { x: 40, y: 20, z: 35, intensity: 1.2 },  // 市政中心
-            { x: 30, y: 15, z: 35, intensity: 0.8 }, // 市政北翼
-            { x: 50, y: 15, z: 35, intensity: 0.8 }, // 市政南翼
-            // 郊区建筑
-            { x: -30, y: 6, z: -35, intensity: 0.7 }, // 技能学院
-            { x: -50, y: 5, z: -50, intensity: 0.6 }, // 郊区
-        ];
-        
-        lightPositions.forEach(pos => {
-            // 创建点光源模拟窗户灯光
-            const light = new THREE.PointLight(0xffaa44, 0, 15);
-            light.position.set(pos.x, pos.y, pos.z);
-            scene.add(light);
-            
-            // 创建窗户发光平面
-            const windowGeo = new THREE.PlaneGeometry(2, 3);
-            const windowMat = new THREE.MeshBasicMaterial({
-                color: 0xffdd88,
-                transparent: true,
-                opacity: 0,
-                side: THREE.DoubleSide
+    getLotusLamp() {
+        if (!this.lotusLamp) {
+            import('./world-builder.js').then(module => {
+                this.lotusLamp = module.worldBuilder.getLotusLamp();
+                console.log('[DayNight] Lotus lamp loaded:', this.lotusLamp ? 'yes' : 'no');
             });
-            const windowMesh = new THREE.Mesh(windowGeo, windowMat);
-            windowMesh.position.set(pos.x, pos.y, pos.z);
-            windowMesh.rotation.y = Math.random() * Math.PI * 2;
-            scene.add(windowMesh);
-            
-            this.buildingLights.push({
-                light: light,
-                material: windowMat,
-                baseIntensity: pos.intensity
-            });
-        });
-        
-        console.log('[DayNight] Building lights created:', this.buildingLights.length);
+        }
     }
     
     /**
@@ -165,8 +131,11 @@ class DayNightSystem {
             depthWrite: false  // 确保天空始终在后面
         });
         this.sky = new THREE.Mesh(skyGeo, skyMat);
+        this.sky.name = 'dayNightSky';
+        // 暂时禁用 sky mesh - 使用 setClearColor 更可靠
+        this.sky.visible = false;
         this.scene.add(this.sky);
-        console.log('[DayNight] Sky created, position:', this.sky.position);
+        console.log('[DayNight] Sky mesh disabled, using setClearColor instead');
         
         // 创建太阳
         const sunGeo = new THREE.SphereGeometry(8, 32, 32);
@@ -307,7 +276,8 @@ class DayNightSystem {
         }
 
         // 更新场景背景
-        if (this.scene && this.scene.background) {
+        if (this.scene) {
+            this.scene.background = this.scene.background || new THREE.Color();
             this.scene.background.setHex(colors.skyColor);
         }
 
@@ -362,6 +332,22 @@ class DayNightSystem {
                     light.intensity = lightIntensity * 1.5;
                 }
             });
+        }
+        
+        // 更新莲花灯 - 夜间亮起，黄昏/黎明渐变
+        if (this.lotusLamp) {
+            // 莲花灯在黄昏后亮起，黎明前熄灭
+            let lotusIntensity;
+            if (this.currentHour >= 19 || this.currentHour < 6) {
+                lotusIntensity = 1.0; // 夜间全亮
+            } else if (this.currentHour >= 18 && this.currentHour < 19) {
+                lotusIntensity = (this.currentHour - 18); // 黄昏渐亮
+            } else if (this.currentHour >= 6 && this.currentHour < 7) {
+                lotusIntensity = 1 - (this.currentHour - 6); // 黎明渐灭
+            } else {
+                lotusIntensity = 0; // 白天熄灭
+            }
+            this.lotusLamp.setIntensity(lotusIntensity);
         }
     }
 

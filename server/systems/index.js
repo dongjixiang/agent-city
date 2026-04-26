@@ -9,6 +9,7 @@ const WeatherSystem = require('./weather-system');
 const DayNightSystem = require('./daynight-system');
 const EventDispatcher = require('./event-dispatcher');
 const ContextBuilder = require('./context-builder');
+const PromptBuilder = require('./prompt-builder');
 
 module.exports = {
     EcologySystem,
@@ -17,5 +18,6 @@ module.exports = {
     WeatherSystem,
     DayNightSystem,
     EventDispatcher,
-    ContextBuilder
+    ContextBuilder,
+    PromptBuilder
 };

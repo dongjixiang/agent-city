@@ -6,9 +6,11 @@
  * 2. 事件优先级处理（P0 打断 P1/P2）
  * 3. 定时发送环境快照
  * 4. 调用 ContextBuilder 构建上下文
+ * 5. 调用 PromptBuilder 构建提示词
  */
 
 const ContextBuilder = require('./context-builder');
+const PromptBuilder = require('./prompt-builder');
 
 class EventDispatcher {
     constructor() {
@@ -17,6 +19,9 @@ class EventDispatcher {
         
         // 上下文构建器
         this.contextBuilder = null;
+        
+        // 提示词构建器
+        this.promptBuilder = null;
         
         // 发送函数（由 WSHandler 设置）
         this.sender = null;
@@ -42,6 +47,13 @@ class EventDispatcher {
     }
 
     /**
+     * 设置提示词构建器
+     */
+    setPromptBuilder(builder) {
+        this.promptBuilder = builder;
+    }
+
+    /**
      * 设置发送函数
      */
     setSender(sender) {
@@ -63,11 +75,14 @@ class EventDispatcher {
     }
 
     /**
-     * 初始化上下文构建器
+     * 初始化构建器
      */
-    initContextBuilder() {
+    initBuilders() {
         if (!this.contextBuilder && this.cityState && this.agentRegistry) {
             this.contextBuilder = new ContextBuilder(this.cityState, this.agentRegistry);
+        }
+        if (!this.promptBuilder) {
+            this.promptBuilder = new PromptBuilder();
         }
     }
 
@@ -123,16 +138,19 @@ class EventDispatcher {
     dispatch(agentId, event) {
         console.log(`[EventDispatcher] 分发事件 ${event.type} 给 ${agentId}`);
         
-        if (!this.contextBuilder) {
-            console.log(`[EventDispatcher] ContextBuilder 未初始化`);
-            return;
-        }
+        this.initBuilders();
 
         const state = this.thinkingState.get(agentId);
         state.thinking = true;
 
         // 构建上下文
-        const context = this.contextBuilder.build(event);
+        const context = this.contextBuilder ? this.contextBuilder.build(event) : null;
+        
+        // 构建提示词
+        let prompt = '';
+        if (this.promptBuilder && context) {
+            prompt = this.promptBuilder.build(event.type, context, event);
+        }
         
         // 发送到智能体
         const message = {
@@ -140,7 +158,10 @@ class EventDispatcher {
             eventType: event.type,
             agentId: agentId,
             timestamp: Date.now(),
-            data: context
+            // 完整的提示词，智能体直接发给 AI
+            prompt: prompt,
+            // 简化的上下文（用于调试）
+            context: context
         };
 
         if (this.sender) {
@@ -176,7 +197,7 @@ class EventDispatcher {
             return;
         }
 
-        this.initContextBuilder();
+        this.initBuilders();
         
         console.log(`[EventDispatcher] 启动定时快照，间隔 ${this.SNAPSHOT_INTERVAL / 1000 / 60} 分钟`);
         

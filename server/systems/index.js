@@ -7,11 +7,15 @@ const Animal = require('./ecology/animal');
 const BirdFlock = require('./ecology/bird-flock');
 const WeatherSystem = require('./weather-system');
 const DayNightSystem = require('./daynight-system');
+const EventDispatcher = require('./event-dispatcher');
+const ContextBuilder = require('./context-builder');
 
 module.exports = {
     EcologySystem,
     Animal,
     BirdFlock,
     WeatherSystem,
-    DayNightSystem
+    DayNightSystem,
+    EventDispatcher,
+    ContextBuilder
 };

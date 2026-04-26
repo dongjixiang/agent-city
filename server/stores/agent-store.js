@@ -192,11 +192,13 @@ class AgentStore extends BaseStore {
             agentId: a.agentId || a.id,
             name: a.name,
             type: a.type,
+            tags: a.tags || [],
             online: a.online,
             position: a.position,
             reputation: a.reputation,
             coins: a.coins,
-            lastSeen: a.lastSeen
+            lastSeen: a.lastSeen,
+            visual: a.visual || null
         }));
     }
 

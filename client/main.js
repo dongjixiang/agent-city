@@ -4,6 +4,24 @@
  * @module main
  */
 
+// roundRect polyfill for older browsers
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+        if (typeof r === 'number') r = { tl: r, tr: r, br: r, bl: r };
+        this.beginPath();
+        this.moveTo(x + r.tl, y);
+        this.lineTo(x + w - r.tr, y);
+        this.quadraticCurveTo(x + w, y, x + w, y + r.tr);
+        this.lineTo(x + w, y + h - r.br);
+        this.quadraticCurveTo(x + w, y + h, x + w - r.br, y + h);
+        this.lineTo(x + r.bl, y + h);
+        this.quadraticCurveTo(x, y + h, x, y + h - r.bl);
+        this.lineTo(x, y + r.tl);
+        this.quadraticCurveTo(x, y, x + r.tl, y);
+        this.closePath();
+    };
+}
+
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -146,7 +164,7 @@ class AgentCityApp {
             this.initWorld();
 
             // 5. 初始化 UI
-            //this.initUI();
+            this.initUI();
 
             // 6. 连接 WebSocket
             this.connectWebSocket();
@@ -176,8 +194,8 @@ class AgentCityApp {
         }
         this._threeInitialized = true;
         
-        // Scene - 背景由daynight-system的天空球控制，不设置固定背景
-        this.scene = new THREE.Scene();
+        // Scene - 初始背景色设为深色，待 dayNight 系统初始化后动态切换
+        this.scene = new THREE.Scene(0x1a1a2e);
 
         // Camera - 调整以适应新地图（南湖北山格局）
         this.camera = new THREE.PerspectiveCamera(
@@ -193,6 +211,8 @@ class AgentCityApp {
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
+        // 初始背景色 - 待 dayNight 系统初始化后动态切换
+        this.renderer.setClearColor(0x1a1a2e);
         container?.appendChild(this.renderer.domElement);
 
         // 验证渲染器创建成功
@@ -391,11 +411,11 @@ class AgentCityApp {
      * 初始化 UI
      */
     initUI() {
-        this.ui.worldWindow = new WorldWindow();
+        // 复用已有的 auto-created 实例，避免重复创建 DOM
+        this.ui.worldWindow = window.worldWindow || new WorldWindow();
         this.ui.worldWindow.init(this.scene, this.camera);
 
-        this.ui.dashboard = new Dashboard();
-        this.ui.dashboard.init();
+        this.ui.dashboard = window.dashboardPanel || new Dashboard();
 
         this.ui.notifications = new Notifications();
         this.ui.notifications.init();
@@ -403,8 +423,8 @@ class AgentCityApp {
         // Day/Night and Weather indicator
         this.ui.dayNightIndicator = new DayNightIndicator();
 
-        // Info Panel - 右上角智能体在线列表
-        this.ui.infoPanel = new InfoPanel();
+        // Info Panel - 复用已有的 auto-created 实例
+        this.ui.infoPanel = window.infoPanel || new InfoPanel();
         this.ui.infoPanel.init();
 
         console.log('[App] UI initialized');
@@ -416,7 +436,7 @@ class AgentCityApp {
     connectWebSocket() {
         // 连接服务器（开发环境可跳过）
         try {
-            connection.connect('ws://localhost:9876', 'player_' + Date.now());
+            connection.connect(null, 'player_' + Date.now());
         } catch (err) {
             console.warn('[App] WebSocket connection skipped:', err.message);
         }
@@ -435,7 +455,392 @@ class AgentCityApp {
             }
         });
 
+        // WebSocket 事件处理
+        eventBus.on(Events.WS_AGENT_MOVED, (msg) => {
+            // msg: { type, agentId, position: { x, z } }
+            const agent = this.systems.agent.getAgent(msg.agentId);
+            if (agent) {
+                // 设置目标位置，动画系统会自动移动（而非瞬移）
+                agent.targetPosition = { x: msg.position.x, z: msg.position.z };
+                agent.state = 'moving';
+                agent.position.x = msg.position.x;
+                agent.position.z = msg.position.z;
+            }
+        });
+
+        eventBus.on(Events.WS_AGENT_STATE_CHANGE, (msg) => {
+            // msg: { type, agentId, state }
+            const agent = this.systems.agent.getAgent(msg.agentId);
+            if (agent) {
+                agent.state = msg.state;
+            }
+        });
+
+        eventBus.on(Events.WS_AGENT_SPEAK, (msg) => {
+            // msg: { type, from, agentId, content, timestamp }
+            // 显示说话气泡
+            const agent = this.systems.agent.getAgent(msg.agentId || msg.from);
+            if (agent && agent.mesh) {
+                this.showSpeechBubble(agent, msg.content);
+            }
+        });
+
+        eventBus.on(Events.WS_AGENT_BROADCAST, (msg) => {
+            // msg: { type, from, content, timestamp }
+            const agent = this.systems.agent.getAgent(msg.from);
+            if (agent && agent.mesh) {
+                this.showSpeechBubble(agent, msg.content);
+            }
+        });
+
+        eventBus.on(Events.WS_AGENT_THOUGHT, (msg) => {
+            // msg: { type, agentId, agentName, content, timestamp }
+            // 显示思考气泡
+            const agent = this.systems.agent.getAgent(msg.agentId);
+            if (agent && agent.mesh) {
+                this.showThoughtBubble(agent, msg.content);
+            }
+        });
+
+        eventBus.on(Events.WS_AGENT_CONNECTED, (msg) => {
+            // msg: { type, agent }
+            console.log('[App] Agent connected:', msg.agent);
+        });
+
+        eventBus.on(Events.WS_AGENT_DISCONNECTED, (msg) => {
+            // msg: { type, agentId }
+            console.log('[App] Agent disconnected:', msg.agentId);
+        });
+
         console.log('[App] Events bound');
+
+        // 暴露 showAgentMessage 给 WorldWindow 调用（显示头顶气泡）
+        window.showAgentMessage = (agentId, content) => {
+            console.log('[App] showAgentMessage called:', { agentId, charCount: content ? content.length : 0, content: content ? content.substring(0, 50) : 'EMPTY' });
+            const agent = this.systems?.agent?.agents?.get(agentId);
+            if (agent) {
+                this.showSpeechBubble(agent, content);
+            } else {
+                console.log('[App] Agent not found for speech bubble:', agentId);
+            }
+        };
+
+        // 暴露 showThoughtMessage 给 WorldWindow 调用（显示思考气泡）
+        window.showThoughtMessage = (agentId, content) => {
+            console.log('[App] showThoughtMessage called:', { agentId, content: content ? '"' + content + '"' : 'EMPTY/UNDEFINED', contentType: typeof content });
+            const agent = this.systems?.agent?.agents?.get(agentId);
+            if (agent) {
+                this.showThoughtBubble(agent, content);
+            } else {
+                console.log('[App] Agent not found for thought bubble:', agentId);
+            }
+        };
+    }
+
+    /**
+     * 显示说话气泡
+     */
+    showSpeechBubble(agent, content) {
+        console.log('[App] showSpeechBubble called for agent:', agent.id, 'content length:', content ? content.length : 0);
+        // 查找或创建气泡
+        if (!agent._speechBubble) {
+            console.log('[App] Creating new speech bubble for agent:', agent.id);
+            agent._speechBubble = this.createSpeechBubble(agent.mesh);
+        }
+        agent._speechBubble.text = content;
+        agent._speechBubble.visible = true;
+        agent._speechBubble.showTime = Date.now();
+    }
+
+    /**
+     * 显示思考气泡
+     */
+    showThoughtBubble(agent, content) {
+        if (!agent._thoughtBubble) {
+            agent._thoughtBubble = this.createThoughtBubble(agent.mesh);
+        }
+        agent._thoughtBubble.text = content;
+        agent._thoughtBubble.visible = true;
+        agent._thoughtBubble.showTime = Date.now();
+
+        // 5秒后隐藏
+        clearTimeout(agent._thoughtBubbleTimeout);
+        agent._thoughtBubbleTimeout = setTimeout(() => {
+            if (agent._thoughtBubble) {
+                agent._thoughtBubble.visible = false;
+            }
+        }, 5000);
+    }
+
+    /**
+     * 创建说话气泡（Canvas texture）- 黑底白字，一行显示，走马灯
+     * 逻辑：文本完整展示后才开始滚动，滚动完成才隐藏
+     */
+    createSpeechBubble(mesh) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 320;
+        canvas.height = 48;
+        const ctx = canvas.getContext('2d');
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+
+        const material = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthTest: false
+        });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(3, 0.6, 1);
+        sprite.position.y = 2.7;  // 头顶位置，在名字上方
+        mesh.add(sprite);
+
+        let scrollX = 0;
+        let text = '';
+        let scrollTimer = null;
+        let scrollStarted = false;
+        let scrollComplete = false;
+        let totalScrollDistance = 0;
+        let hideTimer = null;
+        let creationCount = 0;
+        const SCROLL_SPEED = 30;  // 滚动速度：30像素/秒（慢速，保证可读性）
+
+        return {
+            sprite,
+            set text(t) {
+                creationCount++;
+                console.log(`[SpeechBubble] set.text called #${creationCount}, content length: ${t.length}`);
+                
+                // 预处理：移除换行符（canvas fillText不处理\n），用于宽度计算和显示
+                text = t.replace(/\n/g, ' ');
+                scrollX = 0;
+                scrollStarted = false;
+                scrollComplete = false;
+                if (scrollTimer) clearInterval(scrollTimer);
+                if (hideTimer) clearTimeout(hideTimer);
+                scrollTimer = null;
+                hideTimer = null;
+                
+                const textWidth = ctx.measureText(text).width;
+                // 超过300像素宽度的才需要滚动
+                const isLongText = textWidth > 300;
+                
+                if (isLongText) {
+                    totalScrollDistance = textWidth + 40;
+                }
+                
+                // 根据字数计算显示时间：字数/2 秒
+                // 防止太短（如少于1秒）或最长120秒
+                const charCount = text.length;
+                const baseDisplayTime = Math.max(1000, Math.min(120000, charCount * 500));
+                
+                console.log(`[SpeechBubble] textWidth: ${textWidth}, isLongText: ${isLongText}, charCount: ${charCount}, baseDisplayTime: ${baseDisplayTime}ms`);
+                
+                const draw = () => {
+                    ctx.clearRect(0, 0, 320, 48);
+                    // 黑底
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+                    ctx.roundRect(0, 0, 320, 48, 8);
+                    ctx.fill();
+                    // 白字
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '22px Microsoft YaHei, sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    
+                    if (!isLongText) {
+                        // 短文本：正常显示
+                        ctx.fillText(text, 10, 24);
+                    } else {
+                        // 长文本：先完整显示，滚动时所有文本必须完整通过
+                        if (!scrollStarted) {
+                            ctx.fillText(text, 10, 24);
+                        } else if (!scrollComplete) {
+                            const startX = 10 - scrollX;
+                            ctx.fillText(text, startX, 24);
+                            if (startX + textWidth < 320) {
+                                ctx.fillText(text, startX + textWidth + 40, 24);
+                            }
+                            
+                            scrollX += SCROLL_SPEED / 20;
+                            
+                            if (scrollX >= totalScrollDistance) {
+                                scrollComplete = true;
+                            }
+                        }
+                    }
+                    texture.needsUpdate = true;
+                };
+                
+                // 立即显示
+                draw();
+                
+                if (isLongText) {
+                    // 长文本：立即开始滚动
+                    scrollStarted = true;
+                    console.log('[SpeechBubble] Long text: scroll started immediately');
+                    
+                    // 根据滚动距离计算时间：总距离/速度
+                    const scrollTime = (totalScrollDistance / SCROLL_SPEED) * 1000;
+                    hideTimer = setTimeout(() => {
+                        console.log('[SpeechBubble] Long text: hiding after scroll');
+                        if (scrollTimer) {
+                            clearInterval(scrollTimer);
+                            scrollTimer = null;
+                        }
+                        sprite.visible = false;
+                    }, Math.max(baseDisplayTime, scrollTime));
+                    
+                    scrollTimer = setInterval(draw, 50);
+                } else {
+                    // 短文本：显示到时间后隐藏
+                    scrollTimer = setInterval(draw, 50);
+                    hideTimer = setTimeout(() => {
+                        console.log('[SpeechBubble] Short text: hiding after', baseDisplayTime, 'ms');
+                        if (scrollTimer) {
+                            clearInterval(scrollTimer);
+                            scrollTimer = null;
+                        }
+                        sprite.visible = false;
+                    }, baseDisplayTime);
+                }
+            },
+            get visible() { return sprite.visible; },
+            set visible(v) { 
+                console.log('[SpeechBubble] visible set to:', v);
+                sprite.visible = v; 
+                if (!v && scrollTimer) {
+                    clearInterval(scrollTimer);
+                    scrollTimer = null;
+                }
+                if (!v && hideTimer) {
+                    clearTimeout(hideTimer);
+                    hideTimer = null;
+                }
+            }
+        };
+    }
+
+    /**
+     * 创建思考气泡（Canvas texture）- 黑底白字，一行显示，走马灯
+     * 逻辑：文本完整展示后才开始滚动，滚动完成才隐藏
+     */
+    createThoughtBubble(mesh) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 320;
+        canvas.height = 48;
+        const ctx = canvas.getContext('2d');
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+
+        const material = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthTest: false
+        });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(3, 0.6, 1);
+        sprite.position.y = 3.0;  // 思考气泡在说话气泡上方
+        mesh.add(sprite);
+
+        let scrollX = 0;
+        let text = '';
+        let scrollTimer = null;
+        let scrollStarted = false;
+        let scrollComplete = false;
+        let totalScrollDistance = 0;
+        const SCROLL_SPEED = 30;  // 滚动速度：30像素/秒（慢速）
+
+        return {
+            sprite,
+            set text(t) {
+                // 预处理：移除换行符
+                text = t.replace(/\n/g, ' ');
+                scrollX = 0;
+                scrollStarted = false;
+                scrollComplete = false;
+                if (scrollTimer) clearInterval(scrollTimer);
+                
+                const textWidth = ctx.measureText(text).width;
+                const isLongText = textWidth > 300;
+                
+                if (isLongText) {
+                    totalScrollDistance = textWidth + 40;
+                }
+                
+                // 根据字数计算显示时间：字数/2 秒
+                const charCount = text.length;
+                const baseDisplayTime = Math.max(1000, Math.min(120000, charCount * 500));
+                
+                const draw = () => {
+                    ctx.clearRect(0, 0, 320, 48);
+                    // 黑底
+                    ctx.fillStyle = 'rgba(30, 30, 30, 0.85)';
+                    ctx.roundRect(0, 0, 320, 48, 8);
+                    ctx.fill();
+                    // 白字，斜体
+                    ctx.fillStyle = '#cccccc';
+                    ctx.font = 'italic 20px Microsoft YaHei, sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    
+                    if (!isLongText) {
+                        ctx.fillText(text, 10, 24);
+                    } else {
+                        if (!scrollStarted) {
+                            ctx.fillText(text, 10, 24);
+                        } else if (!scrollComplete) {
+                            const startX = 10 - scrollX;
+                            ctx.fillText(text, startX, 24);
+                            if (startX + textWidth < 320) {
+                                ctx.fillText(text, startX + textWidth + 40, 24);
+                            }
+                            
+                            scrollX += SCROLL_SPEED / 20;
+                            
+                            if (scrollX >= totalScrollDistance) {
+                                scrollComplete = true;
+                            }
+                        }
+                    }
+                    texture.needsUpdate = true;
+                };
+                
+                draw();
+                
+                if (isLongText) {
+                    // 长文本：立即开始滚动
+                    scrollStarted = true;
+                    
+                    const scrollTime = (totalScrollDistance / SCROLL_SPEED) * 1000;
+                    hideTimer = setTimeout(() => {
+                        if (scrollTimer) {
+                            clearInterval(scrollTimer);
+                            scrollTimer = null;
+                        }
+                        sprite.visible = false;
+                    }, Math.max(baseDisplayTime, scrollTime));
+                    
+                    scrollTimer = setInterval(draw, 50);
+                } else {
+                    scrollTimer = setInterval(draw, 50);
+                    setTimeout(() => {
+                        if (scrollTimer) {
+                            clearInterval(scrollTimer);
+                            scrollTimer = null;
+                        }
+                        sprite.visible = false;
+                    }, baseDisplayTime);
+                }
+            },
+            get visible() { return sprite.visible; },
+            set visible(v) { 
+                sprite.visible = v; 
+                if (!v && scrollTimer) {
+                    clearInterval(scrollTimer);
+                    scrollTimer = null;
+                }
+            }
+        };
     }
 
     /**
@@ -449,6 +854,9 @@ class AgentCityApp {
         this.isRunning = true;
         this.clock.start();
         console.log('[App] Started');
+        
+        // 立即渲染第一帧，防止白屏
+        this.renderer.render(this.scene, this.camera);
         
         // 延迟启动动画循环，让初始化完全完成
         setTimeout(() => {

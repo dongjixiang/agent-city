@@ -34,8 +34,22 @@ class AgentSystem {
      */
     addAgent(agentData) {
         const agent = new Agent(agentData.id, agentData);
-        agent.setWorld(this);
         this.agents.set(agent.id, agent);
+
+        // 将 mesh 添加到场景
+        const mesh = agent.getMesh();
+        if (this.scene && mesh) {
+            this.scene.add(mesh);
+        } else if (mesh) {
+            // scene 还没准备好，延迟添加
+            const tryAdd = () => {
+                if (this.scene) {
+                    this.scene.add(mesh);
+                    console.log('[AgentSystem] Delayed add mesh for', agent.name);
+                }
+            };
+            setTimeout(tryAdd, 500);
+        }
 
         // 注册到空间索引
         if (this.spatialIndex) {
@@ -53,6 +67,10 @@ class AgentSystem {
         const agent = this.agents.get(agentId);
         if (agent) {
             agent.goOffline();
+            // 从场景中移除 mesh
+            if (this.scene && agent.mesh && agent.mesh.parent) {
+                this.scene.remove(agent.mesh);
+            }
             this.agents.delete(agentId);
             if (this.spatialIndex) {
                 this.spatialIndex.remove(agentId);

@@ -426,6 +426,13 @@ function handleMessage(ws, msg, setAgentId) {
     case 'REGISTER':
       handleRegister(ws, msg, setAgentId);
       break;
+
+    case 'agent_connect':
+      // 3D world client uses agent_connect, treat it same as REGISTER
+      handleRegister(ws, msg, setAgentId);
+      // Send current agent list to the newly connected client
+      handleListAgents(ws);
+      break;
       
     case 'MESSAGE':
       // 检查是否是AI智能体发送的回复（回复用户）
@@ -970,7 +977,8 @@ function handleListAgents(ws) {
       tags: profile?.tags || [],
       description: profile?.description || '',
       lastSeen: data.lastSeen,
-      stats: profile?.stats
+      stats: profile?.stats,
+      visual: profile?.visual || null
     });
   });
 

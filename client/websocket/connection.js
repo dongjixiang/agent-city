@@ -11,7 +11,7 @@ import { eventBus, Events } from '../core/event-bus.js';
 class Connection {
     constructor() {
         this.ws = null;
-        this.url = 'ws://localhost:9876';
+        this.url = null;
         this.isConnected = false;
         this.reconnectInterval = 3000;
         this.reconnectTimer = null;
@@ -24,7 +24,13 @@ class Connection {
      * 连接到服务器
      */
     connect(url, agentId) {
-        this.url = url || this.url;
+        // 如果没传 URL，自动使用当前页面的 host，WebSocket 端口默认 9876
+        if (!url) {
+            const host = window.location.hostname || 'localhost';
+            const wsPort = 9876;
+            url = `ws://${host}:${wsPort}`;
+        }
+        this.url = url;
         this.agentId = agentId;
 
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -41,11 +47,13 @@ class Connection {
                 console.log('[WS] Connected');
                 this.isConnected = true;
 
-                // 发送认证
+                // 发送注册（使用服务器认识的 REGISTER 类型）
                 this.send({
-                    type: 'agent_connect',
-                    agentId: this.agentId,
-                    timestamp: Date.now()
+                    type: 'REGISTER',
+                    agentId: this.agentId || '3d-visitor-' + Date.now(),
+                    name: '3D访客',
+                    tags: ['visitor', 'hidden'],  // hidden 避免显示在智能体列表
+                    visual: { color: '#888', emoji: '🎮', modelType: 'visitor' }
                 });
 
                 // 发送队列中的消息
@@ -229,7 +237,12 @@ Object.assign(Events, {
     WS_BROADCAST: 'ws:broadcast',
     WS_AGENT_CONNECTED: 'ws:agent_connected',
     WS_AGENT_DISCONNECTED: 'ws:agent_disconnected',
-    WS_POSITION_UPDATE: 'ws:position_update'
+    WS_POSITION_UPDATE: 'ws:position_update',
+    WS_AGENT_MOVED: 'ws:agent_moved',
+    WS_AGENT_STATE_CHANGE: 'ws:agent_state_change',
+    WS_AGENT_SPEAK: 'ws:agent_speak',
+    WS_AGENT_BROADCAST: 'ws:agent_broadcast',
+    WS_AGENT_THOUGHT: 'ws:agent_thought'
 });
 
 // 全局单例

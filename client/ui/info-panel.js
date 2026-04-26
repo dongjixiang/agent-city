@@ -1,101 +1,155 @@
-/**
- * Info Panel - 在线智能体列表 (从旧版 city-world 移植)
- * 位置: 右上角，可收缩，显示所有在线智能体
+﻿/**
+ * Info Panel - 在线智能体列表
+ * 位置: 右上角，右下角悬浮按钮，点击后在右上角展开面板
  */
 class InfoPanel {
   constructor() {
-    this.collapsed = false;
+    this.collapsed = true;  // 默认收起
     this.agents = [];
     this.selectedAgent = null;
     this.container = null;
     this.detailPanel = null;
+    this._initialized = false;
   }
 
   init() {
+    if (this._initialized) return;
+    this._initialized = true;
     this.createPanel();
     this.createDetailPanel();
     this.bindEvents();
-    // 监听 WorldWindow 的消息来更新列表
     this.setupWorldWindowListener();
   }
 
   createPanel() {
+    // --- 右上角悬浮按钮 ---
+    const toggleBtn = document.createElement('div');
+    toggleBtn.id = 'info-toggle-btn';
+    toggleBtn.innerHTML = '🦐';
+    toggleBtn.title = '查看在线智能体';
+    toggleBtn.style.cssText = `
+      position: fixed; top: 60px; right: 20px;
+      width: 48px; height: 48px; border-radius: 50%;
+      background: rgba(26, 26, 46, 0.95);
+      border: 2px solid rgba(78, 205, 196, 0.4);
+      color: #4ecdc4; font-size: 22px;
+      cursor: pointer; z-index: 101;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      transition: all 0.3s ease;
+    `;
+    toggleBtn.onclick = () => this.toggle();
+    document.body.appendChild(toggleBtn);
+
+    // --- 智能体列表面板 ---
     this.container = document.createElement('div');
     this.container.id = 'info-panel';
+    window.infoPanel = this;
+
     this.container.innerHTML = `
       <style>
+        #info-toggle-btn:hover {
+          background: rgba(78, 205, 196, 0.15);
+          border-color: #4ecdc4;
+          transform: scale(1.1);
+          box-shadow: 0 6px 25px rgba(78, 205, 196, 0.25);
+        }
+        #info-toggle-btn .agent-badge {
+          position: absolute; top: -6px; right: -6px;
+          min-width: 20px; height: 20px; border-radius: 10px;
+          background: #ff6b6b; color: white; font-size: 11px;
+          display: flex; align-items: center; justify-content: center;
+          padding: 0 4px; font-weight: bold;
+        }
         #info-panel {
-          position: fixed; top: 60px; right: 10px; width: 280px;
-          background: rgba(26, 26, 46, 0.95); border-radius: 10px;
-          padding: 15px; color: #fff; z-index: 100;
-          max-height: calc(100vh - 80px); overflow-y: auto;
-          transition: width 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
+          position: fixed; top: 60px; right: 80px; width: 0; height: 0;
+          background: rgba(26, 26, 46, 0.97); border-radius: 12px;
+          color: #fff; z-index: 100; overflow: hidden;
+          transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                      height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                      opacity 0.3s ease;
           font-family: 'Microsoft YaHei', sans-serif;
-          box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
-          border: 1px solid rgba(78, 205, 196, 0.2);
+          box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+          border: 1px solid rgba(78, 205, 196, 0.25);
+          opacity: 0;
         }
-        #info-panel.collapsed {
-          width: 0; padding: 0; overflow: hidden; opacity: 0;
-        }
-        #info-panel h3 {
-          color: #4ecdc4; margin-bottom: 10px; font-size: 14px;
-          cursor: pointer; user-select: none; display: flex;
-          align-items: center; justify-content: space-between;
-        }
-        #info-panel h3:hover { color: #7ef0e5; }
-        #info-panel h3 .collapse-icon {
-          margin-right: 8px; transition: transform 0.3s;
-          display: inline-block; font-size: 12px;
-        }
-        #info-panel.collapsed h3 { opacity: 0; }
-        #info-panel h3.collapsed .collapse-icon { transform: rotate(-90deg); }
-        .agent-item {
-          background: rgba(255,255,255,0.05); border-radius: 8px;
-          padding: 10px; margin-bottom: 8px; cursor: pointer;
-          transition: all 0.2s; border-left: 3px solid transparent;
-        }
-        .agent-item:hover {
-          background: rgba(255,255,255,0.1);
-          border-left-color: #4ecdc4;
-        }
-        .agent-item .name {
-          font-weight: bold; color: #ff6b6b; font-size: 14px;
-        }
-        .agent-item .status {
-          font-size: 12px; color: #888; margin-top: 3px;
-          display: flex; align-items: center; gap: 5px;
-        }
-        .agent-item .status-dot {
-          width: 6px; height: 6px; border-radius: 50%;
-          background: #4ecdc4; animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-        .agent-count {
-          font-size: 12px; color: #666; margin-bottom: 10px;
-          padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);
+        #info-panel.visible {
+          width: 300px; height: auto; max-height: calc(100vh - 120px);
+          padding: 15px; opacity: 1;
+          overflow-y: auto;
         }
         #info-panel::-webkit-scrollbar { width: 4px; }
         #info-panel::-webkit-scrollbar-thumb {
           background: rgba(78, 205, 196, 0.3); border-radius: 2px;
         }
+        .info-panel-header {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 12px; padding-bottom: 10px;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .info-panel-title {
+          font-size: 15px; color: #4ecdc4; font-weight: bold; margin: 0;
+        }
+        .info-panel-close {
+          width: 28px; height: 28px; border-radius: 50%;
+          background: rgba(255,255,255,0.08); border: none;
+          color: #888; font-size: 16px; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.2s;
+        }
+        .info-panel-close:hover {
+          background: rgba(255,107,107,0.2); color: #ff6b6b;
+        }
+        .agent-count {
+          font-size: 12px; color: #666; margin-bottom: 10px;
+          padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .agent-item {
+          background: rgba(255,255,255,0.04); border-radius: 8px;
+          padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+          transition: all 0.2s; border-left: 3px solid transparent;
+          display: flex; align-items: center; gap: 10px;
+        }
+        .agent-item:hover {
+          background: rgba(255,255,255,0.09);
+          border-left-color: #4ecdc4;
+        }
+        .agent-item .avatar {
+          width: 36px; height: 36px; border-radius: 50%;
+          background: linear-gradient(135deg, #ff6b6b, #ffa500);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 18px; flex-shrink: 0;
+        }
+        .agent-item .info { flex: 1; min-width: 0; }
+        .agent-item .name {
+          font-weight: bold; color: #ff6b6b; font-size: 13px;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .agent-item .status {
+          font-size: 11px; color: #888; margin-top: 2px;
+          display: flex; align-items: center; gap: 5px;
+        }
+        .agent-item .status-dot {
+          width: 6px; height: 6px; border-radius: 50%;
+          background: #4ecdc4;
+        }
+        @keyframes infoPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        .agent-item .status-dot { animation: infoPulse 2s infinite; }
       </style>
-      <h3 onclick="window.infoPanel && window.infoPanel.toggle()">
-        <span>
-          <span class="collapse-icon">▼</span>
-          🦐 智能体在线
-        </span>
-        <span id="agent-count-badge" style="font-size:12px;color:#888;">0</span>
-      </h3>
-      <div id="agent-list-container">
-        <div class="agent-count">共 <span id="agent-total">0</span> 个智能体在线</div>
-        <div id="agent-list"></div>
+      <div class="info-panel-header">
+        <div class="info-panel-title">🦐 在线智能体</div>
+        <button class="info-panel-close" onclick="window.infoPanel && window.infoPanel.hide()">✕</button>
       </div>
+      <div class="agent-count">共 <span id="agent-total">0</span> 个智能体</div>
+      <div id="agent-list"></div>
     `;
     document.body.appendChild(this.container);
-    window.infoPanel = this;
+
+    // 更新按钮角标
+    this._updateButtonBadge();
   }
 
   createDetailPanel() {
@@ -165,59 +219,77 @@ class InfoPanel {
     `;
     document.body.appendChild(this.detailPanel);
 
-    // 点击背景关闭
     this.detailPanel.addEventListener('click', (e) => {
       if (e.target === this.detailPanel) this.closeDetail();
     });
   }
 
   bindEvents() {
-    // ESC 关闭详情
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') this.closeDetail();
     });
   }
 
   setupWorldWindowListener() {
-    // 监听 WorldWindow 的消息来获取智能体列表更新
-    const originalUpdate = window.worldWindow?.updateAgentList.bind(window.worldWindow);
+    const originalUpdate = window.worldWindow?.updateAgentList?.bind(window.worldWindow);
     if (window.worldWindow) {
       window.worldWindow.updateAgentList = (agents) => {
         this.updateAgents(agents);
         if (originalUpdate) originalUpdate(agents);
       };
     }
-    // 如果 WorldWindow 还没加载，等待一下
     if (!window.worldWindow) {
       setTimeout(() => this.setupWorldWindowListener(), 1000);
     }
   }
 
   toggle() {
-    this.collapsed = !this.collapsed;
-    const h3 = this.container.querySelector('h3');
     if (this.collapsed) {
-      this.container.classList.add('collapsed');
-      h3.classList.add('collapsed');
+      this.show();
     } else {
-      this.container.classList.remove('collapsed');
-      h3.classList.remove('collapsed');
+      this.hide();
     }
+  }
+
+  show() {
+    this.collapsed = false;
+    this.container.classList.add('visible');
+  }
+
+  hide() {
+    this.collapsed = true;
+    this.container.classList.remove('visible');
   }
 
   updateAgents(agents) {
     this.agents = agents || [];
     this.render();
+    this._updateButtonBadge();
+  }
+
+  _updateButtonBadge() {
+    const btn = document.getElementById('info-toggle-btn');
+    if (!btn) return;
+    const count = this.agents.length;
+    let badge = btn.querySelector('.agent-badge');
+    if (count === 0) {
+      if (badge) badge.remove();
+      return;
+    }
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'agent-badge';
+      btn.style.position = 'relative';
+      btn.appendChild(badge);
+    }
+    badge.textContent = count > 99 ? '99+' : count;
   }
 
   render() {
     const listEl = document.getElementById('agent-list');
     const totalEl = document.getElementById('agent-total');
-    const badgeEl = document.getElementById('agent-count-badge');
 
     if (totalEl) totalEl.textContent = this.agents.length;
-    if (badgeEl) badgeEl.textContent = this.agents.length;
-
     if (!listEl) return;
 
     if (this.agents.length === 0) {
@@ -225,22 +297,24 @@ class InfoPanel {
       return;
     }
 
-    let html = '';
-    this.agents.forEach(agent => {
+    listEl.innerHTML = this.agents.map(agent => {
       const name = agent.name || agent.agentName || '未知';
       const status = agent.status || '在线';
       const id = agent.agentId || '';
-      html += `
+      const emoji = agent.emoji || '🦐';
+      return `
         <div class="agent-item" onclick="window.infoPanel && window.infoPanel.showDetail('${id}')">
-          <div class="name">${name}</div>
-          <div class="status">
-            <span class="status-dot"></span>
-            ${status}
+          <div class="avatar">${emoji}</div>
+          <div class="info">
+            <div class="name">${name}</div>
+            <div class="status">
+              <span class="status-dot"></span>
+              ${status}
+            </div>
           </div>
         </div>
       `;
-    });
-    listEl.innerHTML = html;
+    }).join('');
   }
 
   showDetail(agentId) {
@@ -256,19 +330,13 @@ class InfoPanel {
     document.getElementById('detail-reputation').textContent = agent.reputation || '-';
     document.getElementById('detail-tasks').textContent = agent.tasksCompleted || agent.tasks || '0';
 
-    // 标签
     const tagsEl = document.getElementById('detail-tags');
     const tags = agent.tags || [];
-    if (tags.length > 0) {
-      tagsEl.innerHTML = tags.map(t => `<span class="tag">${t}</span>`).join('');
-    } else {
-      tagsEl.innerHTML = '<span class="tag">智能体</span>';
-    }
+    tagsEl.innerHTML = tags.length > 0
+      ? tags.map(t => `<span class="tag">${t}</span>`).join('')
+      : '<span class="tag">智能体</span>';
 
-    // 头像 emoji
-    const avatarEl = document.getElementById('detail-avatar');
-    avatarEl.textContent = agent.emoji || '🦐';
-
+    document.getElementById('detail-avatar').textContent = agent.emoji || '🦐';
     this.detailPanel.classList.add('show');
   }
 
@@ -278,6 +346,9 @@ class InfoPanel {
 }
 
 // 创建全局实例
-window.infoPanel = new InfoPanel();
+if (!window.infoPanel) {
+  window.infoPanel = new InfoPanel();
+  window.infoPanel.init();
+}
 
 export { InfoPanel };

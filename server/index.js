@@ -28,12 +28,15 @@ const {
 // Services
 const { agentService, setStores: setAgentStores } = require('./services/agent-service');
 const { taskService, setStores: setTaskStores } = require('./services/task-service');
-const { messageService, setStores: setMessageStores } = require('./services/message-service');
+const { messageService, setStores: setMessageStores, setEventDispatcher: setMessageEventDispatcher } = require('./services/message-service');
 const buildingsService = require('./services/buildings');
 
 // AI
 const { aiEngine, setStores: setAIStores } = require('./ai/ai-engine');
 const { llmManager } = require('./ai/llm-manager');
+
+// Event Dispatcher
+const { eventDispatcher } = require('./event-dispatcher');
 
 // Handlers
 const { wsHandler, WebSocketHandler, setDependencies } = require('./handlers/ws-handler');
@@ -142,11 +145,16 @@ function initHandlers() {
     httpHandler.setStores(stores);
     httpHandler.initDefaultRoutes();
 
+    // 设置事件分发器（在 wsHandler 之后）
+    const { setEventDispatcher } = require('./handlers/ws-handler');
+    setEventDispatcher(eventDispatcher);
+
     // WebSocket Handler - 使用 setDependencies
     setDependencies({
         agentStore: stores.agentStore,
         messageService: services.messageService,
-        aiService: aiEngine
+        aiService: aiEngine,
+        eventDispatcher: eventDispatcher
     });
 
     // 设置 Router
@@ -154,6 +162,12 @@ function initHandlers() {
         wsHandler,
         httpHandler
     });
+
+    // 设置事件分发器依赖
+    eventDispatcher.setStores(stores.agentStore, llmManager);
+
+    // 设置消息服务的路由依赖
+    setMessageEventDispatcher(eventDispatcher);
 
     logger.info('[Init] Handlers initialized');
 }

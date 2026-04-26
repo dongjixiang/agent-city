@@ -15,6 +15,41 @@ let agentStore = null;
 let messageService = null;
 let aiService = null;
 
+// 事件分发器占位符
+let eventDispatcher = null;
+
+// 连接的 agentId -> clientId 映射
+let agentToClientMap = new Map(); // agentId -> clientId
+
+// 发送事件给智能体的函数
+function sendEventToAgent(agentId, message) {
+    console.log('[sendEventToAgent] called for agent:', agentId);
+    console.log('[sendEventToAgent] agentToClientMap keys:', Array.from(agentToClientMap.keys()));
+    const clientId = agentToClientMap.get(agentId);
+    console.log('[sendEventToAgent] clientId for', agentId, ':', clientId);
+    if (clientId) {
+        const clientInfo = wsHandler?.connectedClients?.get(clientId);
+        console.log('[sendEventToAgent] clientInfo:', !!clientInfo, 'ws:', !!(clientInfo?.ws));
+        if (clientInfo && clientInfo.ws) {
+            const readyState = clientInfo.ws.readyState;
+            console.log('[sendEventToAgent] readyState for', agentId, ':', readyState, '(1=OPEN,2=CLOSING,3=CLOSED)');
+            if (readyState === 1) { // WebSocket.OPEN = 1
+                try {
+                    clientInfo.ws.send(JSON.stringify(message));
+                    console.log('[sendEventToAgent] ✅ SENT to', agentId, 'messageType:', message.type);
+                    return true;
+                } catch (e) {
+                    console.error('[WSHandler] Send event failed:', agentId, e.message);
+                }
+            } else {
+                console.log('[sendEventToAgent] ❌ WebSocket not OPEN for', agentId, 'readyState:', readyState);
+            }
+        }
+    }
+    console.log('[sendEventToAgent] FAILED to send to', agentId);
+    return false;
+}
+
 /**
  * 设置依赖
  */
@@ -22,6 +57,18 @@ function setDependencies(deps) {
     agentStore = deps.agentStore;
     messageService = deps.messageService;
     aiService = deps.aiService;
+    eventDispatcher = deps.eventDispatcher;
+    if (eventDispatcher) {
+        eventDispatcher.setSender(sendEventToAgent);
+    }
+}
+
+/**
+ * 设置事件分发器
+ */
+function setEventDispatcher(dispatcher) {
+    eventDispatcher = dispatcher;
+    eventDispatcher.setSender(sendEventToAgent);
 }
 
 class WebSocketHandler extends BaseHandler {
@@ -147,6 +194,19 @@ class WebSocketHandler extends BaseHandler {
                     await this.handleAIDecision(ws, clientId, payload);
                     break;
 
+                case 'AGENT_DECISION':
+                    // OpenClaw Agent 发来的决策响应
+                    await this.handleAIDecisionResponse(ws, clientId, payload);
+                    break;
+
+                case 'REST':
+                    await this.handleRest(ws, clientId, payload);
+                    break;
+
+                case 'LIST':
+                    await this.handleList(ws, clientId, payload);
+                    break;
+
                 default:
                     logger.warn(`[WS] 未知消息类型: ${type}`);
                     this.sendToClient(clientId, {
@@ -167,7 +227,8 @@ class WebSocketHandler extends BaseHandler {
      * 处理注册
      */
     async handleRegister(ws, clientId, payload) {
-        const { agentId, name, type, password } = payload;
+        console.log("[handleRegister] payload:", JSON.stringify(payload));
+        const { agentId, name, type, tags, password, visual, description } = payload;
 
         if (!agentId || !name) {
             this.sendToClient(clientId, {
@@ -193,6 +254,9 @@ class WebSocketHandler extends BaseHandler {
                 agentId,
                 name,
                 type: type || 'explorer',
+                tags: tags || [],
+                visual: visual || null,
+                description: description || '',
                 connectionId: ws.connectionId,
                 lastSeen: Date.now()
             });
@@ -207,12 +271,48 @@ class WebSocketHandler extends BaseHandler {
                 }
             });
 
-            // 广播新智能体上线
-            this.broadcast({
-                type: 'AGENT_ONLINE',
-                agentId,
-                name
-            }, (id, client) => id !== clientId);
+            // 映射 agentId -> clientId
+            agentToClientMap.set(agentId, clientId);
+
+            // 设置 ws.agentId（如果连接时未设置）
+            if (!ws.agentId) {
+                ws.agentId = agentId;
+            }
+
+            // 注册到事件分发器（如果是 AI 智能体）
+            if (eventDispatcher && (type === 'ai' || payload.tags?.includes('ai'))) {
+                eventDispatcher.registerAgent(agentId, {
+                    name,
+                    position: agent.position || { x: 0, z: 0 },
+                    state: 'idle',
+                    emotion: 'neutral',
+                    needs: { energy: 80, social: 50, fun: 60, achievement: 40 }
+                });
+            }
+
+            // 广播新智能体上线（但隐藏类型不广播）
+            if (!payload.tags?.includes('hidden')) {
+                this.broadcast({
+                    type: 'AGENT_ONLINE',
+                    agentId,
+                    name
+                }, (id, client) => id !== clientId);
+            }
+
+            // 触发 AGENT_ENTER 事件给其他已注册 AI 智能体
+            if (eventDispatcher) {
+                for (const [existingAgentId] of agentToClientMap) {
+                    if (existingAgentId !== agentId) {
+                        eventDispatcher.pushEvent(existingAgentId, {
+                            eventType: 'AGENT_ENTER',
+                            data: {
+                                newAgent: { agentId, name, position: agent.position || { x: 0, z: 0 } },
+                                onlineAgentCount: agentToClientMap.size
+                            }
+                        });
+                    }
+                }
+            }
         } else {
             this.sendToClient(clientId, {
                 type: 'ERROR',
@@ -225,8 +325,9 @@ class WebSocketHandler extends BaseHandler {
      * 处理智能体消息
      */
     async handleAgentMessage(ws, clientId, payload) {
-        const { to, content, replyTo } = payload;
-        const fromAgentId = ws.agentId;
+        console.log('[handleAgentMessage] called with payload:', JSON.stringify(payload));
+        const { to, content, replyTo, from } = payload;
+        const fromAgentId = ws.agentId || from;  // Support both ws-based and payload-based sender
 
         if (!to || !content) {
             this.sendToClient(clientId, {
@@ -259,7 +360,7 @@ class WebSocketHandler extends BaseHandler {
      */
     async handleMove(ws, clientId, payload) {
         const { x, z } = payload;
-        const agentId = ws.agentId;
+        const agentId = ws.agentId || payload.from;
 
         // 验证坐标
         const worldSize = config.getValue('world.size', { width: 200, height: 200 });
@@ -284,11 +385,162 @@ class WebSocketHandler extends BaseHandler {
     }
 
     /**
+     * 处理休息
+     */
+    async handleRest(ws, clientId, payload) {
+        const agentId = ws.agentId;
+
+        if (!agentId) {
+            this.sendToClient(clientId, {
+                type: 'ERROR',
+                message: 'Not registered'
+            });
+            return;
+        }
+
+        if (agentStore) {
+            await agentStore.updateState(agentId, 'resting');
+
+            // 更新事件分发器的智能体数据
+            if (eventDispatcher) {
+                eventDispatcher.updateAgentData(agentId, { state: 'resting' });
+            }
+
+            this.broadcast({
+                type: 'AGENT_STATE_CHANGE',
+                agentId,
+                state: 'resting'
+            });
+        }
+    }
+
+    /**
+     * 处理 AI 决策（从 OpenClaw Agent 发来）
+     */
+    async handleAIDecisionResponse(ws, clientId, payload) {
+        const { decision } = payload;
+        const agentId = ws.agentId;
+
+        if (!decision) {
+            this.sendToClient(clientId, {
+                type: 'ERROR',
+                message: 'decision is required'
+            });
+            return;
+        }
+
+        const { action, params, reasoning } = decision;
+
+        logger.info(`[WS] AI Decision from ${agentId}:`, { action, params, reasoning });
+
+        // 处理决策
+        switch (action) {
+            case 'move_to':
+                if (params && params.x !== undefined && params.z !== undefined) {
+                    if (agentStore) {
+                        await agentStore.updatePosition(agentId, { x: params.x, z: params.z });
+                        await agentStore.updateState(agentId, 'idle');
+
+                        // 更新事件分发器的智能体数据
+                        if (eventDispatcher) {
+                            eventDispatcher.updateAgentData(agentId, {
+                                position: { x: params.x, z: params.z },
+                                state: 'idle'
+                            });
+                        }
+
+                        this.broadcast({
+                            type: 'AGENT_MOVED',
+                            agentId,
+                            position: { x: params.x, z: params.z }
+                        });
+                    }
+                }
+                break;
+
+            case 'speak':
+                if (params && params.content) {
+                    this.broadcast({
+                        type: 'AGENT_SPEAK',
+                        agentId,
+                        content: params.content,
+                        targetAgentId: params.targetId || null
+                    });
+                }
+                break;
+
+            case 'rest':
+                if (agentStore) {
+                    await agentStore.updateState(agentId, 'resting');
+                    
+                    if (eventDispatcher) {
+                        eventDispatcher.updateAgentData(agentId, { state: 'resting' });
+                    }
+
+                    this.broadcast({
+                        type: 'AGENT_STATE_CHANGE',
+                        agentId,
+                        state: 'resting'
+                    });
+                }
+                break;
+
+            case 'explore':
+                if (agentStore) {
+                    const current = await agentStore.getAgentPosition(agentId);
+                    if (current) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist = 10 + Math.random() * 15;
+                        const newX = current.x + Math.cos(angle) * dist;
+                        const newZ = current.z + Math.sin(angle) * dist;
+                        await agentStore.updatePosition(agentId, { x: newX, z: newZ });
+                        await agentStore.updateState(agentId, 'idle');
+
+                        if (eventDispatcher) {
+                            eventDispatcher.updateAgentData(agentId, {
+                                position: { x: newX, z: newZ },
+                                state: 'idle'
+                            });
+                        }
+
+                        this.broadcast({
+                            type: 'AGENT_MOVED',
+                            agentId,
+                            position: { x: newX, z: newZ }
+                        });
+                    }
+                }
+                break;
+
+            case 'skip':
+                // 不做任何动作
+                break;
+
+            default:
+                logger.warn(`[WS] Unknown AI action: ${action}`);
+        }
+
+        // 通知事件分发器决策已处理
+        if (eventDispatcher) {
+            eventDispatcher.receiveDecision(agentId, decision);
+        }
+    }
+
+    /**
      * 处理广播
      */
     async handleBroadcast(ws, clientId, payload) {
-        const { content } = payload;
-        const fromAgentId = ws.agentId;
+        const { content, type: originalType } = payload;
+        const fromAgentId = ws.agentId || payload.from;  // Support both ws-based and payload-based sender
+        
+        // Get sender name for broadcasting
+        let senderName = fromAgentId;
+        if (agentStore) {
+            const agent = await agentStore.get(fromAgentId);
+            if (agent && agent.name) {
+                senderName = agent.name;
+            }
+        }
 
         if (!content) {
             this.sendToClient(clientId, {
@@ -298,12 +550,22 @@ class WebSocketHandler extends BaseHandler {
             return;
         }
 
-        this.broadcast({
-            type: 'AGENT_BROADCAST',
+        // 保留原始类型（如 AGENT_THOUGHT），否则默认为 BROADCAST
+        const msgType = originalType || 'BROADCAST';
+        
+        // 如果是 AGENT_THOUGHT，额外传递原始类型信息
+        const broadcastPayload = {
+            type: msgType,
             from: fromAgentId,
+            fromName: senderName,
             content,
             timestamp: Date.now()
-        });
+        };
+        if (originalType === 'AGENT_THOUGHT') {
+            broadcastPayload.agentName = senderName;
+        }
+        
+        this.broadcast(broadcastPayload);
     }
 
     /**
@@ -377,6 +639,28 @@ class WebSocketHandler extends BaseHandler {
     }
 
     /**
+     * 处理获取智能体列表
+     */
+    async handleList(ws, clientId, payload) {
+        if (!agentStore) {
+            this.sendToClient(clientId, { type: 'ERROR', message: 'Store not ready' });
+            return;
+        }
+        const allAgents = await agentStore.getAllAgents();
+        console.log("[handleList] allAgents count:", allAgents.length);
+        console.log("[handleList] first agent tags:", JSON.stringify(allAgents[0]?.tags));
+        // Filter out hidden agents (visitors, system agents, etc.)
+        const agents = allAgents.filter(agent => 
+            !agent.tags || !agent.tags.includes('hidden')
+        );
+        this.sendToClient(clientId, {
+            type: 'AGENT_LIST',
+            agents,
+            timestamp: Date.now()
+        });
+    }
+
+    /**
      * 处理连接关闭
      */
     async handleClose(ws, clientId) {
@@ -386,6 +670,27 @@ class WebSocketHandler extends BaseHandler {
         if (agentId && agentStore) {
             await agentStore.setOffline(agentId);
 
+            // 从映射中移除
+            agentToClientMap.delete(agentId);
+
+            // 从事件分发器注销
+            if (eventDispatcher) {
+                eventDispatcher.unregisterAgent(agentId);
+            }
+
+            // 触发 AGENT_LEAVE 事件给其他 AI 智能体
+            if (eventDispatcher) {
+                for (const [existingAgentId] of agentToClientMap) {
+                    eventDispatcher.pushEvent(existingAgentId, {
+                        eventType: 'AGENT_LEAVE',
+                        data: {
+                            leftAgent: { agentId, name: agentStore.getAgentName?.(agentId) || agentId },
+                            onlineAgentCount: agentToClientMap.size
+                        }
+                    });
+                }
+            }
+
             // 广播离线
             this.broadcast({
                 type: 'AGENT_OFFLINE',
@@ -394,6 +699,25 @@ class WebSocketHandler extends BaseHandler {
         }
 
         this.unregisterClient(clientId);
+    }
+
+    /**
+     * 发送事件给指定智能体
+     */
+    sendEventToAgent(agentId, message) {
+        const clientId = agentToClientMap.get(agentId);
+        if (clientId) {
+            const clientInfo = this.connectedClients.get(clientId);
+            if (clientInfo && clientInfo.ws) {
+                try {
+                    clientInfo.ws.send(JSON.stringify(message));
+                    return true;
+                } catch (e) {
+                    console.error('[WSHandler] Send event failed:', agentId, e.message);
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -432,5 +756,6 @@ const wsHandler = new WebSocketHandler();
 module.exports = {
     wsHandler,
     WebSocketHandler,
-    setDependencies
+    setDependencies,
+    setEventDispatcher
 };

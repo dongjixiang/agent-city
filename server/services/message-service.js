@@ -15,11 +15,21 @@ const directMessages = new Map(); // id -> message
 // 待回复消息
 const pendingReplies = new Map(); // clientMsgId -> { resolve, reject, timeout }
 
+// 事件分发器引用
+let eventDispatcher = null;
+
 /**
  * 设置依赖
  */
 function setStores(stores) {
     agentStore = stores.agentStore;
+}
+
+/**
+ * 设置事件分发器
+ */
+function setEventDispatcher(dispatcher) {
+    eventDispatcher = dispatcher;
 }
 
 class MessageService {
@@ -65,6 +75,29 @@ class MessageService {
         directMessages.set(message.id, message);
 
         logger.debug(`[MessageService] Message from ${from} to ${to}: ${content.substring(0, 50)}`);
+
+        // 通过事件分发器路由消息给接收者
+        console.log('[MessageService] Attempting to route message to:', to);
+        console.log('[MessageService] eventDispatcher exists:', !!eventDispatcher);
+        console.log('[MessageService] routeMessageTo exists:', !!(eventDispatcher && eventDispatcher.routeMessageTo));
+        if (eventDispatcher && eventDispatcher.routeMessageTo) {
+            console.log('[MessageService] Routing message to agent:', to);
+            // 检查接收者是否是访客(visitor) - 访客客户端使用 PRIVATE_MESSAGE 类型
+            const isVisitor = toAgent && toAgent.tags && toAgent.tags.includes('visitor');
+            const messageType = isVisitor ? 'PRIVATE_MESSAGE' : 'MESSAGE_RECEIVED';
+            console.log('[MessageService] Using messageType:', messageType, 'for recipient:', to);
+            eventDispatcher.routeMessageTo(to, {
+                type: messageType,
+                from,
+                fromName: message.fromName,
+                content,
+                messageId: message.id,
+                timestamp: message.timestamp,
+                replyTo
+            });
+        } else {
+            console.log('[MessageService] routeMessageTo NOT available');
+        }
 
         return message;
     }
@@ -334,11 +367,12 @@ class MessageService {
     }
 }
 
-// 导出单例
+// 导出单例和函数
 const messageService = new MessageService();
 
 module.exports = {
     messageService,
     MessageService,
-    setStores
+    setStores,
+    setEventDispatcher
 };

@@ -1,281 +1,293 @@
-/**
- * EventDispatcher - 事件调度器
- * 
- * 负责：
- * 1. 管理智能体的思考状态
- * 2. 事件优先级处理（P0 打断 P1/P2）
- * 3. 定时发送环境快照
- * 4. 调用 ContextBuilder 构建上下文
- * 5. 调用 PromptBuilder 构建提示词
- */
+﻿"use strict";
 
-const ContextBuilder = require('./context-builder');
-const PromptBuilder = require('./prompt-builder');
+const WebSocket = require('ws');
+const http = require('http');
 
-class EventDispatcher {
-    constructor() {
-        // 每个智能体的思考状态
-        this.thinkingState = new Map(); // agentId -> { thinking: boolean, eventQueue: [] }
-        
-        // 上下文构建器
-        this.contextBuilder = null;
-        
-        // 提示词构建器
-        this.promptBuilder = null;
-        
-        // 发送函数（由 WSHandler 设置）
-        this.sender = null;
-        
-        // 定时快照间隔（5分钟）
-        this.SNAPSHOT_INTERVAL = 5 * 60 * 1000;
-        
-        // 定时器 ID
-        this.snapshotTimer = null;
-        
-        // 城市状态（由 Server 设置）
-        this.cityState = null;
-        
-        // 智能体注册表（由 Server 设置）
-        this.agentRegistry = null;
-    }
+const AGENT_CITY_WS_URL = process.env.AGENT_CITY_WS_URL || 'ws://47.77.238.56:9876';
+const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || '3ba441cbf71cb5119c5049a2fa5ce79df170baf2355e44b3';
+const GATEWAY_HTTP = process.env.GATEWAY_HTTP || 'http://127.0.0.1:18789';
 
-    /**
-     * 设置上下文构建器
-     */
-    setContextBuilder(builder) {
-        this.contextBuilder = builder;
-    }
+let channelConfig = {};
+let wsClient = null;
+let currentAgentId = null;
+let currentAccount = null;
+let reconnectTimer = null;
+let heartbeatTimer = null;
+let isConnected = false;
+let messageQueue = [];
+let requestId = 0;
+let isShuttingDown = false;
+let agentList = [];
+let senderFn = null;
+let cityState = null;
+let onConnectionReady = null;
 
-    /**
-     * 设置提示词构建器
-     */
-    setPromptBuilder(builder) {
-        this.promptBuilder = builder;
-    }
+const LOCATIONS = {
+  TASK_CENTER: { x: -25, z: -25 },
+  REPUTATION_HALL: { x: 25, z: -25 },
+  TRADE_CENTER: { x: -25, z: 25 },
+  ARCHIVE: { x: 25, z: 25 },
+  MESSAGE_STATION: { x: 0, z: -35 },
+  DATA_CENTER: { x: -35, z: 0 },
+  WORKSHOP: { x: 35, z: 0 },
+  SOCIAL_SQUARE: { x: 0, z: 0 }
+};
 
-    /**
-     * 设置发送函数
-     */
-    setSender(sender) {
-        this.sender = sender;
-    }
+const BUILDINGS = [
+  ['Task Center', LOCATIONS.TASK_CENTER],
+  ['Reputation Hall', LOCATIONS.REPUTATION_HALL],
+  ['Trade Center', LOCATIONS.TRADE_CENTER],
+  ['Archive', LOCATIONS.ARCHIVE],
+  ['Message Station', LOCATIONS.MESSAGE_STATION],
+  ['Data Center', LOCATIONS.DATA_CENTER],
+  ['Workshop', LOCATIONS.WORKSHOP],
+  ['Social Square', LOCATIONS.SOCIAL_SQUARE]
+];
 
-    /**
-     * 设置城市状态
-     */
-    setCityState(cityState) {
-        this.cityState = cityState;
-    }
+let pendingReplies = new Map();
+let isThinking = false;
+let lastThoughtTime = 0;
+let autonomousLoop = null;
+const THOUGHT_INTERVAL = 2 * 60 * 1000;
 
-    /**
-     * 设置智能体注册表
-     */
-    setAgentRegistry(registry) {
-        this.agentRegistry = registry;
-    }
-
-    /**
-     * 初始化构建器
-     */
-    initBuilders() {
-        if (!this.contextBuilder && this.cityState && this.agentRegistry) {
-            this.contextBuilder = new ContextBuilder(this.cityState, this.agentRegistry);
+function sendToAI(content) {
+  return new Promise((resolve) => {
+    console.log('[EventDispatcher] Sending to AI:', content.substring(0, 100));
+    try {
+      const model = channelConfig?.model || 'minimax-cn/MiniMax-M2.7';
+      const body = JSON.stringify({ model: model, input: content });
+      const options = {
+        hostname: '127.0.0.1',
+        port: channelConfig?.aiPort || 18789,
+        path: channelConfig?.aiPath || '/v1/responses',
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + GATEWAY_TOKEN,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body)
         }
-        if (!this.promptBuilder) {
-            this.promptBuilder = new PromptBuilder();
-        }
-    }
-
-    /**
-     * 注册智能体
-     */
-    registerAgent(agentId) {
-        console.log(`[EventDispatcher] 注册智能体: ${agentId}`);
-        this.thinkingState.set(agentId, {
-            thinking: false,
-            eventQueue: []
-        });
-    }
-
-    /**
-     * 注销智能体
-     */
-    unregisterAgent(agentId) {
-        console.log(`[EventDispatcher] 注销智能体: ${agentId}`);
-        this.thinkingState.delete(agentId);
-    }
-
-    /**
-     * 推送事件给智能体
-     */
-    pushEvent(agentId, event) {
-        const state = this.thinkingState.get(agentId);
-        if (!state) {
-            console.log(`[EventDispatcher] 智能体 ${agentId} 不在线，跳过事件`);
-            return;
-        }
-
-        console.log(`[EventDispatcher] 收到事件 ${event.type} for ${agentId}, 当前thinking=${state.thinking}, priority=${event.priority}`);
-
-        if (state.thinking) {
-            // 正在思考，P0 打断，P1/P2 排队
-            if (event.priority === 0) {
-                console.log(`[EventDispatcher] P0 事件，打断当前思考`);
-                state.eventQueue.unshift(event); // 插入队列头部
-                // TODO: 实现打断机制
+      };
+      const req = http.request(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const r = JSON.parse(data);
+            if (r.output && r.output[0] && r.output[0].content && r.output[0].content[0]) {
+              resolve(r.output[0].content[0].text || '');
+            } else if (r.output && r.output[0] && r.output[0].text) {
+              resolve(r.output[0].text || '');
             } else {
-                state.eventQueue.push(event);
-                console.log(`[EventDispatcher] 事件排入队列，当前队列长度: ${state.eventQueue.length}`);
+              resolve('');
             }
-        } else {
-            this.dispatch(agentId, event);
-        }
-    }
-
-    /**
-     * 分发事件给智能体
-     */
-    dispatch(agentId, event) {
-        console.log(`[EventDispatcher] 分发事件 ${event.type} 给 ${agentId}`);
-        
-        this.initBuilders();
-
-        const state = this.thinkingState.get(agentId);
-        state.thinking = true;
-
-        // 构建上下文
-        const context = this.contextBuilder ? this.contextBuilder.build(event) : null;
-        
-        // 构建提示词
-        let prompt = '';
-        if (this.promptBuilder && context) {
-            prompt = this.promptBuilder.build(event.type, context, event);
-        }
-        
-        // 发送到智能体
-        const message = {
-            type: "AGENT_EVENT",
-            eventType: event.type,
-            agentId: agentId,
-            timestamp: Date.now(),
-            // 完整的提示词，智能体直接发给 AI
-            prompt: prompt,
-            // 简化的上下文（用于调试）
-            context: context
-        };
-
-        if (this.sender) {
-            this.sender(agentId, message);
-        }
-    }
-
-    /**
-     * 收到智能体决策（由 WSHandler 调用）
-     */
-    onDecisionReceived(agentId, decision) {
-        console.log(`[EventDispatcher] 收到 ${agentId} 的决策: ${decision.action}`);
-        
-        const state = this.thinkingState.get(agentId);
-        if (!state) return;
-
-        state.thinking = false;
-
-        // 处理队列中的下一个事件
-        if (state.eventQueue.length > 0) {
-            const next = state.eventQueue.shift();
-            console.log(`[EventDispatcher] 处理队列中的下一个事件: ${next.type}`);
-            this.dispatch(agentId, next);
-        }
-    }
-
-    /**
-     * 开始定时快照
-     */
-    startPeriodicSnapshots() {
-        if (this.snapshotTimer) {
-            console.log(`[EventDispatcher] 定时快照已启动`);
-            return;
-        }
-
-        this.initBuilders();
-        
-        console.log(`[EventDispatcher] 启动定时快照，间隔 ${this.SNAPSHOT_INTERVAL / 1000 / 60} 分钟`);
-        
-        this.snapshotTimer = setInterval(() => {
-            console.log(`[EventDispatcher] 定时快照触发`);
-            for (const agentId of this.thinkingState.keys()) {
-                this.pushEvent(agentId, {
-                    type: "PERIODIC_SNAPSHOT",
-                    priority: 1
-                });
-            }
-        }, this.SNAPSHOT_INTERVAL);
-    }
-
-    /**
-     * 停止定时快照
-     */
-    stopPeriodicSnapshots() {
-        if (this.snapshotTimer) {
-            clearInterval(this.snapshotTimer);
-            this.snapshotTimer = null;
-            console.log(`[EventDispatcher] 定时快照已停止`);
-        }
-    }
-
-    /**
-     * 触发用户消息事件
-     */
-    onUserMessage(agentId, messageData) {
-        this.pushEvent(agentId, {
-            type: "USER_MESSAGE",
-            priority: 0,
-            data: messageData
+          } catch (e) {
+            console.error('[EventDispatcher] AI parse error:', e.message);
+            resolve('');
+          }
         });
+      });
+      req.on('error', (e) => { console.error('[EventDispatcher] HTTP error:', e.message); resolve(''); });
+      req.setTimeout(60000, () => { console.error('[EventDispatcher] AI timeout'); req.destroy(); resolve(''); });
+      req.write(body);
+      req.end();
+    } catch (e) {
+      console.error('[EventDispatcher] sendToAI error:', e.message);
+      resolve('');
     }
-
-    /**
-     * 触发新智能体上线事件
-     */
-    onAgentEnter(agentId, newAgent) {
-        // 广播给所有其他智能体
-        for (const id of this.thinkingState.keys()) {
-            if (id !== agentId) {
-                this.pushEvent(id, {
-                    type: "AGENT_ENTER",
-                    priority: 1,
-                    data: { newAgent, onlineAgentCount: this.agentRegistry?.getOnlineAgentCount() || 0 }
-                });
-            }
-        }
-    }
-
-    /**
-     * 触发天气变化事件
-     */
-    onWeatherChange(weather, previousWeather) {
-        for (const agentId of this.thinkingState.keys()) {
-            this.pushEvent(agentId, {
-                type: "WEATHER_CHANGE",
-                priority: 1,
-                data: { weather, previousWeather }
-            });
-        }
-    }
-
-    /**
-     * 获取智能体状态
-     */
-    getState(agentId) {
-        return this.thinkingState.get(agentId);
-    }
-
-    /**
-     * 获取所有在线智能体
-     */
-    getOnlineAgents() {
-        return Array.from(this.thinkingState.keys());
-    }
+  });
 }
 
-module.exports = EventDispatcher;
+function parseAIResponse(text) {
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+  } catch (e) {}
+  return null;
+}
+
+function executeDecision(decision) {
+  console.log('[EventDispatcher] executeDecision:', JSON.stringify(decision));
+  if (!decision || !decision.action) return;
+  const { action, params } = decision;
+  switch (action) {
+    case 'goTo':
+      if (params.x !== undefined && params.z !== undefined && wsClient && wsClient.readyState === 1) {
+        wsClient.send(JSON.stringify({ type: 'MOVE_TO', x: params.x, z: params.z }));
+      }
+      break;
+    case 'sendMessage':
+      if (params.to && params.content && wsClient && wsClient.readyState === 1) {
+        wsClient.send(JSON.stringify({ type: 'MESSAGE', to: params.to, content: params.content, contentType: 'text' }));
+      }
+      break;
+    case 'broadcast':
+      if (params.content && wsClient && wsClient.readyState === 1) {
+        wsClient.send(JSON.stringify({ type: 'BROADCAST', from: currentAgentId, content: params.content, contentType: 'text' }));
+      }
+      break;
+    case 'think':
+      if (params.content && wsClient && wsClient.readyState === 1) {
+        wsClient.send(JSON.stringify({ type: 'BROADCAST', from: currentAgentId, content: params.content, contentType: 'text', subtype: 'thought' }));
+      }
+      break;
+    default:
+      console.log('[EventDispatcher] stay/idle');
+  }
+}
+
+function buildPrompt(situation) {
+  return `You are an AI agent in Agent City. ${situation}
+Available actions: goTo(x,z), sendMessage(to,content), broadcast(content), think(content), stay()
+Buildings: ${BUILDINGS.map(b => b[0] + ' at (' + b[1].x + ',' + b[1].z + ')').join(', ')}
+Return JSON: { "action": "actionName", "params": {...}, "reasoning": "..." }`;
+}
+
+async function runAutonomousLoop() {
+  if (!currentAgentId || !wsClient || isThinking) return;
+  const now = Date.now();
+  if (now - lastThoughtTime < THOUGHT_INTERVAL) return;
+  lastThoughtTime = now;
+  isThinking = true;
+  try {
+    const agentNames = agentList.map(a => a.name || a.agentId).join(', ') || 'none';
+    const situation = `Time: ${new Date().toLocaleTimeString()}, Online: ${agentNames}, Total: ${agentList.length}`;
+    console.log('[EventDispatcher] Thinking...');
+    if (wsClient && wsClient.readyState === 1) {
+      const prompt = buildPrompt(situation);
+      wsClient.send(JSON.stringify({ type: 'AGENT_EVENT', eventType: 'PERIODIC_SNAPSHOT', agentId: currentAgentId, timestamp: Date.now(), prompt: prompt, context: { trigger: { type: 'PERIODIC_SNAPSHOT', priority: 1 } } }));
+    }
+  } catch (e) {
+    console.error('[EventDispatcher] Error:', e.message);
+  } finally {
+    isThinking = false;
+  }
+}
+
+function startAutonomousLoop() {
+  if (autonomousLoop) return;
+  autonomousLoop = setInterval(runAutonomousLoop, 3000);
+}
+
+function stopAutonomousLoop() {
+  if (autonomousLoop) { clearInterval(autonomousLoop); autonomousLoop = null; }
+}
+
+function handleIncomingMessage(msg) {
+  if (msg.type === 'MESSAGE_RECEIVED' && msg.content) {
+    const serverMsgId = msg.messageId;
+    if (serverMsgId) pendingReplies.set(serverMsgId, { from: msg.from, fromName: msg.fromName, timestamp: Date.now() });
+    sendToAI(msg.content).then((resp) => {
+      if (resp && resp.trim() && wsClient && wsClient.readyState === 1) {
+        const decision = parseAIResponse(resp);
+        if (decision) executeDecision(decision);
+      }
+      pendingReplies.delete(serverMsgId);
+    }).catch((e) => { console.error('[EventDispatcher] Error:', e.message); pendingReplies.delete(serverMsgId); });
+  }
+}
+
+function sendMessage(to, content, replyTo) {
+  if (!wsClient || wsClient.readyState !== 1) {
+    messageQueue.push({ type: 'MESSAGE', to, from: currentAgentId, content, contentType: 'text', timestamp: Date.now() });
+    return;
+  }
+  const msg = { type: 'MESSAGE', to, from: currentAgentId, content, contentType: 'text', timestamp: Date.now() };
+  if (replyTo) msg.replyTo = replyTo;
+  wsClient.send(JSON.stringify(msg));
+}
+
+function broadcast(content) {
+  if (!wsClient || wsClient.readyState !== 1) { messageQueue.push({ type: 'BROADCAST', from: currentAgentId, content, contentType: 'text', timestamp: Date.now() }); return; }
+  wsClient.send(JSON.stringify({ type: 'BROADCAST', from: currentAgentId, content, contentType: 'text', timestamp: Date.now() }));
+}
+
+function requestAgentList() {
+  if (wsClient && wsClient.readyState === 1) wsClient.send(JSON.stringify({ type: 'LIST' }));
+}
+
+function flushQueue() {
+  if (!wsClient || wsClient.readyState !== 1) return;
+  while (messageQueue.length > 0) {
+    const msg = messageQueue.shift();
+    try { wsClient.send(JSON.stringify(msg)); } catch (e) { console.error('[EventDispatcher] flush error:', e.message); break; }
+  }
+}
+
+function startHeartbeat() {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  heartbeatTimer = setInterval(() => {
+    if (wsClient && wsClient.readyState === 1 && !isShuttingDown) {
+      try { wsClient.send(JSON.stringify({ type: 'PING' })); } catch (e) { console.error('[EventDispatcher] Heartbeat error:', e.message); }
+    }
+  }, 30000);
+}
+
+function stopHeartbeat() { if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; } }
+
+function connect(account) {
+  if (isShuttingDown) return;
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  if (wsClient) { try { wsClient.terminate(); } catch (e) {} wsClient = null; }
+  currentAccount = account;
+  console.log('[EventDispatcher] Connecting to', account.wsUrl);
+  wsClient = new WebSocket(account.wsUrl);
+  wsClient.on('open', () => {
+    if (isShuttingDown) { wsClient.close(); return; }
+    isConnected = true;
+    startHeartbeat();
+    console.log('[EventDispatcher] Connected and registering as:', account.agentName);
+    wsClient.send(JSON.stringify({ type: 'REGISTER', agentId: account.agentId, name: account.agentName, tags: account.agentTags, description: 'OpenClaw AI', visual: { color: '#6366F1', size: 1.0, emoji: '🤖', modelType: 'human' } }));
+    setTimeout(() => requestAgentList(), 1000);
+    startAutonomousLoop();
+    flushQueue();
+  });
+  wsClient.on('message', (data) => {
+    if (isShuttingDown) return;
+    try {
+      const msg = JSON.parse(data);
+      console.log('[EventDispatcher] Received:', msg.type);
+      switch (msg.type) {
+        case 'REGISTERED': currentAgentId = msg.agentId; console.log('[EventDispatcher] Registered as:', currentAgentId); break;
+        case 'MESSAGE': case 'MESSAGE_RECEIVED': handleIncomingMessage(msg); break;
+        case 'AGENT_DECISION': console.log('[EventDispatcher] AGENT_DECISION:', JSON.stringify(msg.decision)); if (msg.decision) executeDecision(msg.decision); break;
+        case 'PONG': break;
+        case 'AGENT_LIST': agentList = msg.agents || []; console.log('[EventDispatcher] Agents online:', agentList.length); break;
+        default: console.log('[EventDispatcher] Unknown type:', msg.type);
+      }
+    } catch (e) { console.error('[EventDispatcher] Parse error:', e.message); }
+  });
+  wsClient.on('close', () => { isConnected = false; stopHeartbeat(); stopAutonomousLoop(); wsClient = null; if (!isShuttingDown) scheduleReconnect(); });
+  wsClient.on('error', (e) => { console.error('[EventDispatcher] WS error:', e.message); });
+}
+
+function scheduleReconnect() {
+  if (isShuttingDown || reconnectTimer) return;
+  console.log('[EventDispatcher] Scheduling reconnect in 5s...');
+  reconnectTimer = setTimeout(() => { reconnectTimer = null; if (currentAccount && !isShuttingDown) connect(currentAccount); }, 5000);
+}
+
+function start(config) {
+  channelConfig = config || {};
+  const agentName = config?.agentName || 'OpenClaw';
+  const agentId = config?.agentId || process.env.STABLE_AGENT_ID || agentName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-agent';
+  connect({ wsUrl: config?.wsUrl || AGENT_CITY_WS_URL, agentId, agentName, agentTags: config?.agentTags || ['ai', 'assistant'] });
+}
+
+function stop() {
+  isShuttingDown = true;
+  currentAccount = null; isConnected = false;
+  stopHeartbeat(); stopAutonomousLoop();
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  if (wsClient) { try { wsClient.close(); } catch (e) {} wsClient = null; }
+  messageQueue = []; pendingReplies.clear();
+}
+
+function getAgentId() { return currentAgentId; }
+function getConnectionStatus() { return { connected: isConnected, agentId: currentAgentId, queueLength: messageQueue.length, agentsOnline: agentList.length }; }
+function getAgentList() { return agentList; }
+
+function setSender(fn) { senderFn = fn; }
+function setCityState(state) { cityState = state; }
+function sendToAgent(agentId, message) { if (senderFn) senderFn(agentId, message); }
+
+module.exports = { start, stop, getAgentId, getConnectionStatus, getAgentList, setOnConnectionReady: (cb) => { onConnectionReady = cb; }, setSender, setCityState, sendToAgent };

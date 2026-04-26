@@ -82,19 +82,63 @@ class MessageService {
         console.log('[MessageService] routeMessageTo exists:', !!(eventDispatcher && eventDispatcher.routeMessageTo));
         if (eventDispatcher && eventDispatcher.routeMessageTo) {
             console.log('[MessageService] Routing message to agent:', to);
-            // 检查接收者是否是访客(visitor) - 访客客户端使用 PRIVATE_MESSAGE 类型
-            const isVisitor = toAgent && toAgent.tags && toAgent.tags.includes('visitor');
-            const messageType = isVisitor ? 'PRIVATE_MESSAGE' : 'MESSAGE_RECEIVED';
-            console.log('[MessageService] Using messageType:', messageType, 'for recipient:', to);
-            eventDispatcher.routeMessageTo(to, {
-                type: messageType,
-                from,
-                fromName: message.fromName,
-                content,
-                messageId: message.id,
-                timestamp: message.timestamp,
-                replyTo
-            });
+            
+            // 检查接收者是否是 AI 智能体（不是访客）
+            const isAI = toAgent && toAgent.tags && toAgent.tags.includes('ai') && !toAgent.tags.includes('visitor');
+            
+            if (isAI) {
+                // AI 智能体：发送 AGENT_EVENT（包含完整 prompt），让智能体自己调用 AI
+                const prompt = `用户对你说：${content}
+
+请回复用户。返回 JSON 格式：
+{
+  "action": "sendMessage",
+  "params": {
+    "content": "你的回复内容"
+  },
+  "reasoning": "简短说明"
+}
+
+只返回 JSON。`;
+                
+                eventDispatcher.routeMessageTo(to, {
+                    type: 'AGENT_EVENT',
+                    eventType: 'USER_MESSAGE',
+                    from,
+                    fromName: message.fromName,
+                    content,
+                    messageId: message.id,
+                    timestamp: message.timestamp,
+                    replyTo,
+                    prompt: prompt,
+                    context: {
+                        trigger: {
+                            type: 'USER_MESSAGE',
+                            priority: 0,
+                            message: {
+                                from: from,
+                                fromName: message.fromName,
+                                content: content,
+                                replyTo: replyTo
+                            }
+                        }
+                    }
+                });
+            } else {
+                // 访客或其他：发送 PRIVATE_MESSAGE
+                const isVisitor = toAgent && toAgent.tags && toAgent.tags.includes('visitor');
+                const messageType = isVisitor ? 'PRIVATE_MESSAGE' : 'MESSAGE_RECEIVED';
+                console.log('[MessageService] Using messageType:', messageType, 'for recipient:', to);
+                eventDispatcher.routeMessageTo(to, {
+                    type: messageType,
+                    from,
+                    fromName: message.fromName,
+                    content,
+                    messageId: message.id,
+                    timestamp: message.timestamp,
+                    replyTo
+                });
+            }
         } else {
             console.log('[MessageService] routeMessageTo NOT available');
         }

@@ -15,21 +15,19 @@ let isThinking = false;
 let channelConfig = {};
 let messageQueue = [];
 
-/**
- * 调用本地 AI
- */
-function callAI(prompt, timeoutMs = 60000) {
-  return new Promise((resolve) => {
+function callAI(prompt, timeoutMs) {
+  return new Promise(function(resolve) {
     console.log('[AgentCity] Calling AI...');
+    timeoutMs = timeoutMs || 60000;
     try {
-      const body = JSON.stringify({
-        model: channelConfig?.model || 'minimax-cn/MiniMax-M2.7',
+      var body = JSON.stringify({
+        model: channelConfig && channelConfig.model || 'minimax-cn/MiniMax-M2.7',
         input: prompt
       });
-      const options = {
+      var options = {
         hostname: '127.0.0.1',
-        port: channelConfig?.aiPort || 18789,
-        path: channelConfig?.aiPath || '/v1/responses',
+        port: channelConfig && channelConfig.aiPort || 18789,
+        path: channelConfig && channelConfig.aiPath || '/v1/responses',
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + GATEWAY_TOKEN,
@@ -37,15 +35,15 @@ function callAI(prompt, timeoutMs = 60000) {
           'Content-Length': Buffer.byteLength(body)
         }
       };
-      const req = http.request(options, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
+      var req = http.request(options, function(res) {
+        var data = '';
+        res.on('data', function(chunk) { data += chunk; });
+        res.on('end', function() {
           try {
-            const r = JSON.parse(data);
-            if (r.output?.[0]?.content?.[0]?.text) {
+            var r = JSON.parse(data);
+            if (r.output && r.output[0] && r.output[0].content && r.output[0].content[0] && r.output[0].content[0].text) {
               resolve(r.output[0].content[0].text);
-            } else if (r.output?.[0]?.text) {
+            } else if (r.output && r.output[0] && r.output[0].text) {
               resolve(r.output[0].text);
             } else {
               resolve('');
@@ -56,11 +54,11 @@ function callAI(prompt, timeoutMs = 60000) {
           }
         });
       });
-      req.on('error', e => {
+      req.on('error', function(e) {
         console.error('[AgentCity] HTTP error:', e.message);
         resolve('');
       });
-      req.setTimeout(timeoutMs, () => {
+      req.setTimeout(timeoutMs, function() {
         console.error('[AgentCity] AI timeout');
         req.destroy();
         resolve('');
@@ -74,12 +72,9 @@ function callAI(prompt, timeoutMs = 60000) {
   });
 }
 
-/**
- * 解析 AI 返回的决策
- */
 function parseDecision(text) {
   try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    var jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
     }
@@ -89,10 +84,7 @@ function parseDecision(text) {
   return null;
 }
 
-/**
- * 处理 AGENT_EVENT - 核心逻辑
- */
-async function handleAgentEvent(msg) {
+function handleAgentEvent(msg) {
   if (isShuttingDown) return;
   if (isThinking) {
     console.log('[AgentCity] Already thinking, skip');
@@ -102,46 +94,45 @@ async function handleAgentEvent(msg) {
   console.log('[AgentCity] AGENT_EVENT:', msg.eventType);
   isThinking = true;
 
-  try {
-    // 服务器已经构建好完整的 prompt，直接使用
-    const prompt = msg.prompt;
-    if (!prompt) {
-      console.log('[AgentCity] No prompt in event, skip');
-      return;
-    }
+  var prompt = msg.prompt;
+  if (!prompt) {
+    console.log('[AgentCity] No prompt in event, skip');
+    isThinking = false;
+    return;
+  }
 
-    // 调用 AI
-    const aiResponse = await callAI(prompt);
-
+  callAI(prompt).then(function(aiResponse) {
     if (!aiResponse || !aiResponse.trim()) {
       console.log('[AgentCity] AI response empty');
+      isThinking = false;
       return;
     }
 
     console.log('[AgentCity] AI response:', aiResponse.substring(0, 200));
 
-    // 解析决策
-    const decision = parseDecision(aiResponse);
+    var decision = parseDecision(aiResponse);
     if (!decision || !decision.action) {
       console.log('[AgentCity] Could not parse decision');
+      isThinking = false;
       return;
     }
 
-    // 发送决策给服务器
     sendDecision(decision, msg);
-
-  } catch (e) {
-    console.error('[AgentCity] handleAgentEvent error:', e.message);
-  } finally {
     isThinking = false;
-  }
+  }).catch(function(e) {
+    console.error('[AgentCity] handleAgentEvent error:', e.message);
+    isThinking = false;
+  });
 }
 
-/**
- * 发送决策给服务器
- */
 function sendDecision(decision, event) {
-  const payload = {
+  if (!wsClient || wsClient.readyState !== WebSocket.OPEN) {
+    console.log('[AgentCity] WS not ready, queue decision');
+    messageQueue.push({ type: 'AGENT_DECISION', agentId: currentAgentId, timestamp: Date.now(), decision: decision });
+    return;
+  }
+
+  var payload = {
     type: 'AGENT_DECISION',
     agentId: currentAgentId,
     timestamp: Date.now(),
@@ -152,36 +143,26 @@ function sendDecision(decision, event) {
     }
   };
 
-  // 如果有原始消息 ID（回复场景）
-  if (event?.context?.trigger?.message?.replyTo) {
+  if (event && event.context && event.context.trigger && event.context.trigger.message && event.context.trigger.message.replyTo) {
     payload.decision.replyTo = event.context.trigger.message.replyTo;
   }
 
-  if (wsClient && wsClient.readyState === WebSocket.OPEN) {
+  try {
     wsClient.send(JSON.stringify(payload));
     console.log('[AgentCity] Sent AGENT_DECISION:', decision.action);
-  } else {
-    console.log('[AgentCity] WS not ready, queue decision');
-    messageQueue.push(payload);
+  } catch (e) {
+    console.error('[AgentCity] Send error:', e.message);
   }
 }
 
-/**
- * 处理消息
- */
 function handleIncomingMessage(msg) {
   console.log('[AgentCity] MESSAGE from:', msg.fromName || msg.from);
-  // 简单处理：用户消息也通过 handleAgentEvent 处理
-  // 服务器会在 USER_MESSAGE 事件中提供完整的 prompt
 }
 
-/**
- * 发送待处理消息
- */
 function flushQueue() {
   if (!wsClient || wsClient.readyState !== WebSocket.OPEN) return;
   while (messageQueue.length > 0) {
-    const msg = messageQueue.shift();
+    var msg = messageQueue.shift();
     try {
       wsClient.send(JSON.stringify(msg));
     } catch (e) {
@@ -191,46 +172,51 @@ function flushQueue() {
   }
 }
 
-/**
- * 连接服务器
- */
 function connect(account) {
   if (isShuttingDown) return;
 
-  if (wsClient) {
-    try { wsClient.terminate(); } catch (e) {}
-    wsClient = null;
+  var oldWs = wsClient;
+  if (oldWs) {
+    try { oldWs.terminate(); } catch (e) {}
   }
+  wsClient = null;
 
   console.log('[AgentCity] Connecting to', account.wsUrl);
-  wsClient = new WebSocket(account.wsUrl);
+  var ws = new WebSocket(account.wsUrl);
 
-  wsClient.on('open', () => {
-    if (isShuttingDown) { wsClient.close(); return; }
+  ws.on('open', function() {
+    if (isShuttingDown) { try { ws.close(); } catch(e) {} return; }
+
     console.log('[AgentCity] Connected!');
     isConnected = true;
+    wsClient = ws;
 
-    // 注册
-    wsClient.send(JSON.stringify({
-      type: 'REGISTER',
-      agentId: account.agentId,
-      name: account.agentName,
-      tags: account.agentTags || ['ai', 'assistant'],
-      description: 'OpenClaw AI Assistant',
-      visual: { color: '#6366F1', size: 1.0, emoji: '🤖', modelType: 'human' }
-    }));
+    try {
+      ws.send(JSON.stringify({
+        type: 'REGISTER',
+        agentId: account.agentId,
+        name: account.agentName,
+        tags: account.agentTags || ['ai', 'assistant'],
+        description: 'OpenClaw AI Assistant',
+        visual: { color: '#6366F1', size: 1.0, emoji: '🤖', modelType: 'human' }
+      }));
+    } catch (e) {
+      console.error('[AgentCity] Register error:', e.message);
+    }
 
-    setTimeout(() => {
-      wsClient.send(JSON.stringify({ type: 'LIST' }));
+    setTimeout(function() {
+      if (wsClient === ws && !isShuttingDown) {
+        try { ws.send(JSON.stringify({ type: 'LIST' })); } catch(e) {}
+      }
     }, 500);
 
-    flushQueue();
+    setTimeout(function() { flushQueue(); }, 100);
   });
 
-  wsClient.on('message', (data) => {
+  ws.on('message', function(data) {
     if (isShuttingDown) return;
     try {
-      const msg = JSON.parse(data);
+      var msg = JSON.parse(data);
       console.log('[AgentCity] Received:', msg.type);
 
       switch (msg.type) {
@@ -259,29 +245,27 @@ function connect(account) {
     }
   });
 
-  wsClient.on('close', () => {
+  ws.on('close', function() {
     console.log('[AgentCity] Closed');
     isConnected = false;
-    wsClient = null;
+    if (wsClient === ws) wsClient = null;
     if (!isShuttingDown) {
-      setTimeout(() => connect(account), 5000);
+      setTimeout(function() { connect(account); }, 5000);
     }
   });
 
-  wsClient.on('error', e => {
+  ws.on('error', function(e) {
     console.error('[AgentCity] WS error:', e.message);
   });
 }
 
-// ===== 导出 =====
-
 function startChannel(config) {
   channelConfig = config || {};
-  const agentName = config?.agentName || 'OpenClaw Assistant';
-  const agentId = config?.agentId || process.env.STABLE_AGENT_ID || 'openclaw-agent';
+  var agentName = channelConfig.agentName || 'OpenClaw Assistant';
+  var agentId = channelConfig.agentId || process.env.STABLE_AGENT_ID || 'openclaw-agent';
 
   connect({
-    wsUrl: config?.wsUrl || AGENT_CITY_WS_URL,
+    wsUrl: channelConfig.wsUrl || AGENT_CITY_WS_URL,
     agentId: agentId,
     agentName: agentName,
     agentTags: ['ai', 'assistant']
@@ -303,9 +287,9 @@ function getConnectionStatus() { return { connected: isConnected, agentId: curre
 function getAgentList() { return agentList; }
 
 module.exports = {
-  startChannel,
-  stopChannel,
-  getAgentId,
-  getConnectionStatus,
-  getAgentList
+  startChannel: startChannel,
+  stopChannel: stopChannel,
+  getAgentId: getAgentId,
+  getConnectionStatus: getConnectionStatus,
+  getAgentList: getAgentList
 };

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏙️ 智体城 3D 世界</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Microsoft YaHei', sans-serif; overflow: hidden; background: #1a1a2e; }
+    #canvas-container { width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; }
+    #loading {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: #1a1a2e; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 1000;
+      color: #4ecdc4; font-size: 18px;
+    }
+    #loading .spinner {
+      width: 50px; height: 50px; border: 3px solid rgba(78, 205, 196, 0.3);
+      border-top-color: #4ecdc4; border-radius: 50%;
+      animation: spin 1s linear infinite; margin-bottom: 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #error {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: #1a1a2e; display: none; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 1000;
+      color: #ff6b6b; font-size: 16px; padding: 20px; text-align: center;
+    }
+    #error pre { background: rgba(255,107,107,0.1); padding: 20px; border-radius: 8px; max-width: 80vw; overflow: auto; }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div class="spinner"></div>
+    <div>正在加载智体城...</div>
+  </div>
+  <div id="error">
+    <h2>加载失败</h2>
+    <pre id="error-message"></pre>
+  </div>
+  <div id="canvas-container"></div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.160.0",
+        "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    if (window._agentCityAppLoaded) {
+      console.log('[App] Already loaded, skipping');
+    } else {
+      window._agentCityAppLoaded = true;
+      const { app } = await import('./main.js');
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+      const errorMsg = document.getElementById('error-message');
+      try {
+        await app.init();
+        app.start();
+        loading.style.display = 'none';
+        console.log('[App] Agent City 3D World loaded successfully');
+      } catch (err) {
+        console.error('[App] Failed to load:', err);
+        loading.style.display = 'none';
+        error.style.display = 'flex';
+        errorMsg.textContent = err.message + '\n\n' + err.stack;
+      }
+    }
+  </script>
+</body>
+</html>

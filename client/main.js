@@ -40,6 +40,7 @@ import { ReputationSystem } from './systems/reputation-system.js';
 import { TaskSystem } from './systems/task-system.js';
 import { RelationshipSystem } from './systems/relationship-system.js';
 import { WaterSystem } from './systems/water-system.js';
+import { CameraSystem } from './systems/camera-system.js';
 
 // Buildings - 建筑功能系统
 import { TaskCenter } from './systems/buildings/task-center.js';
@@ -60,6 +61,8 @@ import { Cow, Dog } from './systems/ecology/farm-animals.js';
 
 // Interaction - 交互系统
 import { AnimalBehaviors } from './systems/interaction/animal-behaviors.js';
+import { TransformerBehaviors } from './systems/interaction/transformer-behaviors.js';
+import { TransformerController } from './systems/interaction/transformer-controller.js';
 import { MovableObjects } from './systems/interaction/movable-objects.js';
 
 // AI - 人工智能
@@ -117,7 +120,8 @@ class AgentCityApp {
             task: null,
             relationship: null,
             animals: null,
-            movableObjects: null
+            movableObjects: null,
+            camera: null  // 相机系统
         };
 
         // AI 子系统
@@ -318,7 +322,14 @@ class AgentCityApp {
 
         // 初始化动物行为系统
         this.systems.animals = new AnimalBehaviors();
+        this.systems.transformer = new TransformerBehaviors();
+        this.systems.transformer.init(this.scene);
+        this.transformerController = new TransformerController(this.systems.transformer);
         this.systems.movableObjects = new MovableObjects();
+
+        // 初始化相机系统
+        this.systems.camera = new CameraSystem(this);
+        this.systems.camera.init(this.camera, this.controls, this.scene);
 
         // 初始化建筑
         this.initBuildings();
@@ -452,19 +463,24 @@ class AgentCityApp {
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 this.systems.agent.deselectAll();
+                // 通知相机系统取消跟随
+                this.systems.camera?.setMode('orbit');
             }
         });
 
         // WebSocket 事件处理
         eventBus.on(Events.WS_AGENT_MOVED, (msg) => {
             // msg: { type, agentId, position: { x, z } }
+            console.log('[App] WS_AGENT_MOVED received:', msg);
             const agent = this.systems.agent.getAgent(msg.agentId);
             if (agent) {
+                console.log('[App] Agent found, setting target:', msg.position);
                 // 设置目标位置，动画系统会自动移动（而非瞬移）
-                agent.targetPosition = { x: msg.position.x, z: msg.position.z };
-                agent.state = 'moving';
-                agent.position.x = msg.position.x;
-                agent.position.z = msg.position.z;
+                agent.setTarget(msg.position.x, msg.position.z);
+            } else {
+                console.log('[App] Agent not found:', msg.agentId);
+                // 列出所有已知的智能体
+                console.log('[App] Known agents:', Array.from(this.systems.agent.agents.keys()));
             }
         });
 
@@ -531,8 +547,6 @@ class AgentCityApp {
             const agent = this.systems?.agent?.agents?.get(agentId);
             if (agent) {
                 this.showThoughtBubble(agent, content);
-            } else {
-                console.log('[App] Agent not found for thought bubble:', agentId);
             }
         };
     }
@@ -889,7 +903,10 @@ class AgentCityApp {
 
             // 更新控制器
             this.controls.update();
-
+            
+            // 更新相机系统（跟随/第一人称模式）
+            this.systems.camera?.update(deltaTime);
+            
             // 更新系统
             this.systems.weather?.update(deltaTime);
             this.systems.dayNight?.update(deltaTime);
@@ -908,6 +925,10 @@ class AgentCityApp {
 
             // 更新可移动物体
             this.systems.movableObjects?.update(deltaTime);
+            
+            // 更新变形金刚
+            this.systems.transformer?.update(deltaTime);
+            this.transformerController?.update(deltaTime);
 
             // 更新建筑
             for (const building of Object.values(this.buildings)) {
@@ -936,7 +957,7 @@ class AgentCityApp {
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(w, h);
     }
-
+    
     /**
      * 隐藏加载画面
      */

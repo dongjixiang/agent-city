@@ -7,6 +7,8 @@
  * - 建筑碰撞边界计算
  */
 
+const WorldData = require('../data/world-data');
+
 class BuildingManager {
     constructor(worldState) {
         this.worldState = worldState;
@@ -14,46 +16,10 @@ class BuildingManager {
         // 建筑存储
         this.buildings = new Map();
         
-        // 预定义的建筑模板
-        this.buildingTemplates = {
-            skyscraper: {
-                type: "skyscraper",
-                name: "摩天大楼",
-                defaultSize: { width: 20, height: 150, depth: 20 },
-                floors: 40,
-                style: "modern"
-            },
-            house: {
-                type: "house",
-                name: "房屋",
-                defaultSize: { width: 10, height: 8, depth: 10 },
-                floors: 2,
-                style: "residential"
-            },
-            shop: {
-                type: "shop",
-                name: "商店",
-                defaultSize: { width: 8, height: 6, depth: 12 },
-                floors: 1,
-                style: "commercial"
-            },
-            park: {
-                type: "park",
-                name: "公园设施",
-                defaultSize: { width: 15, height: 5, depth: 15 },
-                floors: 1,
-                style: "nature"
-            },
-            tower: {
-                type: "tower",
-                name: "塔楼",
-                defaultSize: { width: 15, height: 80, depth: 15 },
-                floors: 20,
-                style: "medieval"
-            }
-        };
+        // 建筑模板（从共享数据加载）
+        this.buildingTemplates = WorldData.buildingTemplates;
         
-        // 初始化默认建筑
+        // 初始化默认建筑（从共享数据加载）
         this.initDefaultBuildings();
     }
     
@@ -61,66 +27,8 @@ class BuildingManager {
      * 初始化默认建筑
      */
     initDefaultBuildings() {
-        const defaultBuildings = [
-            {
-                id: "bld_downtown_1",
-                type: "skyscraper",
-                position: { x: 100, z: 100 },
-                size: { width: 25, height: 120, depth: 25 },
-                floors: 35,
-                style: "modern"
-            },
-            {
-                id: "bld_downtown_2",
-                type: "skyscraper",
-                position: { x: 150, z: 120 },
-                size: { width: 20, height: 100, depth: 20 },
-                floors: 30,
-                style: "modern"
-            },
-            {
-                id: "bld_downtown_3",
-                type: "skyscraper",
-                position: { x: 180, z: 80 },
-                size: { width: 30, height: 180, depth: 30 },
-                floors: 50,
-                style: "glass"
-            },
-            {
-                id: "bld_house_1",
-                type: "house",
-                position: { x: 320, z: 350 },
-                size: { width: 12, height: 8, depth: 10 },
-                floors: 2,
-                style: "residential"
-            },
-            {
-                id: "bld_house_2",
-                type: "house",
-                position: { x: 350, z: 380 },
-                size: { width: 10, height: 7, depth: 10 },
-                floors: 2,
-                style: "residential"
-            },
-            {
-                id: "bld_shop_1",
-                type: "shop",
-                position: { x: 200, z: 150 },
-                size: { width: 15, height: 6, depth: 20 },
-                floors: 1,
-                style: "commercial"
-            },
-            {
-                id: "bld_tower_1",
-                type: "tower",
-                position: { x: 400, z: 100 },
-                size: { width: 20, height: 60, depth: 20 },
-                floors: 15,
-                style: "medieval"
-            }
-        ];
-        
-        for (const data of defaultBuildings) {
+        // 使用 WorldData 中的建筑数据
+        for (const data of WorldData.buildings) {
             const building = new Building(data);
             this.buildings.set(building.id, building);
         }

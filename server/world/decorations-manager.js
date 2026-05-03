@@ -7,6 +7,8 @@
  * - 装饰物位置查询
  */
 
+const WorldData = require('../data/world-data');
+
 class DecorationsManager {
     constructor(worldState) {
         this.worldState = worldState;
@@ -14,41 +16,10 @@ class DecorationsManager {
         // 装饰物存储
         this.decorations = new Map();
         
-        // 装饰物类型
-        this.decoratorTypes = {
-            tree: {
-                type: "tree",
-                name: "树木",
-                defaultSize: { radius: 1, height: 8 }
-            },
-            flower: {
-                type: "flower",
-                name: "花卉",
-                defaultSize: { radius: 0.3, height: 0.5 }
-            },
-            bench: {
-                type: "bench",
-                name: "长椅",
-                defaultSize: { width: 2, height: 1, depth: 0.5 }
-            },
-            lamp: {
-                type: "lamp",
-                name: "路灯",
-                defaultSize: { radius: 0.2, height: 4 }
-            },
-            rock: {
-                type: "rock",
-                name: "岩石",
-                defaultSize: { radius: 0.8, height: 0.6 }
-            },
-            fountain: {
-                type: "fountain",
-                name: "喷泉",
-                defaultSize: { radius: 3, height: 2 }
-            }
-        };
+        // 装饰物模板（从共享数据加载）
+        this.decorationTemplates = WorldData.decorationTemplates;
         
-        // 初始化默认装饰物
+        // 初始化默认装饰物（从共享数据加载）
         this.initDefaultDecorations();
     }
     
@@ -56,41 +27,21 @@ class DecorationsManager {
      * 初始化默认装饰物
      */
     initDefaultDecorations() {
-        const defaultDecorations = [
-            // 公园树木
-            { id: "tree_p1", type: "tree", position: { x: 310, z: 310 }, style: "oak" },
-            { id: "tree_p2", type: "tree", position: { x: 330, z: 320 }, style: "pine" },
-            { id: "tree_p3", type: "tree", position: { x: 350, z: 310 }, style: "oak" },
-            { id: "tree_p4", type: "tree", position: { x: 370, z: 340 }, style: "pine" },
-            { id: "tree_p5", type: "tree", position: { x: 390, z: 360 }, style: "oak" },
-            
-            // 公园花卉
-            { id: "flower_f1", type: "flower", position: { x: 320, z: 350 }, style: "red" },
-            { id: "flower_f2", type: "flower", position: { x: 340, z: 370 }, style: "yellow" },
-            { id: "flower_f3", type: "flower", position: { x: 360, z: 350 }, style: "pink" },
-            { id: "flower_f4", type: "flower", position: { x: 380, z: 380 }, style: "red" },
-            
-            // 公园长椅
-            { id: "bench_b1", type: "bench", position: { x: 335, z: 360 }, rotation: 0 },
-            { id: "bench_b2", type: "bench", position: { x: 375, z: 320 }, rotation: Math.PI / 2 },
-            
-            // 路灯（市中心）
-            { id: "lamp_l1", type: "lamp", position: { x: 120, z: 80 }, rotation: 0 },
-            { id: "lamp_l2", type: "lamp", position: { x: 140, z: 80 }, rotation: 0 },
-            { id: "lamp_l3", type: "lamp", position: { x: 120, z: 100 }, rotation: 0 },
-            { id: "lamp_l4", type: "lamp", position: { x: 140, z: 100 }, rotation: 0 },
-            
-            // 喷泉
-            { id: "fountain_1", type: "fountain", position: { x: 160, z: 140 }, style: "modern" },
-            
-            // 公园喷泉
-            { id: "fountain_p1", type: "fountain", position: { x: 400, z: 400 }, style: "classic" }
-        ];
+        const defaultDecorations = WorldData.decorations;
         
-        for (const data of defaultDecorations) {
-            const decoration = new Decoration(data);
-            this.decorations.set(decoration.id, decoration);
-        }
+        // 添加所有类型的装饰物
+        const addAll = (list, type) => {
+            for (const data of list) {
+                this.decorations.set(data.id, new Decoration({ ...data, originalType: type }));
+            }
+        };
+        
+        addAll(defaultDecorations.trees, 'tree');
+        addAll(defaultDecorations.flowers, 'flower');
+        addAll(defaultDecorations.benches, 'bench');
+        addAll(defaultDecorations.lamps, 'lamp');
+        addAll(defaultDecorations.rocks, 'rock');
+        addAll(defaultDecorations.fountains, 'fountain');
         
         console.log(`[DecorationsManager] 初始化了 ${this.decorations.size} 个装饰物`);
     }

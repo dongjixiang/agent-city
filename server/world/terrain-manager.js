@@ -8,66 +8,52 @@
  * - 地形类型查询
  */
 
+const WorldData = require('../data/world-data');
+
 class TerrainManager {
     constructor(worldState) {
         this.worldState = worldState;
         
         // 世界尺寸
-        this.width = 500;
-        this.height = 500;
+        this.width = WorldData.meta.width;
+        this.height = WorldData.meta.height;
         
-        // 高度图（简化版，实际可以从服务端加载）
-        this.heightMap = this.generateDefaultHeightMap();
+        // 地形区域（从共享数据加载）
+        this.terrainZones = WorldData.terrainZones.map(zone => ({
+            ...zone,
+            // 转换为 polygon 格式供碰撞检测使用
+            polygon: this.boundsToPolygon(zone.bounds)
+        }));
         
-        // 可行走区域
-        this.walkableZones = [
-            { 
-                id: "zone_downtown", 
-                name: "市中心",
-                polygon: [
-                    [50, 50], [250, 50], [250, 250], [50, 250]
-                ],
-                walkable: true
-            },
-            { 
-                id: "zone_park", 
-                name: "公园区",
-                polygon: [
-                    [300, 300], [450, 300], [450, 450], [300, 450]
-                ],
-                walkable: true
-            },
-            { 
-                id: "zone_north", 
-                name: "北部区",
-                polygon: [
-                    [0, 0], [500, 0], [500, 50], [0, 50]
-                ],
-                walkable: true
-            }
-        ];
+        // 道路数据（用于路径验证）
+        this.roads = WorldData.roads;
         
-        // 障碍物区域（建筑内部、河流等）
-        this.blockedZones = [
-            // 河流
-            {
-                id: "river_1",
-                polygon: [[0, 150], [100, 150], [100, 200], [0, 200]],
-                blocked: true
-            }
-        ];
+        // 地形高度数据
+        this.terrain = WorldData.terrain;
         
         // 地形类型
         this.terrainTypes = {
-            grass: { id: "grass", name: "草地", height: 0, walkable: true, buildable: true, color: "#4a7c4e" },
-            road: { id: "road", name: "道路", height: 0.1, walkable: true, buildable: false, color: "#666666" },
-            water: { id: "water", name: "水面", height: -1, walkable: false, buildable: false, color: "#4a90d9" },
-            mountain: { id: "mountain", name: "山地", height: 10, walkable: false, buildable: false, color: "#8b7355" },
-            building: { id: "building", name: "建筑地基", height: 0, walkable: false, buildable: false, color: "#888888" }
+            grass: { id: "grass", name: "草地", height: 0, walkable: true, buildable: true },
+            road: { id: "road", name: "道路", height: 0.1, walkable: true, buildable: false },
+            water: { id: "water", name: "水面", height: -1, walkable: false, buildable: false },
+            mountain: { id: "mountain", name: "山地", height: 10, walkable: false, buildable: false },
+            building: { id: "building", name: "建筑地基", height: 0, walkable: false, buildable: false }
         };
         
         // 默认地形类型
         this.defaultTerrain = this.terrainTypes.grass;
+    }
+    
+    /**
+     * 将 bounds 转换为 polygon
+     */
+    boundsToPolygon(bounds) {
+        return [
+            [bounds.minX, bounds.minZ],
+            [bounds.maxX, bounds.minZ],
+            [bounds.maxX, bounds.maxZ],
+            [bounds.minX, bounds.maxZ]
+        ];
     }
     
     /**

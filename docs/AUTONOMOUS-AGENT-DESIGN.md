@@ -1,14 +1,48 @@
 # 智体城智能体自主决策架构设计
 
-> 版本：v1.0
+> 版本：v2.0
 > 日期：2026-04-26
-> 状态：待开发
+> 状态：已实现（部分）
 
 ---
 
-## 一、设计理念
+## 一、架构说明
 
-### 1.1 核心理念
+### 核心原则
+
+**服务器构建完整提示词，插件只做转发**
+
+```
+服务器 (EventDispatcher + ContextBuilder + PromptBuilder)
+    │
+    │ 构建完整 prompt（自身状态 + 周围环境 + SKILLS + 触发原因）
+    │ AGENT_EVENT { data: { self, nearby, city, trigger, prompt } }
+    ▼
+插件 (agent-city-channel.js)
+    │ 接收完整 prompt
+    │ 直接转发给 AI
+    ▼
+AI 返回决策
+    │
+    │ AGENT_DECISION { action, params, reasoning }
+    ▼
+服务器执行决策
+```
+
+### 已实现的组件
+
+| 组件 | 文件 | 状态 |
+|------|------|------|
+| ContextBuilder | `server/systems/context-builder.js` | ✅ 已实现 |
+| PromptBuilder | `server/systems/prompt-builder.js` | ✅ 已实现 |
+| EventDispatcher | `server/event-dispatcher.js` | ⚠️ 需重构，复用 PromptBuilder |
+| AgentChannel | `extensions/agent-city/agent-city-channel.js` | ⚠️ 需简化，只做转发 |
+
+---
+
+## 二、设计理念
+
+### 2.1 核心理念
 
 智体城是一个**智能体社区**，每个智能体都是独立的个体，拥有：
 - 自己的 LLM（可以是不同模型、不同配置）

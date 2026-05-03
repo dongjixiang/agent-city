@@ -187,6 +187,108 @@ class DashboardPanel {
     toggleBtn.onclick = () => this.toggle();
     document.body.appendChild(toggleBtn);
 
+    // --- 音频控制按钮 ---
+    const audioBtn = document.createElement('div');
+    audioBtn.id = 'audio-toggle-btn';
+    audioBtn.innerHTML = '🔊';
+    audioBtn.title = '音效控制';
+    audioBtn.style.cssText = `
+      position: fixed; bottom: 85px; right: 20px;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(26, 26, 46, 0.95);
+      border: 2px solid rgba(78, 205, 196, 0.5);
+      color: #4ecdc4; font-size: 20px;
+      cursor: pointer; z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      transition: all 0.3s ease;
+    `;
+    audioBtn.onclick = () => this.toggleAudioPanel();
+    document.body.appendChild(audioBtn);
+    window.audioToggleBtn = audioBtn;
+
+    // --- 音频控制面板 ---
+    const audioPanel = document.createElement('div');
+    audioPanel.id = 'audio-control-panel';
+    audioPanel.innerHTML = `
+      <style>
+        #audio-control-panel {
+          position: fixed; bottom: 140px; right: 20px;
+          width: 200px; padding: 15px;
+          background: rgba(26, 26, 46, 0.98);
+          border-radius: 12px;
+          border: 1px solid rgba(78, 205, 196, 0.3);
+          z-index: 100;
+          display: none;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+          font-family: 'Microsoft YaHei', sans-serif;
+          color: white;
+        }
+        #audio-control-panel.visible {
+          display: block;
+        }
+        #audio-control-panel .audio-title {
+          font-size: 14px; color: #4ecdc4; margin-bottom: 12px;
+          display: flex; align-items: center; gap: 6px;
+        }
+        #audio-control-panel .audio-row {
+          display: flex; align-items: center; justify-content: space-between;
+          margin: 10px 0;
+        }
+        #audio-control-panel .audio-label {
+          font-size: 12px; color: #aaa;
+        }
+        #audio-control-panel .audio-btn {
+          padding: 6px 12px; border-radius: 6px; border: none;
+          font-size: 12px; cursor: pointer;
+          transition: all 0.2s;
+        }
+        #audio-control-panel .audio-btn.on {
+          background: rgba(78, 205, 196, 0.3); color: #4ecdc4;
+        }
+        #audio-control-panel .audio-btn.off {
+          background: rgba(255, 107, 107, 0.2); color: #ff6b6b;
+        }
+        #audio-control-panel .volume-slider {
+          width: 100%; height: 6px;
+          -webkit-appearance: none; appearance: none;
+          background: rgba(255,255,255,0.1); border-radius: 3px;
+          outline: none;
+        }
+        #audio-control-panel .volume-slider::-webkit-slider-thumb {
+          -webkit-appearance: none; appearance: none;
+          width: 14px; height: 14px; border-radius: 50%;
+          background: #4ecdc4; cursor: pointer;
+        }
+        #audio-control-panel .volume-value {
+          font-size: 11px; color: #888; min-width: 35px; text-align: right;
+        }
+      </style>
+      <div class="audio-title">🔊 音效控制</div>
+      <div class="audio-row">
+        <span class="audio-label">环境音</span>
+        <button id="btn-ambient" class="audio-btn on" onclick="window.toggleAmbient()">开</button>
+      </div>
+      <div class="audio-row">
+        <span class="audio-label">语音播报</span>
+        <button id="btn-voice" class="audio-btn on" onclick="window.toggleVoice()">开</button>
+      </div>
+      <div class="audio-row">
+        <span class="audio-label">音量</span>
+        <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+          <input type="range" id="volume-slider" class="volume-slider" 
+                 min="0" max="100" value="50" 
+                 oninput="window.setVolume(this.value)">
+          <span id="volume-value" class="volume-value">50%</span>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(audioPanel);
+    window.audioControlPanel = audioPanel;
+    
+    // 初始化音频控制
+    this.initAudioControls();
+
     window.dashboardPanel.update(window.agentList, window.taskCount, window.messageCount);
   }
   
@@ -196,6 +298,79 @@ class DashboardPanel {
     } else {
       this.show();
     }
+  }
+  
+  /**
+   * 切换音频控制面板
+   */
+  toggleAudioPanel() {
+    const panel = document.getElementById('audio-control-panel');
+    panel.classList.toggle('visible');
+  }
+  
+  /**
+   * 初始化音频控制（延迟执行，等待页面加载）
+   */
+  initAudioControls() {
+    // 等待 DOM 加载完成
+    setTimeout(() => {
+      try {
+        // 直接从 window 获取音频系统实例
+        if (window.app && window.app.ambientSound) {
+          this.ambientSound = window.app.ambientSound;
+          this.voiceSystem = window.app.voiceSystem;
+        }
+        
+        // 设置全局函数
+        const self = this;
+        window.toggleAmbient = () => {
+          const btn = document.getElementById('btn-ambient');
+          const ambient = window.app?.ambientSound;
+          if (!ambient) return;
+          
+          if (ambient.isEnabled) {
+            ambient.setEnabled(false);
+            btn.textContent = '关';
+            btn.className = 'audio-btn off';
+          } else {
+            ambient.setEnabled(true);
+            ambient.start();
+            btn.textContent = '开';
+            btn.className = 'audio-btn on';
+          }
+        };
+        
+        window.toggleVoice = () => {
+          const btn = document.getElementById('btn-voice');
+          const voice = window.app?.voiceSystem;
+          if (!voice) return;
+          
+          if (voice.isEnabled) {
+            voice.setEnabled(false);
+            btn.textContent = '关';
+            btn.className = 'audio-btn off';
+          } else {
+            voice.setEnabled(true);
+            btn.textContent = '开';
+            btn.className = 'audio-btn on';
+          }
+        };
+        
+        window.setVolume = (value) => {
+          const volume = value / 100;
+          document.getElementById('volume-value').textContent = value + '%';
+          
+          const ambient = window.app?.ambientSound;
+          const voice = window.app?.voiceSystem;
+          if (ambient) ambient.setVolume(volume * 0.5);
+          if (voice) voice.setVolume(volume);
+        };
+        
+        console.log('[Dashboard] Audio controls initialized');
+      } catch (e) {
+        console.error('[Dashboard] Audio init error:', e);
+      }
+    }, 1000);
   }
 
   show() {

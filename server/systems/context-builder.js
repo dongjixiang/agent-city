@@ -21,9 +21,9 @@ class ContextBuilder {
     }
 
     /**
-     * 构建环境上下文
+     * 构建环境上下文（异步）
      */
-    build(event) {
+    async build(event) {
         const agent = this.getAgent(event.agentId);
         if (!agent) {
             console.log(`[ContextBuilder] 智能体 ${event.agentId} 不存在`);
@@ -32,7 +32,7 @@ class ContextBuilder {
 
         return {
             self: this.buildSelfInfo(agent),
-            nearby: this.buildNearbyInfo(agent),
+            nearby: await this.buildNearbyInfo(agent),
             city: this.buildCityInfo(),
             trigger: this.buildTrigger(event)
         };
@@ -54,7 +54,7 @@ class ContextBuilder {
     buildSelfInfo(agent) {
         return {
             id: agent.id || agent.agentId,
-            name: agent.name || '未知',
+            name: agent.name || '小吉',
             position: { 
                 x: typeof agent.x === 'number' ? agent.x : (agent.position?.x || 0),
                 z: typeof agent.z === 'number' ? agent.z : (agent.position?.z || 0)
@@ -74,7 +74,6 @@ class ContextBuilder {
      * 获取智能体技能列表
      */
     getAgentSkills(agent) {
-        // 默认技能列表
         const defaultSkills = ['goTo', 'sendMessage', 'broadcast', 'think', 'stay', 'explore', 'interact', 'respond'];
         
         if (agent.skills && Array.isArray(agent.skills)) {
@@ -85,9 +84,9 @@ class ContextBuilder {
     }
 
     /**
-     * 构建周边环境信息
+     * 构建附近环境信息（异步）
      */
-    buildNearbyInfo(agent) {
+    async buildNearbyInfo(agent) {
         const nearby = {
             agents: [],
             objects: [],
@@ -99,7 +98,8 @@ class ContextBuilder {
 
         // 附近的智能体
         if (this.agentRegistry) {
-            for (const other of this.agentRegistry.getOnlineAgents()) {
+            const onlineAgents = await this.agentRegistry.getOnlineAgents();
+            for (const other of onlineAgents) {
                 if (other.id === agent.id || other.agentId === agent.id) continue;
                 
                 const otherX = typeof other.x === 'number' ? other.x : (other.position?.x || 0);
@@ -120,7 +120,7 @@ class ContextBuilder {
             }
         }
 
-        // 附近的物体（从 cityState 获取）
+        // 附近的物体
         if (this.cityState && this.cityState.objects) {
             for (const obj of this.cityState.objects) {
                 const objX = obj.position?.x || obj.x || 0;
@@ -138,7 +138,7 @@ class ContextBuilder {
             }
         }
 
-        // 附近的建筑（从 cityState 获取）
+        // 附近的建筑
         if (this.cityState && this.cityState.buildings) {
             for (const building of this.cityState.buildings) {
                 const bldX = building.position?.x || building.x || 0;
@@ -195,7 +195,7 @@ class ContextBuilder {
             }
         }
 
-        if (this.agentRegistry) {
+        if (this.agentRegistry && typeof this.agentRegistry.getOnlineAgentCount === 'function') {
             info.onlineAgentCount = this.agentRegistry.getOnlineAgentCount();
         }
 
@@ -211,7 +211,6 @@ class ContextBuilder {
             priority: event.priority
         };
 
-        // 根据事件类型添加额外字段
         switch (event.type) {
             case 'USER_MESSAGE':
                 trigger.message = event.data;
@@ -232,7 +231,6 @@ class ContextBuilder {
                 trigger.task = event.data;
                 break;
             case 'PERIODIC_SNAPSHOT':
-                // 定期快照不需要额外字段
                 break;
         }
 

@@ -34,7 +34,8 @@ class Agent extends WorldObject {
 
         // 身份
         this.name = data.name || `Agent_${id}`;
-        this.agentType = data.agentType || AgentType.LOBSTER;
+        // 优先使用 agentType，否则用 type（服务器用的是 type 字段）
+        this.agentType = data.agentType || data.type || AgentType.LOBSTER;
 
         // 状态
         this.state = AgentState.IDLE;

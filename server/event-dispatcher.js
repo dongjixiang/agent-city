@@ -246,9 +246,13 @@ class EventDispatcher {
         this.contextBuilder = null;
         this.promptBuilder = new PromptBuilder();
         
-        // 定时器
-        this.snapshotInterval = 5 * 60 * 1000; // 5分钟
+        // 定时器 - 使用配置的思考间隔（秒转毫秒）
+        this.snapshotInterval = (this.config?.thinking?.interval || 10) * 1000;
         this.snapshotTimers = new Map();
+        
+        // 探索冷却时间（毫秒）
+        this.exploreCooldown = (this.config?.thinking?.exploreCooldown || 30) * 1000;
+        this.agentCooldowns = new Map(); // agentId -> { endTime }
         
         // 回调函数
         this.onSendToAgent = null;
@@ -271,6 +275,23 @@ class EventDispatcher {
         
         // 初始化 ContextBuilder，使用 agentRegistry 适配器
         this.contextBuilder = new ContextBuilder(cityState, agentRegistry || agentStore);
+    }
+    
+    /**
+     * 设置配置（需要在 config.load() 之后调用）
+     */
+    setConfig(config) {
+        this.config = config;
+        // 更新定时器间隔
+        this.snapshotInterval = (config?.thinking?.interval || 10) * 1000;
+        this.exploreCooldown = (config?.thinking?.exploreCooldown || 30) * 1000;
+        console.log(`[EventDispatcher] Config loaded: snapshotInterval=${this.snapshotInterval}ms, exploreCooldown=${this.exploreCooldown}ms`);
+        
+        // 重启所有智能体的定时器
+        for (const [agentId, timer] of this.snapshotTimers) {
+            clearInterval(timer);
+            this.startSnapshotTimer(agentId);
+        }
     }
 
     /**
@@ -519,6 +540,8 @@ class EventDispatcher {
         const state = this.agentStates.get(agentId);
         if (!state) return;
         
+        console.log(`[EventDispatcher] receiveDecision for ${agentId}, pendingDecision was:`, state.pendingDecision);
+        
         state.thinking = false;
         state.pendingDecision = false;
         
@@ -587,6 +610,38 @@ ${entriesText}
     /**
      * 发送定期环境快照（异步）
      */
+        /**
+     * 处理智能体配置更新
+     */
+    async handleUpdateAgentConfig(agentId, config) {
+        if (!this.agentStore) return;
+        
+        try {
+            const agent = await this.agentStore.get(agentId);
+            if (!agent) {
+                console.log('[EventDispatcher] handleUpdateAgentConfig: agent not found:', agentId);
+                return;
+            }
+            
+            if (config.thinkInterval !== undefined) {
+                this.snapshotInterval = config.thinkInterval;
+                console.log('[EventDispatcher] Updated snapshotInterval to:', config.thinkInterval);
+                this.stopSnapshotTimer(agentId);
+                this.startSnapshotTimer(agentId);
+            }
+            
+            if (config.exploreCooldown !== undefined) {
+                this.exploreCooldown = config.exploreCooldown * 1000;
+                console.log('[EventDispatcher] Updated exploreCooldown to:', this.exploreCooldown);
+            }
+            
+            await this.agentStore.update(agentId, agent);
+            
+        } catch (e) {
+            console.error('[EventDispatcher] handleUpdateAgentConfig error:', e.message);
+        }
+    }
+    
     async sendPeriodicSnapshot(agentId) {
         console.log(`[EventDispatcher] sendPeriodicSnapshot called for ${agentId}`);
         const state = this.agentStates.get(agentId);
@@ -595,10 +650,9 @@ ${entriesText}
             return;
         }
         
-        // 如果正在等待决策，跳过这次快照
+        // 如果正在等待决策，跳过本次快照（但仍然检查冷却）
         if (state.pendingDecision) {
             console.log(`[EventDispatcher] ${agentId} 正在等待决策，跳过本次快照`);
-            return;
         }
         
         // 更新位置
@@ -613,21 +667,42 @@ ${entriesText}
             }
         }
         
-        // 先执行一次探索动作（不需要等待 AI）
-        await this.triggerDefaultExplore(agentId);
+        // 检查是否在冷却中（探索和 AI 思考分别控制）
+        const cooldownData = this.agentCooldowns.get(agentId);
+        const inCooldown = cooldownData && Date.now() < cooldownData.endTime;
+        const cooldownSecs = cooldownData ? Math.ceil((cooldownData.endTime - Date.now())/1000) : 0;
         
-        console.log(`[EventDispatcher] triggerDefaultExplore completed for ${agentId}`);
+        console.log(`[EventDispatcher] ${agentId} tick: pendingDecision=${state.pendingDecision}, inCooldown=${inCooldown}, cooldownRemaining=${cooldownSecs}s`);
         
-        // 构建事件并发送给 AI（用于让 AI 知道发生了什么）
-        const event = {
-            agentId: agentId,
-            type: 'PERIODIC_SNAPSHOT',
-            data: {},
-            priority: 1
-        };
+        if (inCooldown) {
+            console.log(`[EventDispatcher] ${agentId} 探索冷却中，跳过 (剩余 ${cooldownSecs}s)`);
+        } else {
+            // 检查是否正在探索中（state.walking）
+            const isWalking = state.agentData?.state === 'walking';
+            if (isWalking) {
+                console.log(`[EventDispatcher] ${agentId} 正在探索中，跳过`);
+            } else {
+                // 不在冷却中且不在探索中，执行探索
+                this.triggerDefaultExplore(agentId).catch(e => console.error('Explore error:', e.message));
+                console.log(`[EventDispatcher] ${agentId} 探索冷却开始: 30秒`);
+                this.agentCooldowns.set(agentId, { endTime: Date.now() + this.exploreCooldown });
+            }
+        }
         
-        // 触发完整的 dispatchEvent 流程（异步，不阻塞）
-        this.dispatchEvent(agentId, event).catch(() => {});
+        // 只有不在冷却中且不在等待决策时才触发 AI 思考
+        if (!inCooldown && !state.pendingDecision) {
+            const event = {
+                agentId: agentId,
+                type: 'PERIODIC_SNAPSHOT',
+                data: {},
+                priority: 1
+            };
+            this.dispatchEvent(agentId, event).catch(() => {});
+        } else if (!inCooldown && state.pendingDecision) {
+            console.log(`[EventDispatcher] ${agentId} 等待决策中，跳过 AI 思考`);
+        } else {
+            console.log(`[EventDispatcher] ${agentId} 冷却中，跳过探索和 AI 思考`);
+        }
     }
     
     /**

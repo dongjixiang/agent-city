@@ -48,6 +48,53 @@ class Transformer {
             isControlled: false,      // 被控制中，不自动变形
         };
         this.bones = null;
+        
+        // ========== 战斗系统 ==========
+        this.maxHealth = 150; // 最大血量（擎天柱稍低）
+        this.health = 150;    // 当前血量
+        this.isDead = false;   // 是否死亡
+        this.respawnTimer = 0; // 复活倒计时
+        this.respawnTime = 60; // 复活时间（秒）
+        this.invincible = false; // 无敌状态
+        this.invincibleTimer = 0;
+        
+        // 攻击动作定义
+        this.attackActions = {
+            // 机器人形态近战攻击
+            punch: {
+                name: '重拳',
+                damage: 20,
+                cooldown: 1.2,
+                range: 3,
+                lastUsed: 0,
+                animation: 'punch'
+            },
+            shieldBash: {
+                name: '盾牌冲击',
+                damage: 30,
+                cooldown: 2.0,
+                range: 3.5,
+                lastUsed: 0,
+                animation: 'shieldBash'
+            },
+            // 汽车形态攻击
+            ram: {
+                name: '冲撞',
+                damage: 45,
+                cooldown: 2.5,
+                range: 6,
+                lastUsed: 0,
+                animation: 'ram'
+            },
+            boost: {
+                name: '加速冲击',
+                damage: 60,
+                cooldown: 4.0,
+                range: 8,
+                lastUsed: 0,
+                animation: 'boost'
+            }
+        };
     }
 
     /**
@@ -500,6 +547,23 @@ class Transformer {
 
         const state = this.state;
 
+        // ========== 死亡和复活 ==========
+        if (this.isDead) {
+            this.respawnTimer -= deltaTime;
+            if (this.respawnTimer <= 0) {
+                this.respawn();
+            }
+            return;
+        }
+        
+        // 无敌状态更新
+        if (this.invincible) {
+            this.invincibleTimer -= deltaTime;
+            if (this.invincibleTimer <= 0) {
+                this.invincible = false;
+            }
+        }
+
         // 处理变形动画
         if (state.isTransforming) {
             this._updateTransformAnimation(deltaTime);
@@ -617,6 +681,172 @@ class Transformer {
                 }
             }
         }
+    }
+    
+    // ========== 战斗系统方法 ==========
+    
+    /**
+     * 执行攻击动作
+     */
+    performAttack(actionName, target = null) {
+        if (this.isDead) return false;
+        
+        const action = this.attackActions[actionName];
+        if (!action) return false;
+        
+        const now = Date.now();
+        const cooldownMs = action.cooldown * 1000;
+        
+        if (now - action.lastUsed < cooldownMs) {
+            console.log(`[Transformer] ${action.name} 冷却中...`);
+            return false;
+        }
+        
+        action.lastUsed = now;
+        
+        const isRobot = this.state.isTransformed;
+        
+        // 检查攻击是否适合当前形态
+        if (actionName === 'punch' && !isRobot) return false;
+        if (actionName === 'shieldBash' && !isRobot) return false;
+        if (actionName === 'ram' && isRobot) return false;
+        if (actionName === 'boost' && isRobot) return false;
+        
+        // 执行攻击动画
+        this.playAttackAnimation(actionName);
+        
+        // 造成伤害
+        if (target) {
+            const dist = this.getDistanceTo(target);
+            if (dist <= action.range) {
+                target.takeDamage(action.damage, this);
+                console.log(`[Transformer] ${action.name} 命中！伤害: ${action.damage}`);
+            }
+        } else {
+            console.log(`[Transformer] ${action.name}！伤害: ${action.damage}`);
+        }
+        
+        return true;
+    }
+    
+    /**
+     * 播放攻击动画
+     */
+    playAttackAnimation(actionName) {
+        if (!this.group) return;
+        
+        const duration = 300;
+        const originalScale = this.group.scale.clone();
+        
+        switch(actionName) {
+            case 'punch':
+                this.group.scale.z = 1.2;
+                setTimeout(() => { this.group.scale.copy(originalScale); }, duration);
+                break;
+            case 'shieldBash':
+                this.group.rotation.y += 0.4;
+                setTimeout(() => { this.group.rotation.y -= 0.4; }, duration);
+                break;
+            case 'ram':
+                this.group.scale.x = 1.15;
+                setTimeout(() => { this.group.scale.x = 1.0; }, duration);
+                break;
+            case 'boost':
+                this.group.scale.y = 0.85;
+                setTimeout(() => { this.group.scale.y = 1.0; }, duration * 2);
+                break;
+        }
+    }
+    
+    /**
+     * 获取到目标的距离
+     */
+    getDistanceTo(target) {
+        if (!target || !target.position) return Infinity;
+        const dx = target.position.x - this.state.x;
+        const dz = target.position.z - this.state.z;
+        return Math.sqrt(dx * dx + dz * dz);
+    }
+    
+    /**
+     * 受到伤害
+     */
+    takeDamage(amount, attacker) {
+        if (this.isDead || this.invincible) return;
+        
+        this.health -= amount;
+        console.log(`[Transformer] 受到 ${amount} 点伤害！剩余血量: ${this.health}/${this.maxHealth}`);
+        
+        // 受伤闪烁效果
+        this.playDamageEffect();
+        
+        if (this.health <= 0) {
+            this.die(attacker);
+        }
+    }
+    
+    /**
+     * 受伤特效
+     */
+    playDamageEffect() {
+        if (!this.group) return;
+        
+        const flash = () => {
+            this.group.traverse((child) => {
+                if (child.isMesh && child.material && child.material.emissive) {
+                    child.material.emissive.setHex(0xff0000);
+                }
+            });
+        };
+        
+        flash();
+        setTimeout(flash, 100);
+        setTimeout(flash, 200);
+    }
+    
+    /**
+     * 死亡
+     */
+    die(killer) {
+        console.log(`[Transformer] 被击败！`);
+        this.isDead = true;
+        this.health = 0;
+        
+        if (this.group) {
+            this.group.visible = false;
+        }
+        
+        this.state.targetX = this.state.x;
+        this.state.targetZ = this.state.z;
+        
+        this.respawnTimer = this.respawnTime;
+        console.log(`[Transformer] 将在 ${this.respawnTime} 秒后复活...`);
+    }
+    
+    /**
+     * 复活
+     */
+    respawn() {
+        console.log(`[Transformer] 复活！`);
+        this.isDead = false;
+        this.health = this.maxHealth;
+        this.respawnTimer = 0;
+        this.invincible = true;
+        this.invincibleTimer = 3;
+        
+        if (this.group) {
+            this.group.visible = true;
+            this.group.position.set(this.state.x, 0, this.state.z);
+        }
+        
+        this.state.x = 40;
+        this.state.z = 35;
+        this.state.isTransformed = true;
+        
+        if (this.robotMesh) this.robotMesh.visible = true;
+        if (this.carMesh) this.carMesh.visible = false;
+        
+        console.log(`[Transformer] 复活成功！血量: ${this.health}/${this.maxHealth}`);
     }
 }
 

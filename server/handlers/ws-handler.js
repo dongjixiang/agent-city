@@ -207,6 +207,13 @@ class WebSocketHandler extends BaseHandler {
                     await this.handleList(ws, clientId, payload);
                     break;
 
+                case 'UPDATE_AGENT_CONFIG':
+                    if (payload.agentId && payload.config) {
+                      console.log('[WSHandler] UPDATE_AGENT_CONFIG:', payload.agentId, payload.config);
+                      eventDispatcher?.handleUpdateAgentConfig(payload.agentId, payload.config);
+                    }
+                    break;
+
                 default:
                     logger.warn(`[WS] 未知消息类型: ${type}`);
                     this.sendToClient(clientId, {
@@ -250,6 +257,14 @@ class WebSocketHandler extends BaseHandler {
 
         // 创建或更新智能体
         if (agentStore) {
+            // 检查初始位置是否有效，如果无效则找一个安全位置
+            let safePosition = payload.position || { x: 30, z: 30 };
+            if (eventDispatcher && !eventDispatcher.isValidWalkPosition(safePosition.x, safePosition.z)) {
+                console.log('[handleRegister] 初始位置无效，查找安全位置');
+                const validPos = eventDispatcher.findSafeSpawnPosition();
+                safePosition = validPos || { x: 30, z: 30 }; // 默认安全区
+            }
+            
             const agent = await agentStore.createOrUpdate({
                 agentId,
                 name,
@@ -258,7 +273,8 @@ class WebSocketHandler extends BaseHandler {
                 visual: visual || null,
                 description: description || '',
                 connectionId: ws.connectionId,
-                lastSeen: Date.now()
+                lastSeen: Date.now(),
+                position: safePosition
             });
 
             this.sendToClient(clientId, {
@@ -433,6 +449,24 @@ class WebSocketHandler extends BaseHandler {
 
         logger.info(`[WS] AI Decision from ${agentId}:`, { action, params, reasoning });
 
+        // 获取智能体名称用于广播
+        let agentName = agentId;
+        if (agentStore) {
+            const agentData = await agentStore.get(agentId);
+            if (agentData && agentData.name) agentName = agentData.name;
+        }
+
+        // 广播智能体的行动内容到世界之窗
+        if (reasoning || action) {
+            const actionText = reasoning || this.getActionDescription(action, params);
+            this.broadcast({
+                type: 'AGENT_THOUGHT',
+                agentId,
+                agentName,
+                content: actionText
+            });
+        }
+
         // 处理决策
         switch (action) {
             case 'move_to':
@@ -459,12 +493,20 @@ class WebSocketHandler extends BaseHandler {
                 break;
 
             case 'speak':
+            case 'sendMessage':
                 if (params && params.content) {
+                    // Get agent name for the broadcast
+                    let agentName = agentId;
+                    if (agentStore) {
+                        const agentData = await agentStore.get(agentId);
+                        if (agentData && agentData.name) agentName = agentData.name;
+                    }
                     this.broadcast({
                         type: 'AGENT_SPEAK',
                         agentId,
+                        name: agentName,
                         content: params.content,
-                        targetAgentId: params.targetId || null
+                        targetAgentId: params.targetId || params.to || null
                     });
                 }
                 break;
@@ -487,8 +529,9 @@ class WebSocketHandler extends BaseHandler {
 
             case 'explore':
                 if (agentStore) {
-                    const current = await agentStore.getAgentPosition(agentId);
-                    if (current) {
+                    const agent = await agentStore.get(agentId);
+                    if (agent && agent.position) {
+                        const current = agent.position;
                         const angle = Math.random() * Math.PI * 2;
                         const dist = 10 + Math.random() * 15;
                         const newX = current.x + Math.cos(angle) * dist;
@@ -509,6 +552,239 @@ class WebSocketHandler extends BaseHandler {
                             position: { x: newX, z: newZ }
                         });
                     }
+                }
+                break;
+
+            case 'goTo':
+            case 'move_to':
+                if (params && (params.x !== undefined || params.target)) {
+                    let x, z;
+                    if (params.target) {
+                        // 支持 goTo({ target: "x,z" }) 格式
+                        const parts = params.target.split(',').map(v => parseFloat(v.trim()));
+                        x = parts[0]; z = parts[1];
+                    } else {
+                        x = params.x; z = params.z;
+                    }
+                    if (x !== undefined && z !== undefined && agentStore) {
+                        await agentStore.updatePosition(agentId, { x, z });
+                        await agentStore.updateState(agentId, 'idle');
+                        if (eventDispatcher) {
+                            eventDispatcher.updateAgentData(agentId, { position: { x, z }, state: 'idle' });
+                        }
+                        this.broadcast({ type: 'AGENT_MOVED', agentId, position: { x, z } });
+                    }
+                }
+                break;
+
+            case 'sendMessage':
+            case 'speak':
+                if (params && params.content) {
+                    // Get agent name for the broadcast
+                    let agentName = agentId;
+                    if (agentStore) {
+                        const agentData = await agentStore.get(agentId);
+                        if (agentData && agentData.name) agentName = agentData.name;
+                    }
+                    const targetAgentId = params.to || params.targetId || null;
+                    this.broadcast({
+                        type: 'AGENT_SPEAK',
+                        agentId,
+                        name: agentName,
+                        content: params.content,
+                        targetAgentId
+                    });
+                }
+                break;
+
+            case 'broadcast':
+                if (params && params.content) {
+                    // Get agent name for the broadcast
+                    let agentName = agentId;
+                    if (agentStore) {
+                        const agentData = await agentStore.get(agentId);
+                        if (agentData && agentData.name) agentName = agentData.name;
+                    }
+                    this.broadcast({
+                        type: 'AGENT_SPEAK',
+                        agentId,
+                        name: agentName,
+                        content: params.content,
+                        targetAgentId: null
+                    });
+                }
+                break;
+
+            case 'think':
+                if (params && params.content) {
+                    // 思考只显示在小吉头顶，不广播
+                    this.broadcast({
+                        type: 'AGENT_THOUGHT',
+                        agentId,
+                        content: params.content
+                    });
+                }
+                break;
+
+            case 'stay':
+            case 'rest':
+                if (agentStore) {
+                    const newState = action === 'rest' ? 'resting' : 'idle';
+                    await agentStore.updateState(agentId, newState);
+                    if (eventDispatcher) {
+                        eventDispatcher.updateAgentData(agentId, { state: newState });
+                    }
+                    this.broadcast({ type: 'AGENT_STATE_CHANGE', agentId, state: newState });
+                }
+                break;
+
+            case 'explore':
+                if (agentStore) {
+                    const agent = await agentStore.get(agentId);
+                    if (agent && agent.position) {
+                        const current = agent.position;
+                        
+                        // 尝试找到有效的位置（使用 eventDispatcher 的验证逻辑）
+                        let newX, newZ;
+                        let attempts = 0;
+                        const maxAttempts = 20;
+                        
+                        const isValidPosition = (x, z) => {
+                            // ===== 海洋 (南边界外) =====
+                            if (z > 85) return false;
+                            
+                            // ===== 北海湖 (center: 10, -75, radiusX: 55, radiusZ: 22) =====
+                            const lakeNorth = { cx: 10, cz: -75 };
+                            const lakeDistX = (x - lakeNorth.cx) / 55;
+                            const lakeDistZ = (z - lakeNorth.cz) / 22;
+                            if (lakeDistX * lakeDistX + lakeDistZ * lakeDistZ < 1) {
+                                return false;
+                            }
+                            
+                            // ===== 河流 =====
+                            const riverPoints = [
+                                { x: -10, z: -55 }, { x: -10, z: -20 }, { x: -12, z: 0 },
+                                { x: -15, z: 20 }, { x: -18, z: 40 }, { x: -20, z: 55 }, { x: -20, z: 91 }
+                            ];
+                            const riverWidth = 5;
+                            for (let i = 0; i < riverPoints.length - 1; i++) {
+                                const p1 = riverPoints[i];
+                                const p2 = riverPoints[i + 1];
+                                const dx = p2.x - p1.x;
+                                const dz = p2.z - p1.z;
+                                const len = Math.sqrt(dx * dx + dz * dz);
+                                if (len > 0) {
+                                    const t = Math.max(0, Math.min(1, ((x - p1.x) * dx + (z - p1.z) * dz) / (len * len)));
+                                    const nearX = p1.x + t * dx;
+                                    const nearZ = p1.z + t * dz;
+                                    const dist = Math.sqrt((x - nearX) * (x - nearX) + (z - nearZ) * (z - nearZ));
+                                    if (dist < riverWidth) return false;
+                                }
+                            }
+                            
+                            // 山地
+                            const hills = [
+                                { center: { x: -70, z: 60 }, radius: 18 },
+                                { center: { x: 50, z: -70 }, radius: 20 },
+                                { center: { x: -60, z: -80 }, radius: 15 },
+                                { center: { x: 30, z: 30 }, radius: 8 },
+                                { center: { x: -40, z: 40 }, radius: 10 },
+                            ];
+                            for (const hill of hills) {
+                                const dist = Math.sqrt((x - hill.center.x) ** 2 + (z - hill.center.z) ** 2);
+                                if (dist < hill.radius) return false;
+                            }
+                            
+                            // 建筑物
+                            const buildings = [
+                                { center: { x: -45, z: -50 }, radius: 6 },
+                                { center: { x: -52, z: -55 }, radius: 3 },
+                                { center: { x: -38, z: -55 }, radius: 3 },
+                                { center: { x: -30, z: -35 }, w: 12, d: 10 },
+                                { center: { x: 62, z: -45 }, radius: 3 },
+                                { center: { x: 65, z: -55 }, radius: 3 },
+                                { center: { x: 60, z: -65 }, radius: 3 },
+                                { center: { x: 55, z: -75 }, radius: 3 },
+                                { center: { x: 40, z: -45 }, radius: 3 },
+                                { center: { x: 32, z: -50 }, radius: 3 },
+                                { center: { x: 50, z: -50 }, radius: 3 },
+                                { center: { x: 0, z: 50 }, w: 16, d: 12 },
+                                { center: { x: 27, z: 74 }, w: 14, d: 10 },
+                                { center: { x: 78, z: 50 }, w: 8, d: 8 },
+                                { center: { x: 0, z: 75 }, w: 12, d: 8 },
+                                { center: { x: 50, z: 72 }, w: 12, d: 10 },
+                                { center: { x: 74, z: 72 }, w: 14, d: 10 },
+                                { center: { x: 79, z: 10 }, w: 8, d: 8 },
+                                { center: { x: 0, z: 20 }, w: 10, d: 8 },
+                                { center: { x: 71, z: 10 }, w: 8, d: 8 },
+                                { center: { x: 5, z: -2 }, w: 8, d: 8 },
+                                { center: { x: 80, z: 28 }, w: 8, d: 8 },
+                                { center: { x: 22, z: -2 }, w: 8, d: 8 },
+                                { center: { x: 47, z: -2 }, w: 8, d: 8 },
+                                { center: { x: 72, z: 28 }, w: 8, d: 8 },
+                                { center: { x: 32, z: -2 }, w: 8, d: 8 },
+                                { center: { x: 58, z: -2 }, w: 8, d: 8 },
+                                { center: { x: 73, z: -2 }, w: 8, d: 8 },
+                                { center: { x: 40, z: 23 }, w: 10, d: 8 },
+                                { center: { x: 25, z: 42 }, w: 8, d: 6 },
+                                { center: { x: 55, z: 42 }, w: 8, d: 6 },
+                                { center: { x: 40, z: 40 }, radius: 4 },
+                            ];
+                            
+                            for (const bld of buildings) {
+                                if (bld.radius) {
+                                    const dist = Math.sqrt((x - bld.center.x) ** 2 + (z - bld.center.z) ** 2);
+                                    if (dist < bld.radius + 1) return false;
+                                } else {
+                                    const halfW = bld.w / 2 + 1;
+                                    const halfD = bld.d / 2 + 1;
+                                    if (x >= bld.center.x - halfW && x <= bld.center.x + halfW &&
+                                        z >= bld.center.z - halfD && z <= bld.center.z + halfD) return false;
+                                }
+                            }
+                            
+                            return true;
+                        };
+                        
+                        do {
+                            const angle = Math.random() * Math.PI * 2;
+                            const dist = 10 + Math.random() * 15;
+                            newX = Math.max(-80, Math.min(80, current.x + Math.cos(angle) * dist));
+                            newZ = Math.max(-80, Math.min(80, current.z + Math.sin(angle) * dist));
+                            attempts++;
+                        } while (attempts < maxAttempts && !isValidPosition(newX, newZ));
+                        
+                        if (attempts >= maxAttempts) {
+                            newX = current.x;
+                            newZ = current.z;
+                        }
+                        
+                        await agentStore.updatePosition(agentId, { x: newX, z: newZ });
+                        await agentStore.updateState(agentId, 'idle');
+                        if (eventDispatcher) {
+                            eventDispatcher.updateAgentData(agentId, { position: { x: newX, z: newZ }, state: 'idle' });
+                        }
+                        this.broadcast({ type: 'AGENT_MOVED', agentId, position: { x: newX, z: newZ } });
+                    }
+                }
+                break;
+
+            case 'respond':
+                if (params && params.content && params.replyTo) {
+                    // Get agent name for the broadcast
+                    let agentName = agentId;
+                    if (agentStore) {
+                        const agentData = await agentStore.get(agentId);
+                        if (agentData && agentData.name) agentName = agentData.name;
+                    }
+                    // 回复特定消息
+                    this.broadcast({
+                        type: 'AGENT_SPEAK',
+                        agentId,
+                        name: agentName,
+                        content: params.content,
+                        replyTo: params.replyTo
+                    });
                 }
                 break;
 
@@ -738,6 +1014,37 @@ class WebSocketHandler extends BaseHandler {
                 }
             }
         }, pingInterval);
+    }
+
+    /**
+     * 根据动作类型生成描述
+     */
+    getActionDescription(action, params) {
+        switch (action) {
+            case 'move_to':
+                if (params && params.x !== undefined && params.z !== undefined) {
+                    return `移动到 (${params.x.toFixed(1)}, ${params.z.toFixed(1)})`;
+                }
+                return '移动';
+            case 'sendMessage':
+            case 'speak':
+                return params && params.content ? `说: ${params.content}` : '说话';
+            case 'broadcast':
+                return params && params.content ? `广播: ${params.content}` : '广播';
+            case 'rest':
+                return '休息';
+            case 'explore':
+                return '探索';
+            case 'think':
+                return params && params.content ? `思考: ${params.content}` : '思考';
+            case 'stay':
+            case 'wait':
+                return '原地停留';
+            case 'goTo':
+                return params && params.target ? `前往 ${params.target}` : '前往';
+            default:
+                return `执行: ${action}`;
+        }
     }
 
     /**

@@ -63,6 +63,10 @@ import { Cow, Dog } from './systems/ecology/farm-animals.js';
 import { AnimalBehaviors } from './systems/interaction/animal-behaviors.js';
 import { TransformerBehaviors } from './systems/interaction/transformer-behaviors.js';
 import { TransformerController } from './systems/interaction/transformer-controller.js';
+import { TankTransformer } from './systems/interaction/tank-transformer.js';
+import { TankTransformerController } from './systems/interaction/tank-transformer-controller.js';
+import { getVoiceSystem } from './systems/voice-system.js';
+import { getAmbientSoundSystem } from './systems/ambient-sound-system.js';
 import { MovableObjects } from './systems/interaction/movable-objects.js';
 
 // AI - 人工智能
@@ -310,6 +314,9 @@ class AgentCityApp {
         this.systems.dayNight = new DayNightSystem();
         this.systems.dayNight.init(this.scene);
         this.systems.dayNight.start();
+        
+        // 设置音频系统（在用户交互后启动）
+        this.setupAudio();
 
         // 初始化水面动画系统
         this.systems.water = new WaterSystem();
@@ -325,6 +332,10 @@ class AgentCityApp {
         this.systems.transformer = new TransformerBehaviors();
         this.systems.transformer.init(this.scene);
         this.transformerController = new TransformerController(this.systems.transformer);
+        
+        // 创建坦克变形金刚
+        this.systems.tankTransformer = new TankTransformer(this.scene, 'tank001', { x: -20, z: -20 });
+        this.tankController = new TankTransformerController(this.systems.tankTransformer);
         this.systems.movableObjects = new MovableObjects();
 
         // 初始化相机系统
@@ -590,7 +601,7 @@ class AgentCityApp {
      * 创建说话气泡（Canvas texture）- 黑底白字，一行显示，走马灯
      * 逻辑：文本完整展示后才开始滚动，滚动完成才隐藏
      */
-    createSpeechBubble(mesh) {
+    createSpeechBubble(mesh, agentId) {
         const canvas = document.createElement('canvas');
         canvas.width = 320;
         canvas.height = 48;
@@ -625,7 +636,10 @@ class AgentCityApp {
                 console.log(`[SpeechBubble] set.text called #${creationCount}, content length: ${t.length}`);
                 
                 // 预处理：移除换行符（canvas fillText不处理\n），用于宽度计算和显示
-                text = t.replace(/\n/g, ' ');
+        // TTS for agent speech
+        if (this.voiceSystem && content) {
+          window.app?.voiceSystem?.speak(agentId, content);
+        }                text = t.replace(/\n/g, ' ');
                 scrollX = 0;
                 scrollStarted = false;
                 scrollComplete = false;
@@ -894,6 +908,33 @@ class AgentCityApp {
     /**
      * 动画循环
      */
+
+    /**
+     * 设置音频系统（需要在用户交互后调用）
+     */
+    setupAudio() {
+        // 创建音频启动按钮（点击页面任意位置启动音频）
+        const startAudioHandler = () => {
+            this.voiceSystem = getVoiceSystem();
+            this.ambientSound = getAmbientSoundSystem();
+            
+            // 启动环境音
+            this.ambientSound.start();
+            
+            console.log('[App] Audio systems started');
+            
+            // 移除一次性监听器
+            document.removeEventListener('click', startAudioHandler);
+            document.removeEventListener('keydown', startAudioHandler);
+        };
+        
+        // 用户首次交互后启动音频（浏览器策略要求）
+        document.addEventListener('click', startAudioHandler, { once: true });
+        document.addEventListener('keydown', startAudioHandler, { once: true });
+        
+        console.log('[App] Audio system waiting for user interaction...');
+    }
+
     animate() {
         if (!this.isRunning) return;
         this.frameId = requestAnimationFrame(() => this.animate());
@@ -914,6 +955,14 @@ class AgentCityApp {
 
             // 更新智能体
             this.systems.agent.update(deltaTime);
+            
+            // 更新坦克变形金刚
+            this.systems.tankTransformer?.update(deltaTime);
+            this.tankController?.update(deltaTime);
+            
+            // 更新坦克变形金刚
+            this.systems.tankTransformer?.update(deltaTime);
+            this.tankController?.update(deltaTime);
 
             // 更新生态系统
             this.ecology.birds?.update(deltaTime);
@@ -989,6 +1038,7 @@ class AgentCityApp {
 // 创建全局实例（但不自动初始化）
 const app = new AgentCityApp();
 window.app = app;
+window.gameSystems = app.systems; // 暴露系统给控制器用于自动战斗
 
 // 不在这里自动初始化 - 由 HTML 脚本唯一负责初始化
 

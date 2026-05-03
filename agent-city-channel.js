@@ -150,6 +150,18 @@ function sendDecision(decision, event) {
   try {
     wsClient.send(JSON.stringify(payload));
     console.log('[AgentCity] Sent AGENT_DECISION:', decision.action);
+
+    // 如果有 reasoning，也作为思考消息发送（显示在头顶）
+    if (decision.reasoning) {
+      var thoughtPayload = {
+        type: 'THOUGHT',
+        from: currentAgentId,
+        content: '[思考] ' + decision.reasoning,
+        timestamp: Date.now()
+      };
+      wsClient.send(JSON.stringify(thoughtPayload));
+      console.log('[AgentCity] Sent THOUGHT:', decision.reasoning.substring(0, 50));
+    }
   } catch (e) {
     console.error('[AgentCity] Send error:', e.message);
   }

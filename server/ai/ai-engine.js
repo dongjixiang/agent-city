@@ -50,7 +50,7 @@ class AIEngine {
         this.isRunning = true;
 
         // 从配置获取决策间隔
-        const interval = config.getValue('agents.default.decision.interval', 5000);
+        const interval = config.getValue('agents.default.decision.interval', 50000);
 
         this.decisionInterval = setInterval(() => {
             this.decisionLoop();
@@ -151,7 +151,7 @@ class AIEngine {
         logger.debug(`[AIEngine] Making decision for ${agentId}`, { state: agent.state });
 
         // 构建上下文
-        const decisionContext = await this.buildContext(agent, context);
+        const decisionContext = await this.buildContext(agent, options.context || {});
 
         // 调用 LLM
         const decision = await this.callLLM(agent, decisionContext);

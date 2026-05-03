@@ -11,7 +11,7 @@ export class Fish {
         this.speed = 1 + Math.random() * 1;
         this.direction = Math.random() * Math.PI * 2;
         this.turnTimer = 0;
-        this.turnInterval = 30 + Math.random() * 60;
+        this.turnInterval = 4 + Math.random() * 6;
         this.baseY = 0.3;
         
         // Fish body
@@ -60,27 +60,49 @@ export class Fish {
         if (this.turnTimer > this.turnInterval) {
             this.direction += (Math.random() - 0.5) * Math.PI * 0.5;
             this.turnTimer = 0;
-            this.turnInterval = 30 + Math.random() * 60;
-        }
-        
-        // Keep within water body bounds
-        const bounds = this.getBounds();
-        if (bounds) {
-            const pos = this.group.position;
-            if (pos.x < bounds.minX || pos.x > bounds.maxX) {
-                this.direction = Math.PI - this.direction;
-            }
-            if (pos.z < bounds.minZ || pos.z > bounds.maxZ) {
-                this.direction = -this.direction;
-            }
-            
-            // Stay at water depth (use water level instead of fixed Y)
-            this.group.position.y = this.baseY;
+            this.turnInterval = 4 + Math.random() * 6;
         }
         
         // Move
         this.group.position.x += Math.sin(this.direction) * this.speed * deltaTime;
         this.group.position.z += Math.cos(this.direction) * this.speed * deltaTime;
+        
+        // Keep within water body bounds - strict boundary check
+        const bounds = this.getBounds();
+        if (bounds) {
+            const pos = this.group.position;
+            let hitBoundary = false;
+            let newDirX = 0, newDirZ = 0;
+            
+            if (pos.x < bounds.minX) {
+                pos.x = bounds.minX;
+                hitBoundary = true;
+                newDirX = 1; // 向右游
+            } else if (pos.x > bounds.maxX) {
+                pos.x = bounds.maxX;
+                hitBoundary = true;
+                newDirX = -1; // 向左游
+            }
+            if (pos.z < bounds.minZ) {
+                pos.z = bounds.minZ;
+                hitBoundary = true;
+                newDirZ = 1; // 向前游
+            } else if (pos.z > bounds.maxZ) {
+                pos.z = bounds.maxZ;
+                hitBoundary = true;
+                newDirZ = -1; // 向后游
+            }
+            
+            if (hitBoundary) {
+                // 计算新方向：偏向边界的法线方向 + 随机扰动
+                const baseAngle = Math.atan2(newDirX || Math.sin(this.direction), newDirZ || Math.cos(this.direction));
+                const randomOffset = (Math.random() - 0.5) * Math.PI * 0.8; // ±72度的随机扰动
+                this.direction = baseAngle + randomOffset;
+            }
+            
+            // Stay at water depth
+            this.group.position.y = this.baseY;
+        }
         
         // Face direction of movement
         this.group.rotation.y = this.direction;

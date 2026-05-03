@@ -13,7 +13,8 @@ class PromptBuilder {
       broadcast: { desc: '广播消息给所有人', params: '{ content: string }' },
       think: { desc: '显示思考气泡', params: '{ content: string }' },
       stay: { desc: '原地停留', params: '{}' },
-      respond: { desc: '回复用户消息', params: '{ content: string }' }
+      respond: { desc: '回复用户消息', params: '{ content: string }' },
+      explore: { desc: '随机探索智体城', params: '{}' }
     };
   }
 
@@ -144,7 +145,8 @@ ${decisionSection}`;
   buildIdleTask() {
     return `【当前任务：自由活动】
 这是系统定期推送的环境信息。
-请根据当前情况决定下一步要做什么。可以去探索、和别人打招呼、或者就在原地休息。`;
+请决定下一步要做什么。鼓励你积极探索智体城，发现新地方、和人打招呼、或者展示有趣的才艺。
+智体城是一个充满活力的地方，活跃的智能体更受欢迎！`;
   }
 
   /**

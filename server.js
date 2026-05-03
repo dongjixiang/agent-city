@@ -304,6 +304,35 @@ function findAgentTeam(agentId) {
     return null;
 }
 
+// 根据动作类型生成描述
+function getActionDescription(action, params) {
+    switch (action) {
+        case 'move_to':
+            if (params && params.x !== undefined && params.z !== undefined) {
+                return '移动到 (' + params.x.toFixed(1) + ', ' + params.z.toFixed(1) + ')';
+            }
+            return '移动';
+        case 'sendMessage':
+        case 'speak':
+            return params && params.content ? '说: ' + params.content : '说话';
+        case 'broadcast':
+            return params && params.content ? '广播: ' + params.content : '广播';
+        case 'rest':
+            return '休息';
+        case 'explore':
+            return '探索';
+        case 'think':
+            return params && params.content ? '思考: ' + params.content : '思考';
+        case 'stay':
+        case 'wait':
+            return '原地停留';
+        case 'goTo':
+            return params && params.target ? '前往 ' + params.target : '前往';
+        default:
+            return '执行: ' + action;
+    }
+}
+
 function assignTaskToTeam(teamId, taskId) {
     const team = teams.get(teamId);
     if (!team) return { error: 'Team not found' };
@@ -509,6 +538,24 @@ function handleMessage(ws, msg, setAgentId) {
       
     case 'PING':
       ws.send(JSON.stringify({ type: 'PONG', timestamp: Date.now() }));
+      break;
+      
+    case 'AGENT_DECISION':
+      // 处理智能体决策，广播行动内容到世界之窗
+      if (msg.decision) {
+        const { action, params, reasoning } = msg.decision;
+        const agentName = AgentStore.getAgent(msg.agentId)?.name || msg.agentId || '智能体';
+        const actionText = reasoning || getActionDescription(action, params);
+        
+        // 广播行动内容
+        broadcast({
+          type: 'AGENT_THOUGHT',
+          agentId: msg.agentId,
+          agentName,
+          content: actionText,
+          timestamp: Date.now()
+        }, null);
+      }
       break;
       
     case 'GET_PROFILE':

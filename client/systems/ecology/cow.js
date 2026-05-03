@@ -12,7 +12,7 @@ export class Cow {
         this.speed = 0.2 + Math.random() * 0.2;
         this.direction = Math.random() * Math.PI * 2;
         this.turnTimer = 0;
-        this.turnInterval = 100 + Math.random() * 150;
+        this.turnInterval = 8 + Math.random() * 6;
         this.boundX1 = x - 10;
         this.boundX2 = x + 10;
         this.boundZ1 = z - 10;
@@ -158,22 +158,87 @@ export class Cow {
         if (this.turnTimer > this.turnInterval) {
             this.direction += (Math.random() - 0.5) * Math.PI * 0.5;
             this.turnTimer = 0;
-            this.turnInterval = 100 + Math.random() * 150;
+            this.turnInterval = 8 + Math.random() * 6;
         }
         
+        // 先移动
         const pos = this.group.position;
-        if (pos.x < this.boundX1 || pos.x > this.boundX2) {
-            this.direction = Math.PI - this.direction;
-        }
-        if (pos.z < this.boundZ1 || pos.z > this.boundZ2) {
-            this.direction = -this.direction;
-        }
-        
         pos.x += Math.sin(this.direction) * this.speed * deltaTime;
         pos.z += Math.cos(this.direction) * this.speed * deltaTime;
         
+        // 严格边界检测 - clamp并调整方向
+        let hitBoundary = false;
+        let newDirX = 0, newDirZ = 0;
+        
+        if (pos.x < this.boundX1) {
+            pos.x = this.boundX1;
+            hitBoundary = true;
+            newDirX = 1;
+        } else if (pos.x > this.boundX2) {
+            pos.x = this.boundX2;
+            hitBoundary = true;
+            newDirX = -1;
+        }
+        if (pos.z < this.boundZ1) {
+            pos.z = this.boundZ1;
+            hitBoundary = true;
+            newDirZ = 1;
+        } else if (pos.z > this.boundZ2) {
+            pos.z = this.boundZ2;
+            hitBoundary = true;
+            newDirZ = -1;
+        }
+        
+        // 如果碰到边界，计算新方向
+        if (hitBoundary) {
+            const baseAngle = Math.atan2(newDirX || Math.sin(this.direction), newDirZ || Math.cos(this.direction));
+            const randomOffset = (Math.random() - 0.5) * Math.PI * 0.8;
+            this.direction = baseAngle + randomOffset;
+        }
+        
+        // 检测水域（湖泊、河流、海洋），不能进入水中
+        if (this.isInWater(pos.x, pos.z)) {
+            // 后退一步
+            pos.x -= Math.sin(this.direction) * this.speed * deltaTime * 2;
+            pos.z -= Math.cos(this.direction) * this.speed * deltaTime * 2;
+            // 计算新方向（远离水域）
+            const awayAngle = this.getAwayFromWaterAngle(pos.x, pos.z);
+            this.direction = awayAngle + (Math.random() - 0.5) * Math.PI * 0.5;
+        }
+        
         this.group.rotation.y = this.direction;
         this.group.position.y = Math.sin(Date.now() * 0.003) * 0.05;
+    }
+    
+    isInWater(x, z) {
+        // 湖泊：x=-45 to 65, z=53 to 97
+        if (x >= -45 && x <= 65 && z >= 53 && z <= 97) return true;
+        // 河流：x=-25 to 0, z=-55 to 91
+        if (x >= -25 && x <= 0 && z >= -55 && z <= 91) return true;
+        // 海洋：x=-100 to 100, z=-105 to -95
+        if (x >= -100 && x <= 100 && z >= -105 && z <= -95) return true;
+        return false;
+    }
+    
+    getAwayFromWaterAngle(x, z) {
+        // 计算最近水域的中心点，反向移动
+        let targetX = 0, targetZ = 0;
+        
+        // 湖泊中心
+        const lakeDist = Math.sqrt((x - 10) * (x - 10) + (z - 75) * (z - 75));
+        // 河流中心
+        const riverDist = Math.sqrt((x + 12.5) * (x + 12.5) + (z - 18) * (z - 18));
+        
+        if (lakeDist < riverDist) {
+            targetX = 10;
+            targetZ = 75;
+        } else {
+            targetX = -12.5;
+            targetZ = 18;
+        }
+        
+        // 反方向
+        return Math.atan2(x - targetX, z - targetZ);
     }
     
     returnHome(deltaTime) {

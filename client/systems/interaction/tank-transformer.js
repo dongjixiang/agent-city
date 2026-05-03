@@ -2,6 +2,7 @@
  * 坦克变形金刚 (TankTransformer)
  * 可以在坦克形态和机器人形态之间切换
  * 坦克形态可以发射炮弹
+ * 机器人形态可以使用近战攻击
  */
 
 import * as THREE from 'three';
@@ -31,6 +32,56 @@ export class TankTransformer {
         ];
         this.patrolIndex = 0;
         this.speed = 0.15;
+        
+        // ========== 战斗系统 ==========
+        this.maxHealth = 200; // 最大血量
+        this.health = 200;    // 当前血量
+        this.isDead = false;   // 是否死亡
+        this.respawnTimer = 0; // 复活倒计时
+        this.respawnTime = 60; // 复活时间（秒）
+        this.invincible = false; // 无敌状态
+        this.invincibleTimer = 0;
+        
+        // 攻击动作定义
+        this.attackActions = {
+            // 机器人形态近战攻击
+            punch: {
+                name: '拳击',
+                damage: 15,
+                cooldown: 1.5,    // 1.5秒冷却
+                range: 3,        // 近战范围
+                lastUsed: 0,
+                animation: 'punch'
+            },
+            slash: {
+                name: '利爪斩',
+                damage: 25,
+                cooldown: 2.5,    // 2.5秒冷却
+                range: 4,        // 稍大范围
+                lastUsed: 0,
+                animation: 'slash'
+            },
+            // 坦克形态攻击
+            shoot: {
+                name: '主炮射击',
+                damage: 50,
+                cooldown: 3.0,    // 3秒冷却
+                range: 100,      // 远程
+                lastUsed: 0,
+                animation: 'shoot'
+            },
+            crush: {
+                name: '碾压',
+                damage: 80,
+                cooldown: 5.0,    // 5秒冷却（高伤害）
+                range: 5,        // 需要近距离
+                lastUsed: 0,
+                animation: 'crush'
+            }
+        };
+        
+        // 攻击特效
+        this.attackEffect = null;
         
         // 自动变形计时器
         this.transformTimer = 0;
@@ -535,6 +586,317 @@ export class TankTransformer {
         }, 100);
     }
     
+    // ========== 战斗系统方法 ==========
+    
+    /**
+     * 执行攻击
+     * @param {string} attackType - 攻击类型 ('punch', 'slash', 'shoot', 'crush')
+     * @returns {object} 攻击结果
+     */
+    performAttack(attackType) {
+        if (this.isDead) return { success: false, reason: 'dead' };
+        
+        const attack = this.attackActions[attackType];
+        if (!attack) return { success: false, reason: 'invalid_attack' };
+        
+        const now = Date.now() / 1000; // 转换为秒
+        const cooldownRemaining = attack.cooldown - (now - attack.lastUsed);
+        
+        if (cooldownRemaining > 0) {
+            return { 
+                success: false, 
+                reason: 'cooldown', 
+                cooldownRemaining: cooldownRemaining.toFixed(1) + 's' 
+            };
+        }
+        
+        // 检查形态是否匹配攻击类型
+        const isRobotAttack = attackType === 'punch' || attackType === 'slash';
+        const isTankAttack = attackType === 'shoot' || attackType === 'crush';
+        
+        if ((isRobotAttack && this.isTransformed) || (isTankAttack && !this.isTransformed)) {
+            return { success: false, reason: 'wrong_form' };
+        }
+        
+        // 更新冷却时间
+        attack.lastUsed = now;
+        
+        // 根据攻击类型执行不同的攻击
+        switch (attackType) {
+            case 'punch':
+                this._doPunch(attack);
+                break;
+            case 'slash':
+                this._doSlash(attack);
+                break;
+            case 'shoot':
+                this._doShootAttack(attack);
+                break;
+            case 'crush':
+                this._doCrush(attack);
+                break;
+        }
+        
+        console.log(`[TankTransformer] ${this.agentId} 使用 ${attack.name}！伤害: ${attack.damage}`);
+        
+        return { 
+            success: true, 
+            attackType: attackType,
+            damage: attack.damage,
+            attackName: attack.name
+        };
+    }
+    
+    _doPunch(attack) {
+        // 拳击攻击 - 快速近战
+        this._createAttackEffect('punch', attack.damage);
+    }
+    
+    _doSlash(attack) {
+        // 利爪斩 - 高伤害近战
+        this._createAttackEffect('slash', attack.damage);
+    }
+    
+    _doShootAttack(attack) {
+        // 坦克主炮射击
+        if (this.canShoot) {
+            const now = Date.now();
+            if (now - this.lastShootTime >= this.shootCooldown) {
+                this.lastShootTime = now;
+                this._createProjectile(attack.damage);
+                this.createMuzzleFlash();
+            }
+        }
+    }
+    
+    _doCrush(attack) {
+        // 碾压攻击 - 坦克形态高伤害
+        this._createAttackEffect('crush', attack.damage);
+    }
+    
+    /**
+     * 创建炮弹（远程攻击）
+     */
+    _createProjectile(damage) {
+        const projectileGeo = new THREE.SphereGeometry(0.2, 10, 10);
+        const projectileMat = new THREE.MeshStandardMaterial({ 
+            color: 0xff6600, 
+            emissive: 0xff3300,
+            emissiveIntensity: 0.8
+        });
+        const projectile = new THREE.Mesh(projectileGeo, projectileMat);
+        
+        // 从炮口位置发射
+        const forward = new THREE.Vector3(0, 0, 1);
+        forward.applyQuaternion(this.mesh.quaternion);
+        
+        projectile.position.set(
+            this.mesh.position.x + forward.x * 3,
+            this.mesh.position.y + 1.4,
+            this.mesh.position.z + forward.z * 3
+        );
+        
+        // 炮弹速度
+        projectile.userData.velocity = forward.multiplyScalar(2);
+        projectile.userData.life = 120; // 120帧后消失
+        projectile.userData.damage = damage;
+        projectile.userData.fromAgent = this.agentId;
+        
+        this.scene.add(projectile);
+        this.projectiles.push(projectile);
+    }
+    
+    /**
+     * 创建攻击特效
+     */
+    _createAttackEffect(type, damage) {
+        // 移除之前的特效
+        if (this.attackEffect) {
+            this.scene.remove(this.attackEffect);
+        }
+        
+        let color, size, duration;
+        switch (type) {
+            case 'punch':
+                color = 0xff4444; // 红色拳击特效
+                size = 0.8;
+                duration = 300;
+                break;
+            case 'slash':
+                color = 0xaa00ff; // 紫色斩击特效
+                size = 1.2;
+                duration = 400;
+                break;
+            case 'crush':
+                color = 0xff8800; // 橙色碾压特效
+                size = 2.0;
+                duration = 500;
+                break;
+            default:
+                color = 0xffff00;
+                size = 1.0;
+                duration = 300;
+        }
+        
+        const effectGeo = new THREE.SphereGeometry(size, 16, 16);
+        const effectMat = new THREE.MeshBasicMaterial({ 
+            color: color, 
+            transparent: true, 
+            opacity: 0.8 
+        });
+        this.attackEffect = new THREE.Mesh(effectGeo, effectMat);
+        
+        // 放置在前方的攻击范围处
+        const forward = new THREE.Vector3(0, 0, 1);
+        forward.applyQuaternion(this.mesh.quaternion);
+        this.attackEffect.position.set(
+            this.mesh.position.x + forward.x * 2,
+            this.mesh.position.y + 1.5,
+            this.mesh.position.z + forward.z * 2
+        );
+        
+        this.scene.add(this.attackEffect);
+        
+        setTimeout(() => {
+            if (this.attackEffect) {
+                this.scene.remove(this.attackEffect);
+                this.attackEffect = null;
+            }
+        }, duration);
+    }
+    
+    /**
+     * 受到伤害
+     * @param {number} amount - 伤害值
+     * @param {string} attacker - 攻击者ID
+     */
+    takeDamage(amount, attacker) {
+        if (this.isDead || this.invincible) return;
+        
+        this.health -= amount;
+        console.log(`[TankTransformer] ${this.agentId} 受到 ${amount} 点伤害！剩余血量: ${this.health}/${this.maxHealth}`);
+        
+        // 受伤无敌时间（0.5秒）
+        this.invincible = true;
+        this.invincibleTimer = 0.5;
+        
+        // 受伤变色效果
+        this._flashOnDamage();
+        
+        // 检查是否死亡
+        if (this.health <= 0) {
+            this.health = 0;
+            this.die(attacker);
+        }
+    }
+    
+    /**
+     * 受伤闪烁效果
+     */
+    _flashOnDamage() {
+        const originalOpacity = {};
+        this.mesh.traverse((child) => {
+            if (child.isMesh && child.material) {
+                if (child.material.opacity !== undefined) {
+                    originalOpacity[child.id] = child.material.opacity;
+                    child.material.opacity = 0.5;
+                }
+            }
+        });
+        
+        setTimeout(() => {
+            this.mesh.traverse((child) => {
+                if (child.isMesh && child.material && originalOpacity[child.id] !== undefined) {
+                    child.material.opacity = originalOpacity[child.id];
+                }
+            });
+        }, 100);
+    }
+    
+    /**
+     * 死亡
+     */
+    die(killer) {
+        console.log(`[TankTransformer] ${this.agentId} 被 ${killer} 击败！`);
+        this.isDead = true;
+        this.health = 0;
+        this.respawnTimer = this.respawnTime;
+        
+        // 隐藏mesh
+        if (this.mesh) {
+            this.mesh.visible = false;
+        }
+        
+        // 清除所有炮弹
+        this.projectiles.forEach(p => this.scene.remove(p));
+        this.projectiles = [];
+        
+        // 发送死亡事件
+        if (window.eventBus) {
+            window.eventBus.emit('transformer:death', {
+                agentId: this.agentId,
+                killer: killer,
+                respawnTime: this.respawnTime
+            });
+        }
+    }
+    
+    /**
+     * 复活
+     */
+    respawn() {
+        console.log(`[TankTransformer] ${this.agentId} 复活！`);
+        this.isDead = false;
+        this.health = this.maxHealth;
+        this.invincible = true;
+        this.invincibleTimer = 3; // 3秒无敌时间
+        
+        // 重置位置
+        this.position = { x: -20, z: -20 };
+        this.rotation = 0;
+        
+        // 显示mesh
+        if (this.mesh) {
+            this.mesh.visible = true;
+            this.mesh.position.set(this.position.x, 0, this.position.z);
+        }
+        
+        // 发送复活事件
+        if (window.eventBus) {
+            window.eventBus.emit('transformer:respawn', {
+                agentId: this.agentId
+            });
+        }
+    }
+    
+    /**
+     * 获取当前状态摘要
+     */
+    getStatus() {
+        return {
+            agentId: this.agentId,
+            health: this.health,
+            maxHealth: this.maxHealth,
+            isDead: this.isDead,
+            isTransformed: this.isTransformed,
+            respawnTimer: this.isDead ? this.respawnTimer : 0,
+            attackCooldowns: {
+                punch: this._getCooldownRemaining('punch'),
+                slash: this._getCooldownRemaining('slash'),
+                shoot: this._getCooldownRemaining('shoot'),
+                crush: this._getCooldownRemaining('crush')
+            }
+        };
+    }
+    
+    _getCooldownRemaining(attackType) {
+        const attack = this.attackActions[attackType];
+        if (!attack) return 0;
+        const now = Date.now() / 1000;
+        const remaining = attack.cooldown - (now - attack.lastUsed);
+        return remaining > 0 ? remaining.toFixed(1) + 's' : '就绪';
+    }
+    
     updateProjectiles() {
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
@@ -563,7 +925,279 @@ export class TankTransformer {
         this.targetPosition = { x, z };
     }
     
+    // ========== 战斗系统方法 ==========
+    
+    /**
+     * 执行攻击动作
+     * @param {string} actionName - 攻击动作名称
+     * @param {object} target - 目标（可选）
+     * @returns {boolean} 是否成功执行
+     */
+    performAttack(actionName, target = null) {
+        if (this.isDead) return false;
+        
+        const action = this.attackActions[actionName];
+        if (!action) return false;
+        
+        const now = Date.now();
+        const cooldownMs = action.cooldown * 1000;
+        
+        if (now - action.lastUsed < cooldownMs) {
+            console.log(`[TankTransformer] ${action.name} 冷却中...`);
+            return false;
+        }
+        
+        action.lastUsed = now;
+        
+        // 根据形态选择可用的攻击
+        const isRobot = !this.isTransformed;
+        
+        // 检查攻击是否适合当前形态
+        if (actionName === 'punch' && !isRobot) {
+            console.log(`[TankTransformer] 坦克形态无法使用拳击！`);
+            return false;
+        }
+        if (actionName === 'slash' && !isRobot) {
+            console.log(`[TankTransformer] 坦克形态无法使用利爪斩！`);
+            return false;
+        }
+        if (actionName === 'shoot' && isRobot) {
+            console.log(`[TankTransformer] 机器人形态无法使用主炮！`);
+            return false;
+        }
+        if (actionName === 'crush' && isRobot) {
+            console.log(`[TankTransformer] 机器人形态无法使用碾压！`);
+            return false;
+        }
+        
+        // 执行攻击动画
+        this.playAttackAnimation(actionName);
+        
+        // 造成伤害
+        if (target) {
+            const dist = this.getDistanceTo(target);
+            if (dist <= action.range) {
+                target.takeDamage(action.damage, this);
+                console.log(`[TankTransformer] ${action.name} 命中！伤害: ${action.damage}`);
+            } else {
+                console.log(`[TankTransformer] ${action.name} 超出范围！距离: ${dist.toFixed(1)}, 范围: ${action.range}`);
+            }
+        } else {
+            console.log(`[TankTransformer] ${action.name}！伤害: ${action.damage}`);
+        }
+        
+        return true;
+    }
+    
+    /**
+     * 播放攻击动画
+     */
+    playAttackAnimation(actionName) {
+        if (!this.mesh) return;
+        
+        const duration = 300; // 动画持续时间
+        const originalScale = this.mesh.scale.clone();
+        
+        switch(actionName) {
+            case 'punch':
+                // 快速前冲
+                this.mesh.scale.z = 1.2;
+                setTimeout(() => { this.mesh.scale.copy(originalScale); }, duration);
+                break;
+            case 'slash':
+                // 旋转斩击
+                this.mesh.rotation.y += 0.3;
+                setTimeout(() => { this.mesh.rotation.y -= 0.3; }, duration);
+                break;
+            case 'shoot':
+                // 后坐力
+                this.createMuzzleFlash();
+                this.mesh.scale.x = 0.9;
+                setTimeout(() => { this.mesh.scale.x = 1.0; }, 150);
+                break;
+            case 'crush':
+                // 下压
+                this.mesh.scale.y = 0.8;
+                this.mesh.position.y = -0.5;
+                setTimeout(() => { 
+                    this.mesh.scale.y = 1.0; 
+                    this.mesh.position.y = 0;
+                }, duration * 2);
+                break;
+        }
+    }
+    
+    /**
+     * 获取到目标的距离
+     */
+    getDistanceTo(target) {
+        if (!target || !target.position) return Infinity;
+        const dx = target.position.x - this.position.x;
+        const dz = target.position.z - this.position.z;
+        return Math.sqrt(dx * dx + dz * dz);
+    }
+    
+    /**
+     * 受到伤害
+     */
+    takeDamage(amount, attacker) {
+        if (this.isDead || this.invincible) return;
+        
+        this.health -= amount;
+        console.log(`[TankTransformer] ${this.agentId} 受到 ${amount} 点伤害！剩余血量: ${this.health}/${this.maxHealth}`);
+        
+        // 受伤闪烁效果
+        this.playDamageEffect();
+        
+        if (this.health <= 0) {
+            this.die(attacker);
+        }
+    }
+    
+    /**
+     * 受伤特效
+     */
+    playDamageEffect() {
+        if (!this.mesh) return;
+        
+        // 闪烁效果
+        const flash = () => {
+            this.mesh.traverse((child) => {
+                if (child.isMesh && child.material && child.material.emissive) {
+                    child.material.emissive.setHex(0xff0000);
+                }
+            });
+        };
+        
+        flash();
+        setTimeout(flash, 100);
+        setTimeout(flash, 200);
+        
+        // 创建击中粒子效果
+        this.createHitEffect();
+    }
+    
+    /**
+     * 击中特效（粒子爆炸）
+     */
+    createHitEffect() {
+        if (!this.scene) return;
+        
+        const particleCount = 15;
+        const particles = [];
+        
+        for (let i = 0; i < particleCount; i++) {
+            const geo = new THREE.SphereGeometry(0.1, 6, 6);
+            const mat = new THREE.MeshBasicMaterial({ 
+                color: Math.random() > 0.5 ? 0xff4444 : 0xffaa00,
+                transparent: true
+            });
+            const particle = new THREE.Mesh(geo, mat);
+            particle.position.set(
+                this.mesh.position.x + (Math.random() - 0.5) * 2,
+                this.mesh.position.y + Math.random() * 2,
+                this.mesh.position.z + (Math.random() - 0.5) * 2
+            );
+            particle.userData.velocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 0.3,
+                Math.random() * 0.2,
+                (Math.random() - 0.5) * 0.3
+            );
+            particle.userData.life = 30;
+            this.scene.add(particle);
+            particles.push(particle);
+        }
+        
+        // 动画更新
+        const animate = () => {
+            let alive = false;
+            particles.forEach(p => {
+                if (p.userData.life > 0) {
+                    alive = true;
+                    p.position.add(p.userData.velocity);
+                    p.userData.life--;
+                    p.material.opacity = p.userData.life / 30;
+                    p.scale.multiplyScalar(0.95);
+                } else {
+                    this.scene.remove(p);
+                }
+            });
+            if (alive) requestAnimationFrame(animate);
+        };
+        animate();
+    }
+    
+    /**
+     * 死亡
+     */
+    die(killer) {
+        console.log(`[TankTransformer] ${this.agentId} 被击败！`);
+        this.isDead = true;
+        this.health = 0;
+        
+        // 隐藏 mesh
+        if (this.mesh) {
+            this.mesh.visible = false;
+        }
+        
+        // 停止所有行为
+        this.targetPosition = null;
+        
+        // 开始复活计时
+        this.respawnTimer = this.respawnTime;
+        console.log(`[TankTransformer] ${this.agentId} 将在 ${this.respawnTime} 秒后复活...`);
+    }
+    
+    /**
+     * 复活
+     */
+    respawn() {
+        console.log(`[TankTransformer] ${this.agentId} 复活！`);
+        this.isDead = false;
+        this.health = this.maxHealth;
+        this.respawnTimer = 0;
+        this.invincible = true;
+        this.invincibleTimer = 3; // 3秒无敌
+        
+        // 显示 mesh
+        if (this.mesh) {
+            this.mesh.visible = true;
+            this.mesh.position.set(this.position.x, 0, this.position.z);
+        }
+        
+        // 移动到初始位置
+        this.position = { x: -20, z: -20 };
+        this.rotation = 0;
+        
+        // 复位形态
+        if (this.isTransformed) {
+            this.transform();
+        }
+        
+        console.log(`[TankTransformer] ${this.agentId} 复活成功！血量: ${this.health}/${this.maxHealth}`);
+    }
+    
+    /**
+     * 更新（用于复活计时）
+     */
     update(deltaTime) {
+        // 死亡状态更新
+        if (this.isDead) {
+            this.respawnTimer -= deltaTime;
+            if (this.respawnTimer <= 0) {
+                this.respawn();
+            }
+            return;
+        }
+        
+        // 无敌状态更新
+        if (this.invincible) {
+            this.invincibleTimer -= deltaTime;
+            if (this.invincibleTimer <= 0) {
+                this.invincible = false;
+            }
+        }
+        
         // 自动变形计时（被控制时不自动变形）
         if (!this.isControlled) {
             this.transformTimer += deltaTime;

@@ -196,6 +196,42 @@ class InfoPanel {
         #agent-detail .stat-item { text-align: center; }
         #agent-detail .stat-value { font-size: 20px; font-weight: bold; color: #4ecdc4; }
         #agent-detail .stat-label { font-size: 11px; color: #888; }
+        #agent-detail .think-interval {
+          margin-top: 15px; padding-top: 15px;
+          border-top: 1px solid rgba(255,255,255,0.1);
+          display: flex; align-items: center; justify-content: space-between;
+        }
+        #agent-detail .think-interval label {
+          font-size: 13px; color: #aaa;
+        }
+        #agent-detail .think-interval select {
+          background: rgba(78, 205, 196, 0.15); border: 1px solid rgba(78, 205, 196, 0.3);
+          color: #4ecdc4; padding: 5px 10px; border-radius: 6px; font-size: 12px;
+          cursor: pointer;
+        }
+        #agent-detail .think-interval select:focus {
+          outline: none; border-color: #4ecdc4;
+        }
+        #agent-detail .explore-cooldown {
+          margin-top: 12px; padding-top: 12px;
+          border-top: 1px solid rgba(255,255,255,0.1);
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 10px;
+        }
+        #agent-detail .explore-cooldown label {
+          font-size: 13px; color: #aaa; flex-shrink: 0;
+        }
+        #agent-detail .explore-cooldown input[type="range"] {
+          flex: 1; height: 4px; -webkit-appearance: none;
+          background: rgba(78, 205, 196, 0.3); border-radius: 2px; cursor: pointer;
+        }
+        #agent-detail .explore-cooldown input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none; width: 14px; height: 14px;
+          background: #4ecdc4; border-radius: 50%; cursor: pointer;
+        }
+        #agent-detail .explore-cooldown .cooldown-value {
+          font-size: 12px; color: #4ecdc4; min-width: 40px; text-align: right;
+        }
       </style>
       <div class="close-btn" onclick="window.infoPanel && window.infoPanel.closeDetail()">×</div>
       <div class="avatar" id="detail-avatar">🦐</div>
@@ -215,6 +251,22 @@ class InfoPanel {
           <div class="stat-value" id="detail-tasks">-</div>
           <div class="stat-label">任务</div>
         </div>
+      </div>
+      <div class="think-interval">
+        <label>思考间隔</label>
+        <select id="detail-think-interval" onchange="window.infoPanel && window.infoPanel.onThinkIntervalChange(this.value)">
+          <option value="60000">1分钟</option>
+          <option value="120000">2分钟</option>
+          <option value="300000" selected>5分钟</option>
+          <option value="600000">10分钟</option>
+          <option value="900000">15分钟</option>
+        </select>
+      </div>
+      <div class="explore-cooldown">
+        <label>探索冷却时间</label>
+        <input type="range" id="detail-explore-cooldown" min="1" max="300" value="30"
+          oninput="window.infoPanel && window.infoPanel.onExploreCooldownChange(this.value)">
+        <span class="cooldown-value" id="detail-cooldown-value">30秒</span>
       </div>
     `;
     document.body.appendChild(this.detailPanel);
@@ -337,7 +389,104 @@ class InfoPanel {
       : '<span class="tag">智能体</span>';
 
     document.getElementById('detail-avatar').textContent = agent.emoji || '🦐';
+    
+    // 加载保存的思考间隔设置
+    const savedInterval = localStorage.getItem(`agent_think_interval_${id}`);
+    const intervalSelect = document.getElementById('detail-think-interval');
+    if (intervalSelect) {
+      intervalSelect.value = savedInterval || '300000'; // 默认5分钟
+    }
+    
+    // 加载保存的探索冷却时间设置
+    const savedCooldown = localStorage.getItem(`agent_explore_cooldown_${id}`);
+    const cooldownInput = document.getElementById('detail-explore-cooldown');
+    const cooldownValue = document.getElementById('detail-cooldown-value');
+    if (cooldownInput) {
+      cooldownInput.value = savedCooldown || '30'; // 默认30秒
+      if (cooldownValue) cooldownValue.textContent = (savedCooldown || '30') + '秒';
+    }
+    
     this.detailPanel.classList.add('show');
+  }
+
+  /**
+   * 更新智能体思考间隔
+   */
+  updateThinkInterval(agentId, intervalMs) {
+    localStorage.setItem(`agent_think_interval_${agentId}`, String(intervalMs));
+    console.log(`[InfoPanel] ${agentId} 思考间隔已更新为 ${intervalMs}ms`);
+    
+    // 发送到服务器
+    if (window.worldWindow?.ws) {
+      window.worldWindow.ws.send(JSON.stringify({
+        type: 'UPDATE_AGENT_CONFIG',
+        agentId: agentId,
+        config: { thinkInterval: parseInt(intervalMs, 10) }
+      }));
+    }
+    
+    // 显示提示
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+      background: rgba(78, 205, 196, 0.95); color: #1a1a2e;
+      padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: bold;
+      z-index: 1000; animation: slideUp 0.3s ease;
+    `;
+    toast.textContent = `✅ 思考间隔已更新为 ${intervalMs / 1000}秒`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+  
+  /**
+   * 处理思考间隔下拉框变化
+   */
+  onThinkIntervalChange(intervalMs) {
+    const agentId = document.getElementById('detail-id')?.textContent;
+    if (agentId) {
+      this.updateThinkInterval(agentId, parseInt(intervalMs, 10));
+    }
+  }
+  
+  /**
+   * 更新探索冷却时间
+   */
+  updateExploreCooldown(agentId, cooldownSec) {
+    localStorage.setItem(`agent_explore_cooldown_${agentId}`, String(cooldownSec));
+    console.log(`[InfoPanel] ${agentId} 探索冷却时间已更新为 ${cooldownSec}秒`);
+    
+    // 发送到服务器
+    if (window.worldWindow?.ws) {
+      window.worldWindow.ws.send(JSON.stringify({
+        type: 'UPDATE_AGENT_CONFIG',
+        agentId: agentId,
+        config: { exploreCooldown: parseInt(cooldownSec, 10) }
+      }));
+    }
+    
+    // 显示提示
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+      background: rgba(78, 205, 196, 0.95); color: #1a1a2e;
+      padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: bold;
+      z-index: 1000; animation: slideUp 0.3s ease;
+    `;
+    toast.textContent = `✅ 探索冷却时间已更新为 ${cooldownSec}秒`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+  
+  /**
+   * 处理探索冷却时间滑块变化
+   */
+  onExploreCooldownChange(cooldownSec) {
+    const agentId = document.getElementById('detail-id')?.textContent;
+    const cooldownValue = document.getElementById('detail-cooldown-value');
+    if (cooldownValue) cooldownValue.textContent = cooldownSec + '秒';
+    if (agentId) {
+      this.updateExploreCooldown(agentId, parseInt(cooldownSec, 10));
+    }
   }
 
   closeDetail() {

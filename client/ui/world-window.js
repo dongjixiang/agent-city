@@ -57,6 +57,7 @@ class WorldWindow {
             .ww-item.event { border-left-color: #ffc107; }
             .ww-item.task { border-left-color: #ff6b6b; }
             .ww-item.reply { border-left-color: #9c27b0; background: rgba(156, 39, 176, 0.1); }
+            .ww-item.thought { border-left-color: #9c27b0; background: rgba(156, 39, 176, 0.15); }
             .ww-item-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
             .ww-item-from { color: #ff6b6b; font-weight: bold; font-size: 13px; }
             .ww-item-time { color: #666; font-size: 11px; }
@@ -180,25 +181,26 @@ class WorldWindow {
                 break;
                 
             case 'BROADCAST':
+            case 'AGENT_SPEAK':
             case 'AGENT_THOUGHT':
                 // 检查是否是思考消息
                 if (msg.type === 'AGENT_THOUGHT' || (msg.data && msg.data.type === 'AGENT_THOUGHT')) {
-                    // 思考消息 - 显示为事件+思考气泡，不显示为聊天消息
+                    // 思考消息 - 添加到世界之窗显示
                     const thoughtContent = msg.content;
-                    console.log('[WorldWindow] AGENT_THOUGHT received:', { content: thoughtContent, from: msg.from, agentName: msg.agentName, fullMsg: msg });
+                    const thoughtFrom = msg.agentName || msg.fromName || msg.from || '智能体';
+                    console.log('[WorldWindow] AGENT_THOUGHT received:', { content: thoughtContent, from: thoughtFrom });
                     if (thoughtContent) {
-                        this.addEvent((msg.agentName || msg.fromName || '智能体') + '在想什么...', '思考');
+                        // 在世界之窗中显示思考内容
+                        this.addThought(thoughtFrom, thoughtContent);
                     }
                     if (thoughtContent && window.showThoughtMessage) {
                         window.showThoughtMessage(msg.from, thoughtContent);
-                    } else {
-                        console.log('[WorldWindow] showThoughtMessage skipped - empty content');
                     }
                 } else {
                     // 普通广播消息
                     var bContent = (typeof msg.content === 'string') ? msg.content : (msg.message ? String(msg.message) : '');
                     if (bContent) {
-                        this.addMessage(msg.fromName || '龙虾', bContent);
+                        this.addMessage(msg.name || msg.fromName || msg.from || '龙虾', bContent);
                     }
                     if (msg.from && window.showAgentMessage) {
                         window.showAgentMessage(msg.from, bContent);
@@ -208,7 +210,7 @@ class WorldWindow {
 
             case 'PRIVATE_MESSAGE':
                 var privContent = (typeof msg.content === 'string') ? msg.content : (msg.message ? String(msg.message) : '');
-                this.addMessage(msg.fromName || '智能体', privContent);
+                this.addMessage(msg.name || msg.fromName || msg.from || '智能体', privContent);
                 if (msg.from && window.showAgentMessage) {
                     window.showAgentMessage(msg.from, privContent);
                 }
@@ -217,7 +219,7 @@ class WorldWindow {
             case 'MESSAGE_RECEIVED':
                 // 也处理 MESSAGE_RECEIVED 类型（某些客户端用这个）
                 var msgContent = (typeof msg.content === 'string') ? msg.content : (msg.message ? String(msg.message) : '');
-                this.addMessage(msg.fromName || '智能体', msgContent);
+                this.addMessage(msg.name || msg.fromName || msg.from || '智能体', msgContent);
                 if (msg.from && window.showAgentMessage) {
                     window.showAgentMessage(msg.from, msgContent);
                 }
@@ -225,14 +227,14 @@ class WorldWindow {
                 
             case 'AGENT_RESPONSE_COMPLETE':
                 var respContent = (typeof msg.content === 'string') ? msg.content : (msg.message ? String(msg.message) : '');
-                this.addReply(msg.agentName || '智能体', respContent);
+                this.addReply(msg.name || msg.agentName || '智能体', respContent);
                 if (msg.agentId && window.showAgentMessage) {
                     window.showAgentMessage(msg.agentId, respContent);
                 }
                 break;
                 
             case 'AGENT_THINKING':
-                this.addEvent(msg.agentName + ' 正在思考...', '思考');
+                this.addEvent((msg.name || msg.agentName) + ' 正在思考...', '思考');
                 break;
                 
             case 'AGENT_ONLINE':
@@ -303,10 +305,16 @@ class WorldWindow {
         } else if (info) {
             info.style.display = 'none';
         }
+        
+        // 通知相机系统设置跟随目标
+        if (window.app && window.app.systems && window.app.systems.camera) {
+            window.app.systems.camera.setTarget(this.targetAgent);
+        }
     }
   
     addMessage(from, content) { this.addItem('message', from, content); }
     addReply(from, content) { this.addItem('reply', from, content); }
+    addThought(from, content) { this.addItem('thought', from, content); }
     addEvent(content, type) { this.addItem('event', '系统', content); }
     addTask(title, desc) { this.addItem('task', '任务', title + (desc ? ' - ' + desc : '')); }
   

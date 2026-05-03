@@ -163,11 +163,29 @@ function initHandlers() {
         httpHandler
     });
 
-    // 设置事件分发器依赖
-    eventDispatcher.setStores(stores.agentStore, llmManager);
+    // 设置事件分发器依赖 (sendEventToAgent 在 ws-handler.js 中定义)
+    setEventDispatcher(eventDispatcher);
+    
+    // 设置 wsHandler 引用到 eventDispatcher（用于广播事件给客户端）
+    eventDispatcher.setWsHandler(wsHandler);
 
     // 设置消息服务的路由依赖
     setMessageEventDispatcher(eventDispatcher);
+
+    // 初始化 EventDispatcher 的依赖（contextBuilder 需要 cityState 和 agentRegistry）
+    // agentRegistry 需要有 getAgent(agentId) 和 getOnlineAgents() 方法
+    const cityState = {
+        weather: 'sunny',
+        timeOfDay: 'day',
+        objects: [],
+        buildings: []
+    };
+    // 创建 agentRegistry 适配器
+    const agentRegistry = {
+        getAgent: (agentId) => stores.agentStore.get(agentId),
+        getOnlineAgents: () => stores.agentStore.getOnlineAgents()
+    };
+    eventDispatcher.setStores(stores.agentStore, cityState, null, agentRegistry);
 
     logger.info('[Init] Handlers initialized');
 }
@@ -250,6 +268,10 @@ async function main() {
         await initServices();
         await initI18n();
         await initAI();
+        
+        // 设置配置到 eventDispatcher（在 initHandlers 之前）
+        eventDispatcher.setConfig(config);
+        
         initHandlers();
 
         // 创建 HTTP 服务器

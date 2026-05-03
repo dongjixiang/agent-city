@@ -64,6 +64,9 @@ export class CameraSystem {
         if (mode === 'orbit') {
             if (this.targetAgentId === '__transformer__') {
                 this._highlightTransformer(false);
+                this.app.transformerController?.deactivate();
+            } else if (this.targetAgentId === '__tank__') {
+                this.app.tankController?.deactivate();
             } else if (this.targetAgentId) {
                 this.highlightAgent(this.targetAgentId, false);
             }
@@ -144,6 +147,15 @@ export class CameraSystem {
             agentMeshes.push(transformerMesh);
         }
         
+        // 获取坦克变形金刚的 mesh
+        const tankTransformerMesh = this.app.systems.tankTransformer?.mesh;
+        if (tankTransformerMesh) {
+            tankTransformerMesh.userData.agentId = 'tank001';
+            tankTransformerMesh.userData.agentName = '🔧 坦克变形金刚';
+            tankTransformerMesh.userData.isTankTransformer = true;
+            agentMeshes.push(tankTransformerMesh);
+        }
+        
         const intersects = this.raycaster.intersectObjects(agentMeshes, true);
         
         if (intersects.length > 0) {
@@ -157,9 +169,11 @@ export class CameraSystem {
             if (clickedMesh && clickedMesh.userData.agentId) {
                 console.log('[CameraSystem] 点击选中:', clickedMesh.userData.agentName);
                 
-                // 检查是否是变形金刚
+                // 检查是否是变形金刚或坦克
                 if (clickedMesh.userData.isTransformer) {
                     this._handleTransformerClick();
+                } else if (clickedMesh.userData.isTankTransformer) {
+                    this._handleTankTransformerClick();
                 } else {
                     this.setTarget(clickedMesh.userData.agentId);
                     this.highlightAgent(clickedMesh.userData.agentId, true);
@@ -179,6 +193,13 @@ export class CameraSystem {
         // 设置一个假的 agent 对象用于相机跟随
         const transformerMesh = this.app.systems.transformer?.getTransformerMesh();
         if (!transformerMesh) return;
+        
+        // 先停掉坦克变形金刚的控制器并标记为受控（阻止其自动变形）
+        if (this.app.tankController) {
+            this.app.tankController.deactivate();
+            // 标记坦克为受控状态，阻止其自动变形和巡逻
+            this.app.systems.tankTransformer.isControlled = true;
+        }
         
         // 创建虚拟的"智能体"用于相机跟随
         this.targetAgent = {
@@ -213,6 +234,46 @@ export class CameraSystem {
                 child.material.emissive = highlight ? new THREE.Color(0xFFD700) : new THREE.Color(0x000000);
             }
         });
+    }
+    
+    /**
+     * 处理坦克变形金刚点击
+     */
+    _handleTankTransformerClick() {
+        // 坦克变形金刚使用特殊的跟随逻辑
+        const tankMesh = this.app.systems.tankTransformer?.mesh;
+        if (!tankMesh) return;
+        
+        // 先停掉汽车变形金刚的控制器并标记为受控（阻止其自动变形）
+        if (this.app.transformerController) {
+            this.app.transformerController.deactivate();
+            // 标记汽车变形金刚为受控状态，阻止其自动变形计时器
+            if (this.app.transformerController.transformerBehaviors?.transformer) {
+                this.app.transformerController.transformerBehaviors.transformer.state.isControlled = true;
+            }
+        }
+        
+        // 创建虚拟的"智能体"用于相机跟随
+        this.targetAgent = {
+            id: '__tank__',
+            name: '🔧 坦克变形金刚',
+            mesh: tankMesh,
+            isTankTransformer: true
+        };
+        this.targetAgentId = '__tank__';
+        
+        // 先激活坦克控制模式
+        this.app.tankController?.activate();
+        
+        // 如果当前是 orbit 模式，切换到 follow 模式
+        if (this.mode === 'orbit') {
+            this.setMode('follow');
+        }
+        
+        // 显示控制条
+        this.showControlBar('🔧 坦克变形金刚');
+        
+        console.log('[CameraSystem] 坦克变形金刚已选中');
     }
     
     /**
@@ -251,28 +312,40 @@ export class CameraSystem {
         if (this.mode === 'follow') {
             // 跟随模式：相机在智能体正后方（控制模式下始终在后）
             // 变形金刚控制时使用专用跟随逻辑
-            if (agent.isTransformer && this.app.transformerController?.isActive) {
+            if (agent.isTransformer || agent.isTankTransformer) {
                 // 控制模式：相机在正后方
-                const agentRotation = mesh.rotation.y;
+                // 动态获取当前 mesh（变形后 mesh 会变）
+                const currentMesh = agent.isTankTransformer 
+                    ? this.app.systems.tankTransformer?.mesh 
+                    : mesh;
+                if (!currentMesh) return;
                 
-                // 变形金刚高度根据形态变化：机器人较高（约3），汽车较低（约1.5）
-                const transformer = this.app.systems.transformer?.transformer;
-                const isRobot = transformer?.state?.isTransformed === true;
-                const followHeight = isRobot ? 3.0 : 1.5;
+                const agentRotation = currentMesh.rotation.y;
+                
+                // 变形金刚/坦克高度根据形态变化
+                let followHeight = 1.5;
+                if (agent.isTransformer) {
+                    const transformer = this.app.transformerController?.transformerBehaviors?.transformer;
+                    const isRobot = transformer?.state?.isTransformed === true;
+                    followHeight = isRobot ? 3.0 : 1.5;
+                } else if (agent.isTankTransformer) {
+                    const tankTransformer = this.app.systems.tankTransformer;
+                    followHeight = tankTransformer?.isTransformed ? 1.0 : 3.0; // 坦克形态低，机器人形态高
+                }
                 
                 // 正后方 = rotation - PI（180度转向）
                 const offsetX = -Math.sin(agentRotation) * this.followDistance;
                 const offsetZ = -Math.cos(agentRotation) * this.followDistance;
                 
-                this.camera.position.x = mesh.position.x + offsetX;
-                this.camera.position.z = mesh.position.z + offsetZ;
+                this.camera.position.x = currentMesh.position.x + offsetX;
+                this.camera.position.z = currentMesh.position.z + offsetZ;
                 this.camera.position.y = followHeight;
                 
-                // 相机看向变形金刚中心
+                // 相机看向智能体中心
                 this.camera.lookAt(
-                    mesh.position.x,
+                    currentMesh.position.x,
                     followHeight,
-                    mesh.position.z
+                    currentMesh.position.z
                 );
             } else {
                 // 普通跟随模式
@@ -290,37 +363,48 @@ export class CameraSystem {
         }
         else if (this.mode === 'firstPerson') {
             // 第一人称模式：相机在智能体头部位置
-            // 变形金刚控制时使用专用逻辑
-            if (agent.isTransformer) {
+            // 动态获取当前 mesh（变形后 mesh 会变）
+            const currentMesh = agent.isTankTransformer 
+                ? this.app.systems.tankTransformer?.mesh 
+                : mesh;
+            if (!currentMesh) return;
+            
+            if (agent.isTransformer || agent.isTankTransformer) {
                 // 根据形态决定高度
-                const transformer = this.app.systems.transformer?.transformer;
-                const isRobot = transformer?.state?.isTransformed === true;
-                const fpHeight = isRobot ? 5.3 : 1.6; // 机器人头部约5.3m，汽车约1.6m
+                let fpHeight = 1.6;
+                if (agent.isTransformer) {
+                    const transformer = this.app.transformerController?.transformerBehaviors?.transformer;
+                    const isRobot = transformer?.state?.isTransformed === true;
+                    fpHeight = isRobot ? 3.6 : 1.6; // 机器人头部约3.6m，汽车约1.6m
+                } else if (agent.isTankTransformer) {
+                    const tankTransformer = this.app.systems.tankTransformer;
+                    fpHeight = tankTransformer?.isTransformed ? 1.6 : 3.6; // 坦克形态矮，机器人形态高
+                }
                 
-                this.camera.position.x = mesh.position.x;
+                this.camera.position.x = currentMesh.position.x;
                 this.camera.position.y = fpHeight;
-                this.camera.position.z = mesh.position.z;
+                this.camera.position.z = currentMesh.position.z;
                 
                 // 看向前方
-                const lookX = Math.sin(mesh.rotation.y) * 10;
-                const lookZ = Math.cos(mesh.rotation.y) * 10;
+                const lookX = Math.sin(currentMesh.rotation.y) * 10;
+                const lookZ = Math.cos(currentMesh.rotation.y) * 10;
                 this.camera.lookAt(
-                    mesh.position.x + lookX,
+                    currentMesh.position.x + lookX,
                     fpHeight,
-                    mesh.position.z + lookZ
+                    currentMesh.position.z + lookZ
                 );
             } else {
-                this.camera.position.x = mesh.position.x;
-                this.camera.position.y = mesh.position.y + this.firstPersonHeight;
-                this.camera.position.z = mesh.position.z;
+                this.camera.position.x = currentMesh.position.x;
+                this.camera.position.y = currentMesh.position.y + this.firstPersonHeight;
+                this.camera.position.z = currentMesh.position.z;
                 
                 // 相机朝向与智能体朝向一致
-                const lookX = Math.sin(mesh.rotation.y) * 10;
-                const lookZ = Math.cos(mesh.rotation.y) * 10;
+                const lookX = Math.sin(currentMesh.rotation.y) * 10;
+                const lookZ = Math.cos(currentMesh.rotation.y) * 10;
                 this.camera.lookAt(
-                    mesh.position.x + lookX,
-                    mesh.position.y + this.firstPersonHeight,
-                    mesh.position.z + lookZ
+                    currentMesh.position.x + lookX,
+                    currentMesh.position.y + this.firstPersonHeight,
+                    currentMesh.position.z + lookZ
                 );
             }
         }

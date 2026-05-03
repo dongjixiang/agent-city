@@ -35,7 +35,7 @@ class Transformer {
             z: 35,
             targetX: 40,
             targetZ: 35,
-            speed: 3.0,
+            speed: 1.5,              // 降低速度：1.5 单位/秒（原3.0太快）
             isTransformed: true,     // true=机器人, false=汽车
             transformTimer: 0,
             transformInterval: 8,    // 8秒变一次
@@ -66,6 +66,14 @@ class Transformer {
         this.carMesh.visible = false;
         this.group.add(this.carMesh);
 
+        // 添加隐形点击区域（更大的碰撞盒，便于点击）
+        const hitboxGeo = new THREE.BoxGeometry(4, 8, 4);
+        const hitboxMat = new THREE.MeshBasicMaterial({ visible: false });
+        const hitbox = new THREE.Mesh(hitboxGeo, hitboxMat);
+        hitbox.position.y = 3.5; // 中心在中间高度
+        this.group.add(hitbox);
+        this.hitbox = hitbox;
+
         // 初始化目标
         const firstTarget = TRANSFORMER_PATROL_ROUTE[0];
         this.state.targetX = firstTarget.x;
@@ -75,191 +83,412 @@ class Transformer {
     }
 
     /**
-     * 创建机器人形态
+     * 创建机器人形态 - 精细版本
      */
     _createRobotMesh() {
         const group = new THREE.Group();
 
-        const redMat = new THREE.MeshStandardMaterial({ color: 0xCC0000, metalness: 0.8, roughness: 0.3 });
-        const blueMat = new THREE.MeshStandardMaterial({ color: 0x0033AA, metalness: 0.8, roughness: 0.3 });
-        const silverMat = new THREE.MeshStandardMaterial({ color: 0xCCCCCC, metalness: 0.9, roughness: 0.2 });
+        // 配色方案：红蓝经典变形金刚配色
+        const redMat = new THREE.MeshStandardMaterial({ color: 0xDD1111, metalness: 0.85, roughness: 0.25 });
+        const darkRedMat = new THREE.MeshStandardMaterial({ color: 0xAA0000, metalness: 0.8, roughness: 0.3 });
+        const blueMat = new THREE.MeshStandardMaterial({ color: 0x0044AA, metalness: 0.85, roughness: 0.25 });
+        const darkBlueMat = new THREE.MeshStandardMaterial({ color: 0x002266, metalness: 0.8, roughness: 0.3 });
+        const silverMat = new THREE.MeshStandardMaterial({ color: 0xDDDDDD, metalness: 0.95, roughness: 0.15 });
+        const darkSilverMat = new THREE.MeshStandardMaterial({ color: 0xAAAAAA, metalness: 0.9, roughness: 0.2 });
+        const blackMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.5, roughness: 0.7 });
 
-        // 躯干
-        const torso = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.5, 1.0), redMat);
+        // ========== 躯干 ==========
+        // 主躯干 - 红色胸甲
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.6, 1.1), redMat);
         torso.position.y = 3.5;
+        torso.castShadow = true;
         group.add(torso);
 
-        // 头部
-        const head = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.0, 0.8), silverMat);
-        head.position.y = 5.3;
+        // 胸部中央蓝色甲壳
+        const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.4, 0.3), blueMat);
+        chestPlate.position.set(0, 3.8, 0.5);
+        chestPlate.castShadow = true;
+        group.add(chestPlate);
+
+        // 能量核心 - 发光效果
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0xFF6600 });
+        const coreGlow = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), coreMat);
+        coreGlow.position.set(0, 3.8, 0.65);
+        group.add(coreGlow);
+
+        // 颈部
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.3, 8), silverMat);
+        neck.position.set(0, 4.95, 0);
+        group.add(neck);
+
+        // ========== 头部 ==========
+        // 主头部 - 银色
+        const head = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.0, 0.9), silverMat);
+        head.position.y = 5.6;
+        head.castShadow = true;
         group.add(head);
 
-        // 眼睛
+        // 头顶
+        const headTop = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.25, 0.7), darkSilverMat);
+        headTop.position.set(0, 6.15, 0);
+        group.add(headTop);
+
+        // 面罩 - 蓝色
+        const visor = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.35, 0.15), blueMat);
+        visor.position.set(0, 5.65, 0.45);
+        group.add(visor);
+
+        // 眼睛 - 青色发光
         const eyeMat = new THREE.MeshBasicMaterial({ color: 0x00FFFF });
-        const leftEye = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.15, 0.1), eyeMat);
-        leftEye.position.set(-0.25, 5.4, 0.4);
+        const leftEye = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.1), eyeMat);
+        leftEye.position.set(-0.22, 5.72, 0.45);
         group.add(leftEye);
-        const rightEye = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.15, 0.1), eyeMat);
-        rightEye.position.set(0.25, 5.4, 0.4);
+        const rightEye = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.1), eyeMat);
+        rightEye.position.set(0.22, 5.72, 0.45);
         group.add(rightEye);
 
+        // 耳朵/声音采集器
+        const earGeo = new THREE.BoxGeometry(0.15, 0.3, 0.2);
+        const leftEar = new THREE.Mesh(earGeo, darkSilverMat);
+        leftEar.position.set(-0.65, 5.6, 0);
+        group.add(leftEar);
+        const rightEar = new THREE.Mesh(earGeo, darkSilverMat);
+        rightEar.position.set(0.65, 5.6, 0);
+        group.add(rightEar);
+
         // 天线
-        const antenna = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), silverMat);
-        antenna.position.set(0, 6.0, 0);
+        const antennaGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.6, 6);
+        const antenna = new THREE.Mesh(antennaGeo, darkSilverMat);
+        antenna.position.set(0, 6.5, 0);
         group.add(antenna);
+        const antennaTip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), coreMat);
+        antennaTip.position.set(0, 6.82, 0);
+        group.add(antennaTip);
 
-        // 肩膀
-        const leftShoulder = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.8), blueMat);
-        leftShoulder.position.set(-1.3, 4.5, 0);
+        // ========== 肩膀 ==========
+        // 左肩甲
+        const shoulderGeo = new THREE.BoxGeometry(0.7, 0.7, 0.8);
+        const leftShoulder = new THREE.Mesh(shoulderGeo, blueMat);
+        leftShoulder.position.set(-1.4, 4.6, 0);
+        leftShoulder.castShadow = true;
         group.add(leftShoulder);
-        const rightShoulder = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.8), blueMat);
-        rightShoulder.position.set(1.3, 4.5, 0);
+        // 肩部关节球
+        const shoulderJointGeo = new THREE.SphereGeometry(0.25, 12, 12);
+        const leftShoulderJoint = new THREE.Mesh(shoulderJointGeo, silverMat);
+        leftShoulderJoint.position.set(-1.15, 4.35, 0);
+        group.add(leftShoulderJoint);
+
+        // 右肩甲
+        const rightShoulder = new THREE.Mesh(shoulderGeo, blueMat);
+        rightShoulder.position.set(1.4, 4.6, 0);
+        rightShoulder.castShadow = true;
         group.add(rightShoulder);
+        const rightShoulderJoint = new THREE.Mesh(shoulderJointGeo, silverMat);
+        rightShoulderJoint.position.set(1.15, 4.35, 0);
+        group.add(rightShoulderJoint);
 
-        // 手臂
-        const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.8, 0.5), redMat);
-        leftArm.position.set(-1.3, 3.0, 0);
-        group.add(leftArm);
-        const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.8, 0.5), redMat);
-        rightArm.position.set(1.3, 3.0, 0);
-        group.add(rightArm);
+        // ========== 手臂 ==========
+        // 左上臂
+        const leftArmUpper = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.2, 0.55), redMat);
+        leftArmUpper.position.set(-1.15, 3.5, 0);
+        leftArmUpper.castShadow = true;
+        group.add(leftArmUpper);
 
-        // 拳头
-        const leftFist = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), silverMat);
-        leftFist.position.set(-1.3, 1.8, 0);
-        group.add(leftFist);
-        const rightFist = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), silverMat);
-        rightFist.position.set(1.3, 1.8, 0);
-        group.add(rightFist);
+        // 左肘关节
+        const elbowGeo = new THREE.SphereGeometry(0.22, 10, 10);
+        const leftElbow = new THREE.Mesh(elbowGeo, darkSilverMat);
+        leftElbow.position.set(-1.15, 2.7, 0);
+        group.add(leftElbow);
 
-        // 腿部
-        const leftThigh = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.5, 0.6), blueMat);
-        leftThigh.position.set(-0.5, 1.5, 0);
+        // 左前臂
+        const leftArmLower = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.1, 0.5), darkRedMat);
+        leftArmLower.position.set(-1.15, 1.95, 0);
+        leftArmLower.castShadow = true;
+        group.add(leftArmLower);
+
+        // 左手
+        const leftHand = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.4, 0.35), silverMat);
+        leftHand.position.set(-1.15, 1.1, 0);
+        leftHand.castShadow = true;
+        group.add(leftHand);
+
+        // 右臂
+        const rightArmUpper = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.2, 0.55), redMat);
+        rightArmUpper.position.set(1.15, 3.5, 0);
+        rightArmUpper.castShadow = true;
+        group.add(rightArmUpper);
+        const rightElbow = new THREE.Mesh(elbowGeo, darkSilverMat);
+        rightElbow.position.set(1.15, 2.7, 0);
+        group.add(rightElbow);
+        const rightArmLower = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.1, 0.5), darkRedMat);
+        rightArmLower.position.set(1.15, 1.95, 0);
+        rightArmLower.castShadow = true;
+        group.add(rightArmLower);
+        const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.4, 0.35), silverMat);
+        rightHand.position.set(1.15, 1.1, 0);
+        rightHand.castShadow = true;
+        group.add(rightHand);
+
+        // ========== 腰部 ==========
+        const waist = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.5, 0.8), darkSilverMat);
+        waist.position.set(0, 1.9, 0);
+        waist.castShadow = true;
+        group.add(waist);
+
+        // ========== 腿部 ==========
+        // 左大腿
+        const leftThigh = new THREE.Mesh(new THREE.BoxGeometry(0.65, 1.5, 0.7), blueMat);
+        leftThigh.position.set(-0.45, 1.0, 0);
+        leftThigh.castShadow = true;
         group.add(leftThigh);
-        const rightThigh = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.5, 0.6), blueMat);
-        rightThigh.position.set(0.5, 1.5, 0);
-        group.add(rightThigh);
 
-        const leftCalf = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.2, 0.5), silverMat);
-        leftCalf.position.set(-0.5, 0.0, 0);
+        // 左膝关节
+        const kneeGeo = new THREE.SphereGeometry(0.22, 10, 10);
+        const leftKnee = new THREE.Mesh(kneeGeo, darkSilverMat);
+        leftKnee.position.set(-0.45, 0.15, 0);
+        group.add(leftKnee);
+
+        // 左小腿
+        const leftCalf = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.2, 0.6), darkBlueMat);
+        leftCalf.position.set(-0.45, -0.65, 0);
+        leftCalf.castShadow = true;
         group.add(leftCalf);
-        const rightCalf = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.2, 0.5), silverMat);
-        rightCalf.position.set(0.5, 0.0, 0);
+
+        // 左脚
+        const leftFoot = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.8), silverMat);
+        leftFoot.position.set(-0.45, -1.35, 0.1);
+        leftFoot.castShadow = true;
+        group.add(leftFoot);
+
+        // 右腿
+        const rightThigh = new THREE.Mesh(new THREE.BoxGeometry(0.65, 1.5, 0.7), blueMat);
+        rightThigh.position.set(0.45, 1.0, 0);
+        rightThigh.castShadow = true;
+        group.add(rightThigh);
+        const rightKnee = new THREE.Mesh(kneeGeo, darkSilverMat);
+        rightKnee.position.set(0.45, 0.15, 0);
+        group.add(rightKnee);
+        const rightCalf = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.2, 0.6), darkBlueMat);
+        rightCalf.position.set(0.45, -0.65, 0);
+        rightCalf.castShadow = true;
         group.add(rightCalf);
+        const rightFoot = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.8), silverMat);
+        rightFoot.position.set(0.45, -1.35, 0.1);
+        rightFoot.castShadow = true;
+        group.add(rightFoot);
 
-        // 能量核心
-        const coreMat = new THREE.MeshBasicMaterial({ color: 0xFF6600 });
-        const core = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.2), coreMat);
-        core.position.set(0, 3.8, 0.5);
-        group.add(core);
+        // 背部散热片
+        const backFin = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.0, 0.1), darkSilverMat);
+        backFin.position.set(0, 4.0, -0.55);
+        backFin.rotation.x = 0.2;
+        group.add(backFin);
 
-        this.bones = { leftArm, rightArm, leftThigh, rightThigh, leftCalf, rightCalf };
+        this.bones = { leftArm: leftArmUpper, rightArm: rightArmUpper, leftThigh, rightThigh, leftCalf, rightCalf };
 
-        // 机器人形态的中心点在地面
         group.position.y = 0;
-
         return group;
     }
 
     /**
-     * 创建汽车形态
+     * 创建汽车形态 - 精细版本
      */
     _createCarMesh() {
         const group = new THREE.Group();
 
-        const redMat = new THREE.MeshStandardMaterial({ color: 0xCC0000, metalness: 0.7, roughness: 0.4 });
-        const blueMat = new THREE.MeshStandardMaterial({ color: 0x0033AA, metalness: 0.7, roughness: 0.4 });
-        const glassMat = new THREE.MeshStandardMaterial({ color: 0x88CCFF, metalness: 0.9, roughness: 0.1, transparent: true, opacity: 0.7 });
-        const silverMat = new THREE.MeshStandardMaterial({ color: 0xCCCCCC, metalness: 0.9, roughness: 0.2 });
-        const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+        // 配色
+        const redMat = new THREE.MeshStandardMaterial({ color: 0xDD1111, metalness: 0.85, roughness: 0.2 });
+        const darkRedMat = new THREE.MeshStandardMaterial({ color: 0xAA0000, metalness: 0.8, roughness: 0.25 });
+        const blueMat = new THREE.MeshStandardMaterial({ color: 0x0044AA, metalness: 0.85, roughness: 0.2 });
+        const glassMat = new THREE.MeshStandardMaterial({ color: 0x4488AA, metalness: 0.95, roughness: 0.05, transparent: true, opacity: 0.65 });
+        const silverMat = new THREE.MeshStandardMaterial({ color: 0xDDDDDD, metalness: 0.95, roughness: 0.1 });
+        const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8, metalness: 0.3 });
+        const chromeMat = new THREE.MeshStandardMaterial({ color: 0xEEEEEE, metalness: 1.0, roughness: 0.05 });
 
-        // 车身（主体）
-        const bodyWidth = 2.0;
-        const bodyLength = 4.0;
-        const bodyHeight = 1.0;
-        const body = new THREE.Mesh(
-            new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyLength),
-            redMat
-        );
-        body.position.y = 0.8;
+        // ========== 车身主体 ==========
+        // 主车身 - 楔形设计
+        const bodyGeo = new THREE.BoxGeometry(2.1, 0.85, 4.2);
+        const body = new THREE.Mesh(bodyGeo, redMat);
+        body.position.set(0, 0.75, 0);
+        body.castShadow = true;
         group.add(body);
 
+        // 车头倾斜部
+        const hoodGeo = new THREE.BoxGeometry(1.8, 0.35, 1.2);
+        const hood = new THREE.Mesh(hoodGeo, redMat);
+        hood.position.set(0, 1.2, 1.4);
+        hood.rotation.x = -0.25;
+        hood.castShadow = true;
+        group.add(hood);
+
+        // 发动机盖
+        const engineHood = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.15, 1.0), darkRedMat);
+        engineHood.position.set(0, 1.45, 1.5);
+        engineHood.castShadow = true;
+        group.add(engineHood);
+
+        // 前格栅
+        const grilleGeo = new THREE.BoxGeometry(1.4, 0.4, 0.1);
+        const grille = new THREE.Mesh(grilleGeo, chromeMat);
+        grille.position.set(0, 0.6, 2.05);
+        group.add(grille);
+        // 格栅条纹
+        for (let i = -3; i <= 3; i++) {
+            const bar = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.35, 0.05), blackMat);
+            bar.position.set(i * 0.18, 0.6, 2.1);
+            group.add(bar);
+        }
+
+        // ========== 车顶和车窗 ==========
         // 车顶
-        const roof = new THREE.Mesh(
-            new THREE.BoxGeometry(1.6, 0.6, 2.0),
-            redMat
-        );
-        roof.position.y = 1.6;
-        roof.position.z = -0.3;
+        const roofGeo = new THREE.BoxGeometry(1.7, 0.5, 1.8);
+        const roof = new THREE.Mesh(roofGeo, redMat);
+        roof.position.set(0, 1.65, -0.3);
+        roof.castShadow = true;
         group.add(roof);
 
         // 前挡风玻璃
-        const windshield = new THREE.Mesh(
-            new THREE.BoxGeometry(1.5, 0.5, 0.1),
-            glassMat
-        );
-        windshield.position.set(0, 1.5, 0.9);
-        windshield.rotation.x = 0.3;
+        const windshieldGeo = new THREE.BoxGeometry(1.55, 0.55, 0.08);
+        const windshield = new THREE.Mesh(windshieldGeo, glassMat);
+        windshield.position.set(0, 1.6, 0.7);
+        windshield.rotation.x = 0.4;
         group.add(windshield);
 
+        // 侧窗
+        const sideWindowGeo = new THREE.BoxGeometry(0.08, 0.4, 1.2);
+        const leftWindow = new THREE.Mesh(sideWindowGeo, glassMat);
+        leftWindow.position.set(-0.85, 1.65, -0.3);
+        group.add(leftWindow);
+        const rightWindow = new THREE.Mesh(sideWindowGeo, glassMat);
+        rightWindow.position.set(0.85, 1.65, -0.3);
+        group.add(rightWindow);
+
         // 后窗
-        const rearWindow = new THREE.Mesh(
-            new THREE.BoxGeometry(1.5, 0.4, 0.1),
-            glassMat
-        );
-        rearWindow.position.set(0, 1.4, -0.9);
+        const rearWindowGeo = new THREE.BoxGeometry(1.55, 0.4, 0.08);
+        const rearWindow = new THREE.Mesh(rearWindowGeo, glassMat);
+        rearWindow.position.set(0, 1.55, -1.15);
         rearWindow.rotation.x = -0.3;
         group.add(rearWindow);
 
-        // 车轮
-        const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16);
+        // ========== 大灯 ==========
+        // 主大灯
+        const headlightMat = new THREE.MeshBasicMaterial({ color: 0xFFFFAA });
+        const leftHeadlight = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.2, 0.08), headlightMat);
+        leftHeadlight.position.set(-0.65, 0.75, 2.08);
+        group.add(leftHeadlight);
+        const rightHeadlight = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.2, 0.08), headlightMat);
+        rightHeadlight.position.set(0.65, 0.75, 2.08);
+        group.add(rightHeadlight);
+
+        // 雾灯
+        const fogLightMat = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });
+        const leftFogLight = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.05), fogLightMat);
+        leftFogLight.position.set(-0.5, 0.35, 2.1);
+        group.add(leftFogLight);
+        const rightFogLight = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.05), fogLightMat);
+        rightFogLight.position.set(0.5, 0.35, 2.1);
+        group.add(rightFogLight);
+
+        // 转向灯
+        const turnSignalMat = new THREE.MeshBasicMaterial({ color: 0xFF8800 });
+        const leftTurnSignal = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.1, 0.05), turnSignalMat);
+        leftTurnSignal.position.set(-0.85, 0.75, 2.05);
+        group.add(leftTurnSignal);
+        const rightTurnSignal = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.1, 0.05), turnSignalMat);
+        rightTurnSignal.position.set(0.85, 0.75, 2.05);
+        group.add(rightTurnSignal);
+
+        // ========== 尾灯 ==========
+        const tailLightMat = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
+        const leftTailLight = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 0.08), tailLightMat);
+        leftTailLight.position.set(-0.7, 0.75, -2.08);
+        group.add(leftTailLight);
+        const rightTailLight = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 0.08), tailLightMat);
+        rightTailLight.position.set(0.7, 0.75, -2.08);
+        group.add(rightTailLight);
+
+        // 刹车灯
+        const brakeLightMat = new THREE.MeshBasicMaterial({ color: 0xFF3333 });
+        const leftBrakeLight = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.1, 0.05), brakeLightMat);
+        leftBrakeLight.position.set(-0.6, 0.95, -2.08);
+        group.add(leftBrakeLight);
+        const rightBrakeLight = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.1, 0.05), brakeLightMat);
+        rightBrakeLight.position.set(0.6, 0.95, -2.08);
+        group.add(rightBrakeLight);
+
+        // 车牌
+        const plateMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.15, 0.02), plateMat);
+        plate.position.set(0, 0.45, 2.12);
+        group.add(plate);
+
+        // ========== 车轮 ==========
+        const wheelGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.35, 20);
         wheelGeo.rotateZ(Math.PI / 2);
         const wheelPositions = [
-            [-1.0, 0.4, 1.2],
-            [1.0, 0.4, 1.2],
-            [-1.0, 0.4, -1.2],
-            [1.0, 0.4, -1.2],
+            [-1.05, 0.42, 1.3],
+            [1.05, 0.42, 1.3],
+            [-1.05, 0.42, -1.3],
+            [1.05, 0.42, -1.3],
         ];
 
-        wheelPositions.forEach(pos => {
-            const wheel = new THREE.Mesh(wheelGeo, blackMat);
-            wheel.position.set(pos[0], pos[1], pos[2]);
-            group.add(wheel);
+        wheelPositions.forEach((pos, idx) => {
+            // 轮胎
+            const tire = new THREE.Mesh(wheelGeo, blackMat);
+            tire.position.set(pos[0], pos[1], pos[2]);
+            tire.castShadow = true;
+            group.add(tire);
+
+            // 轮毂
+            const rimGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.36, 6);
+            rimGeo.rotateZ(Math.PI / 2);
+            const rim = new THREE.Mesh(rimGeo, silverMat);
+            rim.position.set(pos[0], pos[1], pos[2]);
+            group.add(rim);
+
+            // 轮毂中心
+            const hubGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.38, 8);
+            hubGeo.rotateZ(Math.PI / 2);
+            const hub = new THREE.Mesh(hubGeo, chromeMat);
+            hub.position.set(pos[0], pos[1], pos[2]);
+            group.add(hub);
         });
 
-        // 大灯
-        const lightMat = new THREE.MeshBasicMaterial({ color: 0xFFFF88 });
-        const leftLight = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.1), lightMat);
-        leftLight.position.set(-0.6, 0.7, 2.0);
-        group.add(leftLight);
-        const rightLight = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.1), lightMat);
-        rightLight.position.set(0.6, 0.7, 2.0);
-        group.add(rightLight);
+        // ========== 后视镜 ==========
+        const mirrorGeo = new THREE.BoxGeometry(0.15, 0.12, 0.2);
+        const leftMirror = new THREE.Mesh(mirrorGeo, redMat);
+        leftMirror.position.set(-1.15, 1.3, 0.5);
+        group.add(leftMirror);
+        const rightMirror = new THREE.Mesh(mirrorGeo, redMat);
+        rightMirror.position.set(1.15, 1.3, 0.5);
+        group.add(rightMirror);
 
-        // 尾灯
-        const tailMat = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
-        const leftTail = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.15, 0.1), tailMat);
-        leftTail.position.set(-0.7, 0.7, -2.0);
-        group.add(leftTail);
-        const rightTail = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.15, 0.1), tailMat);
-        rightTail.position.set(0.7, 0.7, -2.0);
-        group.add(rightTail);
+        // ========== 车尾装饰 ==========
+        // 扰流板
+        const spoilerGeo = new THREE.BoxGeometry(1.6, 0.08, 0.3);
+        const spoiler = new THREE.Mesh(spoilerGeo, darkRedMat);
+        spoiler.position.set(0, 1.35, -1.5);
+        group.add(spoiler);
+        // 扰流板支架
+        const spoilerStandGeo = new THREE.BoxGeometry(0.08, 0.2, 0.08);
+        const leftSpoilerStand = new THREE.Mesh(spoilerStandGeo, silverMat);
+        leftSpoilerStand.position.set(-0.6, 1.25, -1.5);
+        group.add(leftSpoilerStand);
+        const rightSpoilerStand = new THREE.Mesh(spoilerStandGeo, silverMat);
+        rightSpoilerStand.position.set(0.6, 1.25, -1.5);
+        group.add(rightSpoilerStand);
 
-        // 车头标志（机器人眼睛位置变成车灯）
-        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x00FFFF });
-        const frontEye = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.15, 0.1), eyeMat);
-        frontEye.position.set(0, 1.1, 2.0);
-        group.add(frontEye);
+        // 排气管
+        const exhaustGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.2, 8);
+        exhaustGeo.rotateX(Math.PI / 2);
+        const leftExhaust = new THREE.Mesh(exhaustGeo, chromeMat);
+        leftExhaust.position.set(-0.4, 0.25, -2.15);
+        group.add(leftExhaust);
+        const rightExhaust = new THREE.Mesh(exhaustGeo, chromeMat);
+        rightExhaust.position.set(0.4, 0.25, -2.15);
+        group.add(rightExhaust);
 
-        // 能量核心（车尾）
-        const coreMat = new THREE.MeshBasicMaterial({ color: 0xFF6600 });
-        const core = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.2, 0.1), coreMat);
-        core.position.set(0, 0.9, -2.0);
-        group.add(core);
-
-        // 汽车形态的中心也在地面
+        // 汽车形态的中心在地面
         group.position.y = 0;
-
         return group;
     }
 

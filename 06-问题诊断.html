@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智体城 - 问题诊断与修复</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; color: #333; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        h1 { color: #24292e; border-bottom: 2px solid #e1e4e8; padding-bottom: 10px; margin-bottom: 20px; }
+        h2 { color: #24292e; margin-top: 30px; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 1px solid #e1e4e8; }
+        h3 { color: #24292e; margin-top: 20px; margin-bottom: 10px; }
+        p { margin-bottom: 15px; }
+        a { color: #0366d6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code { background: #f6f8fa; padding: 2px 6px; border-radius: 3px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.9em; }
+        pre { background: #f6f8fa; padding: 16px; border-radius: 6px; overflow-x: auto; margin-bottom: 20px; }
+        pre code { background: none; padding: 0; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        th, td { border: 1px solid #dfe2e5; padding: 8px 12px; text-align: left; }
+        th { background: #f6f8fa; font-weight: 600; }
+        tr:nth-child(even) { background: #fafbfc; }
+        blockquote { border-left: 4px solid #dfe2e5; padding-left: 16px; color: #6a737d; margin: 0 0 20px 0; }
+        ul, ol { margin-bottom: 15px; padding-left: 2em; }
+        li { margin-bottom: 5px; }
+        hr { border: none; border-top: 1px solid #e1e4e8; margin: 30px 0; }
+        .nav { background: #f6f8fa; padding: 15px; border-radius: 6px; margin-bottom: 30px; }
+        .nav a { margin-right: 15px; color: #0366d6; }
+        .warning { background: #fff5b1; border: 1px solid #f0e68c; border-radius: 4px; padding: 12px; margin-bottom: 20px; }
+        .info { background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 4px; padding: 12px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="index.html">首页</a>
+        <a href="0-愿景与概述.html">愿景与概述</a>
+        <a href="01-系统架构总览.html">系统架构</a>
+        <a href="02-项目结构.html">项目结构</a>
+        <a href="03-AI决策框架.html">AI决策</a>
+        <a href="04-地图元素.html">地图元素</a>
+        <a href="05-3D实施计划.html">3D实施</a>
+        <a href="06-问题诊断.html">问题诊断</a>
+        <a href="07-SDK使用手册.html">SDK手册</a>
+        <a href="08-运维手册.html">运维手册</a>
+        <a href="09-接口文档.html">接口文档</a>
+    </div>
+    <h1>智体城 - 问题诊断与修复</h1>
+<blockquote>
+<p>日期: 2026-04-26
+📌 问题诊断基于 [[01-系统架构总览]] 和 [[02-AI决策框架]]</p>
+</blockquote>
+<hr />
+<h2>一、当前架构问题</h2>
+<h3>1.1 两套独立的 WebSocket 系统</h3>
+<pre><code>服务器 (47.77.238.56)
+  ├── ws-handler.js (处理3D客户端连接, 端口9876)
+  └── message-bridge.js (处理OpenClaw插件, 端口9879)
+         ↓
+   AIEngine - decisionLoop() 每1秒运行一次
+</code></pre>
+<p><strong>关键问题：</strong>
+- message-bridge 和 ws-handler 不互通
+- 两个系统的客户端收不到彼此的消息</p>
+<h3>1.2 MoveToSkill 不广播位置变化</h3>
+<pre><code class="language-javascript">// server/ai/skills/move-to.js
+async execute(agent, params, context) {
+    // 只更新数据库，不广播！
+    await agentStore.updatePosition(agent.agentId, { x, z });
+    return { success: true, position: { x, z } };
+    // 3D 客户端永远不会收到 AGENT_MOVED 广播
+}
+</code></pre>
+<hr />
+<h2>二、目标架构</h2>
+<pre><code>1. 智体城服务器收集环境信息
+2. 通过 WebSocket/MessageBridge 发送给 OpenClaw Agent
+3. OpenClaw Agent 调用自身 LLM 思考并决策
+4. 决策发回给智体城
+5. 智体城执行决策，广播结果给 3D 客户端
+</code></pre>
+<hr />
+<h2>三、问题定位总结</h2>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>位置</th>
+<th>后果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MoveToSkill 不广播</td>
+<td>server/ai/skills/move-to.js</td>
+<td>AI 移动后 3D 客户端不知道</td>
+</tr>
+<tr>
+<td>message-bridge 和 ws-handler 不互通</td>
+<td>server/</td>
+<td>两个系统的消息隔离</td>
+</tr>
+<tr>
+<td>OpenClaw Agent 没有主动获取环境信息</td>
+<td>agent-city-channel.js</td>
+<td>只能被动响应消息</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>四、修复方案</h2>
+<h3>4.1 立即修复：让 MoveToSkill 广播位置变化</h3>
+<p>在 ai-engine._makeDecisionInternal() 执行完 skill 后，广播 AGENT_MOVED</p>
+<pre><code class="language-javascript">if (skillName === 'move_to' &amp;&amp; result.position) {
+    broadcastToAllClients({
+        type: 'AGENT_MOVED',
+        agentId: agent.agentId,
+        position: result.position
+    });
+}
+</code></pre>
+<h3>4.2 中期修复：打通 message-bridge 和 ws-handler</h3>
+<p>让 message-bridge 在收到 Agent 的决策消息时，通知 ws-handler 广播给 3D 客户端。</p>
+<h3>4.3 长期：实现用户描述的架构</h3>
+<p>让 OpenClaw Agent 主动向智体城请求环境信息。</p>
+<hr />
+<h2>五、待确认</h2>
+<ol>
+<li>OpenClaw Agent 连接的是 ws://47.77.238.56:9876 吗？</li>
+<li>小吉是在智体城里注册过的 AI Agent 吗？</li>
+<li>是否需要保留服务器端 AI Engine 自动决策？</li>
+</ol>
+<hr />
+<h2>六、相关文档</h2>
+<ul>
+<li>[[01-系统架构总览]] - 系统整体架构</li>
+<li>[[02-AI决策框架]] - AI决策框架详解</li>
+<li>[[06-SDK使用手册]] - City Agent SDK 编程接口</li>
+</ul>
+</body>
+</html>

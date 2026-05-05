@@ -1,0 +1,9 @@
+{
+  "remoteURL": "https://github.com/dongjixiang/agent-city",
+  "gitLocation": "",
+  "syncinterval": 0,
+  "isSyncOnLoad": false,
+  "checkStatusOnLoad": true,
+  "noticeLevel": "ALL",
+  "showSyncSuccessNotice": true
+}

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智体城 - 服务端数据渲染</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        #info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            z-index: 100;
+            max-width: 300px;
+        }
+        #info h3 { margin-bottom: 8px; color: #6a0dad; }
+        #info p { margin: 4px 0; opacity: 0.9; }
+        #loading {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #1a1a2e;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            z-index: 999;
+        }
+        #loading h1 { font-size: 32px; margin-bottom: 20px; color: #6a0dad; }
+        #loading p { opacity: 0.7; }
+        .hidden { display: none !important; }
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+        #controls kbd {
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin: 0 2px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <h1>🏙️ 智体城</h1>
+        <p>正在从服务端加载世界数据...</p>
+    </div>
+    
+    <div id="info" class="hidden">
+        <h3>📊 世界状态</h3>
+        <p>建筑: <span id="building-count">-</span></p>
+        <p>装饰物: <span id="decoration-count">-</span></p>
+        <p>道路: <span id="road-count">-</span></p>
+        <p>连接: <span id="connection-status">连接中...</span></p>
+    </div>
+    
+    <div id="controls" class="hidden">
+        <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动</p>
+        <p><kbd>鼠标</kbd> 旋转视角</p>
+        <p><kbd>滚轮</kbd> 缩放</p>
+        <p><kbd>R</kbd> 重置视角</p>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        
+        // 等待 WorldLoader 模块加载
+        const loaderModule = await import('../systems/world-loader.js');
+        console.log('[Module] loaderModule keys:', Object.keys(loaderModule));
+        const WorldLoader = loaderModule.WorldLoader;
+        const WorldSync = loaderModule.WorldSync;
+
+        console.log('[Module] WorldLoader loaded:', typeof WorldLoader);
+
+        // ============ 场景初始化 ============
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.Fog(0x87ceeb, 100, 400);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(150, 80, 150);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        // 轨道控制
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 20;
+        controls.maxDistance = 400;
+        controls.maxPolarAngle = Math.PI / 2;
+
+        // 灯光
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        sunLight.position.set(100, 150, 100);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        sunLight.shadow.camera.near = 1;
+        sunLight.shadow.camera.far = 500;
+        sunLight.shadow.camera.left = -200;
+        sunLight.shadow.camera.right = 200;
+        sunLight.shadow.camera.top = 200;
+        sunLight.shadow.camera.bottom = -200;
+        scene.add(sunLight);
+
+        // ============ 加载世界数据 ============
+        console.log('[WorldLoader] 初始化...');
+        console.log('[WorldLoader] WorldLoader from module:', typeof WorldLoader);
+        console.log('[WorldLoader] WorldLoader from window:', typeof window.WorldLoader);
+        
+        // 优先使用 module 导出的，否则用 window 的
+        const LoaderClass = WorldLoader || window.WorldLoader;
+        console.log('[WorldLoader] LoaderClass:', typeof LoaderClass);
+        if (typeof LoaderClass !== 'function') {
+            console.error('[WorldLoader] WorldLoader is not a function:', typeof LoaderClass);
+            console.error('[WorldLoader] window.WorldLoader:', typeof window.WorldLoader);
+            document.querySelector('#loading p').textContent = 'WorldLoader 加载失败: ' + typeof LoaderClass;
+        }
+        // API 服务在 9877 端口
+        const worldLoader = new LoaderClass('http://localhost:9877');
+        console.log('[WorldLoader] worldLoader created:', typeof worldLoader);
+        
+        let worldRenderer = null;
+
+        // 加载完成回调
+        worldLoader.onLoad((worldState) => {
+            console.log('[WorldLoader] 数据加载完成', worldState);
+            
+            // 创建渲染器
+            import('../systems/world-renderer.js').then(module => {
+                worldRenderer = new module.WorldRenderer(scene, worldLoader);
+                worldRenderer.renderWorld().then(() => {
+                    console.log('[WorldRenderer] 世界渲染完成');
+                    showInfo();
+                    hideLoading();
+                });
+            });
+        });
+
+        // 错误处理
+        worldLoader.onError((err) => {
+            console.error('[WorldLoader] 加载失败:', err);
+            document.querySelector('#loading p').textContent = '连接服务端失败，请确保服务器运行在 localhost:9877';
+        });
+
+        // 开始加载
+        console.log('[WorldLoader] 调用 load() 方法...');
+        
+        // 设置超时，如果 10 秒后还在加载，显示错误
+        setTimeout(() => {
+            const loadingEl = document.querySelector('#loading p');
+            if (loadingEl && loadingEl.textContent.includes('正在从服务端加载')) {
+                loadingEl.textContent = '加载超时，请检查服务端是否运行在 localhost:9877';
+            }
+        }, 10000);
+        
+        worldLoader.load().then(success => {
+            console.log('[WorldLoader] load() 完成, success:', success);
+        }).catch(err => {
+            console.error('[WorldLoader] load() 异常:', err);
+        });
+        console.log('[WorldLoader] load() 已调用');
+
+        // WebSocket 实时同步（可选）
+        const worldSync = new WorldSync(worldLoader);
+        
+        worldSync.on('connect', () => {
+            document.getElementById('connection-status').textContent = '🟢 已连接';
+            document.getElementById('connection-status').style.color = '#4ade80';
+        });
+        
+        worldSync.on('disconnect', () => {
+            document.getElementById('connection-status').textContent = '🔴 已断开';
+            document.getElementById('connection-status').style.color = '#f87171';
+        });
+
+        worldSync.on('time:update', (time) => {
+            // 更新光照
+            if (worldRenderer) {
+                worldRenderer.updateLighting(time);
+            }
+        });
+
+        worldSync.on('weather:update', (weather) => {
+            // 更新天气效果
+            if (worldRenderer) {
+                worldRenderer.updateWeather(weather);
+            }
+        });
+
+        worldSync.connect();
+
+        // ============ 键盘控制 ============
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key.toLowerCase() === 'r') {
+                // 重置视角
+                camera.position.set(150, 80, 150);
+                controls.target.set(0, 0, 0);
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        // ============ 信息展示 ============
+        function showInfo() {
+            const info = document.getElementById('info');
+            const controls = document.getElementById('controls');
+            info.classList.remove('hidden');
+            controls.classList.remove('hidden');
+            
+            const buildings = worldLoader.getBuildingsForRendering();
+            document.getElementById('building-count').textContent = buildings.length;
+            document.getElementById('decoration-count').textContent = 
+                worldLoader.getTrees().length + worldLoader.getFountains().length;
+            document.getElementById('road-count').textContent = 
+                worldLoader.worldState?.terrain?.roads?.length || '-';
+        }
+
+        function hideLoading() {
+            const loading = document.getElementById('loading');
+            loading.classList.add('hidden');
+            setTimeout(() => loading.remove(), 800);
+        }
+
+        // ============ 渲染循环 ============
+        let lastTime = performance.now();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const now = performance.now();
+            const deltaTime = (now - lastTime) / 1000;
+            lastTime = now;
+
+            // WASD 相机移动
+            const moveSpeed = 50 * deltaTime;
+            const forward = new THREE.Vector3();
+            const right = new THREE.Vector3();
+            
+            camera.getWorldDirection(forward);
+            forward.y = 0;
+            forward.normalize();
+            
+            right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
+
+            if (keys['w']) camera.position.addScaledVector(forward, moveSpeed);
+            if (keys['s']) camera.position.addScaledVector(forward, -moveSpeed);
+            if (keys['a']) camera.position.addScaledVector(right, -moveSpeed);
+            if (keys['d']) camera.position.addScaledVector(right, moveSpeed);
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // 窗口大小变化
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

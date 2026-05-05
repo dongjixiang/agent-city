@@ -1,0 +1,203 @@
+# 世界配置
+# World Configuration
+
+world:
+  # 世界大小
+  size:
+    width: 200      # 世界宽度
+    height: 200      # 世界高度
+    maxAgents: 500   # 最大智能体数
+
+  # 地形
+  terrain:
+    groundColor: 0x3d5c3d    # 地面颜色
+    hasWater: true
+    waterLevel: -10
+    hasRoads: true
+
+  # 空间分区（性能优化）
+  spatial:
+    cellSize: 10           # 单元格大小
+    maxPerCell: 50        # 每格最大对象数
+
+  # 天气系统
+  weather:
+    changeInterval: 300000  # 5分钟切换
+    default: sunny
+    types:
+      - sunny
+      - cloudy
+      - rainy
+      - snowy
+    effects:
+      sunny:
+        skyColor: 0x87CEEB
+        lightIntensity: 1.0
+        moodBonus: 0.1
+      cloudy:
+        skyColor: 0x708090
+        lightIntensity: 0.7
+        moodBonus: 0
+      rainy:
+        skyColor: 0x4A4A4A
+        lightIntensity: 0.5
+        moodBonus: -0.1
+      snowy:
+        skyColor: 0xE8E8E8
+        lightIntensity: 0.6
+        moodBonus: -0.15
+
+  # 日夜系统
+  daynight:
+    enabled: true
+    cycleSpeed: 60          # 1分钟 = 1小时
+    dawnHour: 6
+    dayHour: 8
+    eveningHour: 18
+    nightHour: 21
+    phases:
+      dawn:
+        duration: 2
+        skyColor: 0xFFD700
+        name: 黎明
+      day:
+        duration: 10
+        skyColor: 0x87CEEB
+        name: 白天
+      evening:
+        duration: 3
+        skyColor: 0xFF6B6B
+        name: 傍晚
+      night:
+        duration: 9
+        skyColor: 0x1a1a2e
+        name: 夜晚
+
+# 装饰物配置
+decorations:
+  # 花草
+  flower:
+    types:
+      - rose      # 玫瑰
+      - tulip     # 郁金香
+      - daisy     # 雏菊
+      - sunflower # 向日葵
+    interactionRadius: 2
+    states:
+      - normal
+      - smelled
+      - watered
+      - picked
+      - withered
+    actions:
+      - 闻
+      - 浇水
+      - 采摘
+
+  # 树木
+  tree:
+    types:
+      - pine      # 松树
+      - willow   # 柳树
+      - cherry   # 樱花树
+      - banyan   # 榕树
+    interactionRadius: 3
+    actions:
+      - 靠近
+      - 倚靠
+      - 摇晃
+      - 爬
+
+  # 路灯
+  lamp:
+    interactionRadius: 2
+    states:
+      - on
+      - off
+    actions:
+      - 查看
+      - 开关
+
+  # 长椅
+  bench:
+    interactionRadius: 2
+    material:
+      - 木质
+      - 石质
+      - 铁质
+    actions:
+      - 坐下
+      - 躺下
+
+# 动物配置
+animals:
+  butterfly:
+    alertRange: 3
+    fleeRange: 2
+    temperament: curious
+    speed: 0.5
+    canFly: true
+
+  bird:
+    alertRange: 10
+    fleeRange: 5
+    temperament: shy
+    speed: 2
+    canFly: true
+    flightHeight: 15
+
+  rabbit:
+    alertRange: 8
+    fleeRange: 3
+    temperament: shy
+    speed: 1.5
+    canHide: true
+
+  cat:
+    alertRange: 8
+    fleeRange: 3
+    temperament: curious
+    speed: 1.5
+    canClimb: true
+
+  dog:
+    alertRange: 15
+    fleeRange: 5
+    temperament: friendly
+    speed: 2
+    loyalty: true
+
+# 可放置物品（领地系统）
+territoryItems:
+  - id: flower_pot
+    name: 花盆
+    cost: 50
+    size: 1
+  - id: bench
+    name: 长椅
+    cost: 100
+    size: 1
+  - id: lamp
+    name: 灯笼
+    cost: 80
+    size: 1
+  - id: statue
+    name: 雕像
+    cost: 500
+    size: 2
+  - id: tree_small
+    name: 小树
+    cost: 150
+    size: 2
+  - id: fountain_small
+    name: 小喷泉
+    cost: 1000
+    size: 4
+  - id: fence
+    name: 栅栏
+    cost: 30
+    size: 1
+  - id: sign
+    name: 告示牌
+    cost: 40
+    size: 1

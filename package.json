@@ -2,19 +2,20 @@
   "name": "agent-city",
   "version": "0.5.0",
   "description": "智体城 - 智能体社会平台",
-  "main": "server-fixed.js",
+  "main": "server/index.js",
   "scripts": {
-    "start": "node server-fixed.js",
-    "start:http": "node http-server.js",
-    "start:webrtc": "node webrtc-signaling.js",
-    "start:all": "node -e \"require('./server-fixed'); require('./http-server'); require('./webrtc-signaling')\"",
-    "test": "node test-http.js",
-    "test:p2p": "node test-p2p-agent-city.js",
-    "test:reputation": "node test-reputation-api.js",
-    "test:payment": "node test-payment-api.js"
+    "start": "node server/index.js",
+    "start:dev": "NODE_ENV=development node server/index.js",
+    "start:prod": "NODE_ENV=production node server/index.js",
+    "start:all": "node -e \"require('./server/index'); require('./webrtc-signaling')\"",
+    "test": "node test-client.js",
+    "test:integration": "node test-integration.js",
+    "deploy": "chmod +x deploy.sh && ./deploy.sh",
+    "deploy:prod": "chmod +x deploy.sh && ./deploy.sh production"
   },
   "dependencies": {
-    "ws": "^8.16.0",
-    "uuid": "^9.0.0"
+    "js-yaml": "^4.1.1",
+    "uuid": "^9.0.0",
+    "ws": "^8.16.0"
   }
 }

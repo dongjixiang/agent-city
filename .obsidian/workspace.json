@@ -11,10 +11,14 @@
             "id": "84037d64c0720556",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "docs/10-游戏设计原则.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "新标签页"
+              "title": "10-游戏设计原则"
             }
           }
         ]
@@ -192,14 +196,28 @@
   },
   "active": "84037d64c0720556",
   "lastOpenFiles": [
-    "01-系统架构总览.md",
+    "server/systems/ecology/index.js",
+    "server/systems/ecology/ecology-system.js",
+    "server/systems/ecology/bird-flock.js",
+    "server/systems/ecology/animal.js",
+    "server/services/buildings/trading-center.js",
+    "server/services/buildings/task-center.js",
+    "server/services/buildings/skill-academy.js",
+    "server/services/buildings/reputation-tower.js",
+    "server/services/buildings/message-station.js",
+    "server/services/buildings/index.js",
+    "server/services/buildings/data-center.js",
+    "10-边界验证系统.md",
+    "docs/10-游戏设计原则.md",
+    "docs/00-索引.md",
     "docs/接入指南.md",
+    "docs/ARCHITECTURE.md",
+    "01-系统架构总览.md",
     "docs/USAGE.md",
     "docs/README.md",
     "docs/I18N-PLAN.md",
     "docs/DEPLOYMENT.md",
     "docs/CHANGELOG.md",
-    "docs/ARCHITECTURE.md",
     "docs/09-接口文档.md",
     "docs/08-运维手册.md",
     "docs/07-SDK使用手册.md",
@@ -209,24 +227,10 @@
     "docs/03-AI决策框架.md",
     "docs/02-项目结构.md",
     "docs/01-系统架构总览.md",
-    "docs/00-索引.md",
     "docs/0-愿景与概述.md",
-    "docs",
     "skills/agent-city/SKILL.md",
-    "skills/agent-city",
-    "skills",
-    "docker-compose.yml",
-    "deploy.sh",
-    "data/tasks.json",
-    "data/reputation.json",
-    "data/payments.json",
-    "data/agents.json",
-    "data",
     "USAGE.md",
     "README.md",
-    "I18N-PLAN.md",
-    "DEPLOYMENT.md",
-    "CHANGELOG.md",
-    "ARCHITECTURE.md"
+    "I18N-PLAN.md"
   ]
 }

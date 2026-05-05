@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏙️ 智体城 3D 世界</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Microsoft YaHei', sans-serif; overflow: hidden; }
+    #canvas-container { width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; }
+    #loading {
+      position: fixed; inset: 0;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 9999; transition: opacity 0.8s;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    #loading .city-icon { font-size: 64px; animation: bounce 1s ease-in-out infinite; }
+    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+    #loading .loading-text { font-size: 28px; color: #fff; margin: 20px 0; text-shadow: 0 0 20px rgba(78, 205, 196, 0.5); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    #loading .loading-bar { width: 200px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+    #loading .loading-progress { height: 100%; background: linear-gradient(90deg, #4ecdc4, #44a08d); border-radius: 2px; transition: width 0.3s; }
+    #loading .loading-hint { margin-top: 15px; font-size: 14px; color: #888; }
+    #error {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(26, 26, 46, 0.95); display: none; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 1000;
+      color: #ff6b6b; font-size: 16px; padding: 20px; text-align: center;
+    }
+    #error pre { background: rgba(255,107,107,0.1); padding: 20px; border-radius: 8px; max-width: 80vw; overflow: auto; }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div class="city-icon">🏙️</div>
+    <div class="loading-text">智体城 3D 世界</div>
+    <div class="loading-bar"><div class="loading-progress" id="loading-progress"></div></div>
+    <div class="loading-hint">正在加载智体城...</div>
+  </div>
+  <div id="error">
+    <h2>加载失败</h2>
+    <pre id="error-message"></pre>
+  </div>
+  <div id="canvas-container"></div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.160.0",
+        "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    if (window._agentCityAppLoaded) {
+      console.log('[App] Already loaded, skipping');
+    } else {
+      window._agentCityAppLoaded = true;
+      const { app } = await import('./main.js');
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+      const errorMsg = document.getElementById('error-message');
+      try {
+        await app.init();
+        app.start();
+        // 暴露到全局用于调试
+        window.app = app;
+        window.dayNight = app.systems.dayNight;
+        window.worldBuilder = app.systems.worldBuilder;
+        loading.classList.add('hidden');
+        console.log('[App] Agent City 3D World loaded successfully');
+      } catch (err) {
+        console.error('[App] Failed to load:', err);
+        loading.classList.add('hidden');
+        error.style.display = 'flex';
+        errorMsg.textContent = err.message + '\n\n' + err.stack;
+      }
+    }
+  </script>
+</body>
+</html>

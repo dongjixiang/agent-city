@@ -1,8 +1,7 @@
-/**
- * AmbientSoundSystem - 环境音效系统
+﻿/**
+ * AmbientSoundSystem - 鐜闊虫晥绯荤粺
  *
- * 管理城市背景音效（鸟鸣、水声、风声等）
- *
+ * 绠＄悊鍩庡競鑳屾櫙闊虫晥锛堥笩楦ｃ€佹按澹般€侀澹扮瓑锛? *
  * @module systems/ambient-sound-system
  */
 
@@ -13,10 +12,8 @@ class AmbientSoundSystem {
         this.audioContext = null;
         this.masterGain = null;
         this.isEnabled = true;
-        this.volume = 0.3; // 主音量
-
-        // 环境音配置
-        this.sounds = {
+        this.volume = 0.3; // 涓婚煶閲?
+        // 鐜闊抽厤缃?        this.sounds = {
             birds: { gain: null, nodes: [], frequency: 0 },
             wind: { gain: null, nodes: [], frequency: 0 },
             water: { gain: null, nodes: [], frequency: 0 },
@@ -30,8 +27,7 @@ class AmbientSoundSystem {
     }
 
     /**
-     * 初始化音频上下文（需要用户交互后才能调用）
-     */
+     * 鍒濆鍖栭煶棰戜笂涓嬫枃锛堥渶瑕佺敤鎴蜂氦浜掑悗鎵嶈兘璋冪敤锛?     */
     init() {
         if (this.isInitialized) return;
         
@@ -49,7 +45,7 @@ class AmbientSoundSystem {
     }
 
     /**
-     * 开始播放环境音（需要用户交互触发）
+     * 寮€濮嬫挱鏀剧幆澧冮煶锛堥渶瑕佺敤鎴蜂氦浜掕Е鍙戯級
      */
     async start() {
         if (!this.isInitialized) {
@@ -60,7 +56,7 @@ class AmbientSoundSystem {
             await this.audioContext.resume();
         }
 
-        // 启动所有环境音
+        // 鍚姩鎵€鏈夌幆澧冮煶
         this.startBirds();
         this.startWind();
         this.startMusic();
@@ -69,7 +65,7 @@ class AmbientSoundSystem {
     }
 
     /**
-     * 停止所有环境音
+     * 鍋滄鎵€鏈夌幆澧冮煶
      */
     stop() {
         for (const soundName in this.sounds) {
@@ -79,7 +75,7 @@ class AmbientSoundSystem {
     }
 
     /**
-     * 停止特定声音
+     * 鍋滄鐗瑰畾澹伴煶
      */
     stopSound(soundName) {
         const sound = this.sounds[soundName];
@@ -102,7 +98,7 @@ class AmbientSoundSystem {
     }
 
     /**
-     * 播放鸟鸣声（使用振荡器模拟）
+     * 鎾斁楦熼福澹帮紙浣跨敤鎸崱鍣ㄦā鎷燂級
      */
     startBirds() {
         if (!this.audioContext || !this.isEnabled) return;
@@ -116,13 +112,13 @@ class AmbientSoundSystem {
         this.sounds.birds.gain = gain;
         this.sounds.birds.nodes = [];
         
-        // 随机生成鸟鸣
+        // 闅忔満鐢熸垚楦熼福
         const scheduleBirdSong = () => {
             if (!this.isEnabled) return;
             
             const now = this.audioContext.currentTime;
             
-            // 生成几声鸟叫
+            // 鐢熸垚鍑犲０楦熷彨
             for (let i = 0; i < 3; i++) {
                 const osc = this.audioContext.createOscillator();
                 const oscGain = this.audioContext.createGain();
@@ -143,24 +139,23 @@ class AmbientSoundSystem {
                 this.sounds.birds.nodes.push(osc);
             }
             
-            // 5-15秒后再次播放
+            // 5-15绉掑悗鍐嶆鎾斁
             const nextDelay = 5000 + Math.random() * 10000;
             setTimeout(scheduleBirdSong, nextDelay);
         };
         
-        // 延迟开始
-        setTimeout(scheduleBirdSong, 2000);
+        // 寤惰繜寮€濮?        setTimeout(scheduleBirdSong, 2000);
     }
 
     /**
-     * 播放风声（使用噪音模拟）
+     * 鎾斁椋庡０锛堜娇鐢ㄥ櫔闊虫ā鎷燂級
      */
     startWind() {
         if (!this.audioContext || !this.isEnabled) return;
         
         this.stopSound('wind');
         
-        // 创建噪音节点
+        // 鍒涘缓鍣煶鑺傜偣
         const bufferSize = 2 * this.audioContext.sampleRate;
         const noiseBuffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
         const output = noiseBuffer.getChannelData(0);
@@ -173,13 +168,12 @@ class AmbientSoundSystem {
         whiteNoise.buffer = noiseBuffer;
         whiteNoise.loop = true;
         
-        // 创建滤波器模拟风声
-        const filter = this.audioContext.createBiquadFilter();
+        // 鍒涘缓婊ゆ尝鍣ㄦā鎷熼澹?        const filter = this.audioContext.createBiquadFilter();
         filter.type = 'lowpass';
         filter.frequency.value = 400;
         filter.Q.value = 1;
         
-        // 创建增益控制
+        // 鍒涘缓澧炵泭鎺у埗
         const gain = this.audioContext.createGain();
         gain.gain.value = 0.05;
         
@@ -192,8 +186,7 @@ class AmbientSoundSystem {
         this.sounds.wind.nodes = [whiteNoise, filter];
         this.sounds.wind.gain = gain;
         
-        // 随时间变化风声强度
-        const modulateWind = () => {
+        // 闅忔椂闂村彉鍖栭澹板己搴?        const modulateWind = () => {
             if (!this.isEnabled || !this.sounds.wind.gain) return;
             
             const time = Date.now() * 0.001;
@@ -207,29 +200,27 @@ class AmbientSoundSystem {
     }
 
     /**
-     * 根据时间更新音效（白天/夜晚）
-     */
+     * 鏍规嵁鏃堕棿鏇存柊闊虫晥锛堢櫧澶?澶滄櫄锛?     */
     updateForTimeOfDay(timeOfDay) {
         if (this.currentTimeOfDay === timeOfDay) return;
         
         this.currentTimeOfDay = timeOfDay;
         
         if (timeOfDay === 'night') {
-            // 夜晚减少鸟鸣，增加虫鸣
-            this.stopSound('birds');
+            // 澶滄櫄鍑忓皯楦熼福锛屽鍔犺櫕楦?            this.stopSound('birds');
             this.startNightSounds();
         } else if (timeOfDay === 'evening') {
-            // 傍晚混合声音
+            // 鍌嶆櫄娣峰悎澹伴煶
             this.stopSound('night');
         } else {
-            // 白天正常鸟鸣
+            // 鐧藉ぉ姝ｅ父楦熼福
             this.stopSound('night');
             this.startBirds();
         }
     }
 
     /**
-     * 播放夜间虫鸣
+     * 鎾斁澶滈棿铏福
      */
     startNightSounds() {
         if (!this.audioContext || !this.isEnabled) return;
@@ -240,13 +231,12 @@ class AmbientSoundSystem {
         gain.gain.value = 0.08;
         gain.connect(this.masterGain);
         
-        // 创建多个高频振荡器模拟虫鸣
-        for (let i = 0; i < 5; i++) {
+        // 鍒涘缓澶氫釜楂橀鎸崱鍣ㄦā鎷熻櫕楦?        for (let i = 0; i < 5; i++) {
             const osc = this.audioContext.createOscillator();
             osc.type = 'sine';
             osc.frequency.value = 3000 + i * 500 + Math.random() * 200;
             
-            // 调制虫鸣
+            // 璋冨埗铏福
             const lfo = this.audioContext.createOscillator();
             const lfoGain = this.audioContext.createGain();
             lfo.frequency.value = 5 + Math.random() * 10;
@@ -267,20 +257,18 @@ class AmbientSoundSystem {
     }
 
     /**
-     * 播放轻快背景音乐（合成 pad）
-     */
+     * 鎾斁杞诲揩鑳屾櫙闊充箰锛堝悎鎴?pad锛?     */
     startMusic() {
         if (!this.audioContext || !this.isEnabled) return;
         this.stopMusic();
 
-        // 音乐音量和主音量分开（背景音乐音量更小）
+        // 闊充箰闊抽噺鍜屼富闊抽噺鍒嗗紑锛堣儗鏅煶涔愰煶閲忔洿灏忥級
         const musicGain = this.audioContext.createGain();
         musicGain.gain.value = 0;
         musicGain.connect(this.masterGain);
         this.sounds.music.gainNode = musicGain;
 
-        // 背景音乐和弦进行（降半音避免扰民）
-        const chordSeq = [
+        // 鑳屾櫙闊充箰鍜屽鸡杩涜锛堥檷鍗婇煶閬垮厤鎵版皯锛?        const chordSeq = [
             [261.63, 329.63, 392.00],  // C4, E4, G4
             [220.00, 261.63, 329.63],  // A3, C4, E4 (Am)
             [174.61, 220.00, 261.63],  // F3, A3, C4 (F)
@@ -293,11 +281,9 @@ class AmbientSoundSystem {
             const now = this.audioContext.currentTime;
             const chord = chordSeq[chordIdx];
 
-            // 淡出旧和弦
-            this.sounds.music.gainNode.gain.setTargetAtTime(0, now, 1.5);
+            // 娣″嚭鏃у拰寮?            this.sounds.music.gainNode.gain.setTargetAtTime(0, now, 1.5);
 
-            // 创建新和弦（3个正弦波叠加）
-            const osc1 = this.audioContext.createOscillator();
+            // 鍒涘缓鏂板拰寮︼紙3涓寮︽尝鍙犲姞锛?            const osc1 = this.audioContext.createOscillator();
             const osc2 = this.audioContext.createOscillator();
             const osc3 = this.audioContext.createOscillator();
             const chordGain = this.audioContext.createGain();
@@ -307,12 +293,10 @@ class AmbientSoundSystem {
             osc2.frequency.value = chord[1];
             osc3.frequency.value = chord[2];
 
-            // 轻柔音量
+            // 杞绘煍闊抽噺
             chordGain.gain.setValueAtTime(0, now);
-            chordGain.gain.linearRampToValueAtTime(0.06, now + 2);  // 2秒淡入
-            chordGain.gain.setValueAtTime(0.06, now + 8);
-            chordGain.gain.linearRampToValueAtTime(0, now + 10);    // 2秒淡出
-
+            chordGain.gain.linearRampToValueAtTime(0.25, now + 2);  // 2绉掓贰鍏?            chordGain.gain.setValueAtTime(0.25, now + 8);
+            chordGain.gain.linearRampToValueAtTime(0, now + 10);    // 2绉掓贰鍑?
             osc1.connect(chordGain);
             osc2.connect(chordGain);
             osc3.connect(chordGain);
@@ -328,13 +312,12 @@ class AmbientSoundSystem {
             chordIdx = (chordIdx + 1) % chordSeq.length;
         };
 
-        // 立即播放第一组，然后每10秒切换
-        playChord();
+        // 绔嬪嵆鎾斁绗竴缁勶紝鐒跺悗姣?0绉掑垏鎹?        playChord();
         this._musicInterval = setInterval(playChord, 10000);
     }
 
     /**
-     * 停止背景音乐
+     * 鍋滄鑳屾櫙闊充箰
      */
     stopMusic() {
         if (this._musicInterval) {
@@ -350,21 +333,19 @@ class AmbientSoundSystem {
     }
 
     /**
-     * 获取 masterGain（供其他系统复用，如引擎音效）
-     */
+     * 鑾峰彇 masterGain锛堜緵鍏朵粬绯荤粺澶嶇敤锛屽寮曟搸闊虫晥锛?     */
     getMasterGain() {
         return this.masterGain;
     }
 
     /**
-     * 获取 audioContext（供其他系统复用）
-     */
+     * 鑾峰彇 audioContext锛堜緵鍏朵粬绯荤粺澶嶇敤锛?     */
     getAudioContext() {
         return this.audioContext;
     }
 
     /**
-     * 设置音量
+     * 璁剧疆闊抽噺
      */
     setVolume(volume) {
         this.volume = Math.max(0, Math.min(1, volume));
@@ -374,7 +355,7 @@ class AmbientSoundSystem {
     }
 
     /**
-     * 启用/禁用
+     * 鍚敤/绂佺敤
      */
     setEnabled(enabled) {
         this.isEnabled = enabled;
@@ -389,8 +370,7 @@ class AmbientSoundSystem {
 let ambientSoundSystem = null;
 
 /**
- * 获取环境音系统实例
- */
+ * 鑾峰彇鐜闊崇郴缁熷疄渚? */
 function getAmbientSoundSystem() {
     if (!ambientSoundSystem) {
         ambientSoundSystem = new AmbientSoundSystem();

@@ -1,5 +1,0 @@
-{
-  "action": "broadcast",
-  "params": { "content": "欢迎来到智体城！我是小吉，有什么可以帮助你的吗？" },
-  "reasoning": "有新访客，刚收到消息需要回复"
-}

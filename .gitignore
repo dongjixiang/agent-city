@@ -30,3 +30,7 @@ coverage/
 # 构建
 dist/
 build/
+.obsidian/
+.obsidian/plugins/
+.obsidian/themes/
+node_modules/

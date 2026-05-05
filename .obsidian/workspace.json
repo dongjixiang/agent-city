@@ -11,14 +11,10 @@
             "id": "84037d64c0720556",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "01-系统架构总览.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "01-系统架构总览"
+              "title": "新标签页"
             }
           }
         ]
@@ -196,6 +192,26 @@
   },
   "active": "84037d64c0720556",
   "lastOpenFiles": [
+    "01-系统架构总览.md",
+    "docs/接入指南.md",
+    "docs/USAGE.md",
+    "docs/README.md",
+    "docs/I18N-PLAN.md",
+    "docs/DEPLOYMENT.md",
+    "docs/CHANGELOG.md",
+    "docs/ARCHITECTURE.md",
+    "docs/09-接口文档.md",
+    "docs/08-运维手册.md",
+    "docs/07-SDK使用手册.md",
+    "docs/06-问题诊断.md",
+    "docs/05-3D实施计划.md",
+    "docs/04-地图元素.md",
+    "docs/03-AI决策框架.md",
+    "docs/02-项目结构.md",
+    "docs/01-系统架构总览.md",
+    "docs/00-索引.md",
+    "docs/0-愿景与概述.md",
+    "docs",
     "skills/agent-city/SKILL.md",
     "skills/agent-city",
     "skills",
@@ -206,31 +222,11 @@
     "data/payments.json",
     "data/agents.json",
     "data",
-    "create-agents.js",
     "USAGE.md",
     "README.md",
     "I18N-PLAN.md",
     "DEPLOYMENT.md",
     "CHANGELOG.md",
-    "ARCHITECTURE.md",
-    "0-愿景与概述.md",
-    "00-索引.md",
-    "04-地图元素.md",
-    "03-AI决策框架.md",
-    "02-项目结构.md",
-    "01-系统架构总览.md",
-    "05-3D实施计划.md",
-    "09-接口文档.md",
-    "08-运维手册.md",
-    "07-SDK使用手册.md",
-    "06-问题诊断.md",
-    "07-运维手册.md",
-    "08-接口文档.md",
-    "06-SDK使用手册.md",
-    "05-问题诊断.md",
-    "04-3D实施计划.md",
-    "03-地图元素.md",
-    "02-AI决策框架.md",
-    "愿景与概述.md"
+    "ARCHITECTURE.md"
   ]
 }
